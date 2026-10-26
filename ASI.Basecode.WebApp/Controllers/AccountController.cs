@@ -1,4 +1,4 @@
-using ASI.Basecode.Data.Models;
+﻿using ASI.Basecode.Data.Models;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.Manager;
 using ASI.Basecode.Services.ServiceModels;
@@ -83,38 +83,30 @@ namespace ASI.Basecode.WebApp.Controllers
         {
             this._session.SetString("HasSession", "Exist");
 
-            if (_userService.IsPendingApproval(model.UserId))
-            {
-                TempData["ErrorMessage"] = "Your account registration is currently pending officer review and approval.";
-                return View(model);
-            }
+            //User user = null;
 
-            User user = null;
-            var loginResult = _userService.AuthenticateUser(model.UserId, model.Password, ref user);
+            User user = new() { Id = 0, UserId = "0", Name = "Name", Password = "Password" };
+            
+            await this._signInManager.SignInAsync(user);
+            this._session.SetString("UserName", model.UserId);
+
+            return RedirectToAction("Index", "Home");
+
+            /*var loginResult = _userService.AuthenticateUser(model.UserId, model.Password, ref user);
             if (loginResult == LoginResult.Success)
             {
+                // 認証OK
                 await this._signInManager.SignInAsync(user);
                 this._session.SetString("UserName", user.Name);
-                this._session.SetString("UserId", user.UserId);
-
-                if (user.UserId.Equals("admin", StringComparison.OrdinalIgnoreCase))
-                {
-                    return RedirectToAction("Index", "Admin");
-                }
-                else if (user.UserId.StartsWith("20", StringComparison.OrdinalIgnoreCase) || user.UserId.Contains("-"))
-                {
-                    return RedirectToAction("Index", "Student");
-                }
-                else
-                {
-                    return RedirectToAction("Index", "Member");
-                }
+                return RedirectToAction("Index", "Home");
             }
             else
             {
+                // 認証NG
                 TempData["ErrorMessage"] = "Incorrect UserId or Password";
-                return View(model);
+                return View();
             }
+            return View();*/
         }
 
         [HttpGet]
@@ -130,51 +122,18 @@ namespace ASI.Basecode.WebApp.Controllers
         {
             try
             {
-                _userService.RegisterApplicant(model);
-                TempData["SuccessMessage"] = "Membership request submitted successfully! An officer will review your application.";
+                _userService.AddUser(model);
                 return RedirectToAction("Login", "Account");
             }
             catch(InvalidDataException ex)
             {
                 TempData["ErrorMessage"] = ex.Message;
             }
-            catch(Exception)
+            catch(Exception ex)
             {
                 TempData["ErrorMessage"] = Resources.Messages.Errors.ServerError;
             }
-            return View(model);
-        }
-
-        /// <summary>
-        /// Officer Workstation: Membership Approvals
-        /// </summary>
-        [HttpGet]
-        public IActionResult Approvals()
-        {
-            var pending = _userService.GetPendingApplicants();
-            return View(pending);
-        }
-
-        [HttpPost]
-        public IActionResult Approve(string studentNumber)
-        {
-            if (!string.IsNullOrWhiteSpace(studentNumber))
-            {
-                _userService.ApproveApplicant(studentNumber);
-                TempData["SuccessMessage"] = $"Applicant {studentNumber} has been approved and activated in the Member directory!";
-            }
-            return RedirectToAction("Approvals");
-        }
-
-        [HttpPost]
-        public IActionResult Reject(string studentNumber)
-        {
-            if (!string.IsNullOrWhiteSpace(studentNumber))
-            {
-                _userService.RejectApplicant(studentNumber);
-                TempData["SuccessMessage"] = $"Application for {studentNumber} has been rejected.";
-            }
-            return RedirectToAction("Approvals");
+            return View();
         }
 
         /// <summary>

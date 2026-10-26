@@ -1,126 +1,70 @@
-@using ASI.Basecode.Services.ServiceModels
+﻿@using ASI.Basecode.Services.ServiceModels
 @model UserViewModel
 @{
-    ViewData["Title"] = "Request Membership";
-    Layout = null;
+    ViewBag.LoginView = true;
+    ViewData["Title"] = "Register Page";
 }
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Request Membership &middot; AttendTa</title>
-    <link rel="stylesheet" href="~/css/tokens.css" asp-append-version="true">
-    <link rel="stylesheet" href="~/css/components.css" asp-append-version="true">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="~/js/tailwind.config.js" asp-append-version="true"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/css/toastr.min.css" />
-</head>
-<body class="min-h-[100dvh] flex flex-col justify-between bg-canvas-ground text-ink font-sans antialiased">
-    <main id="main" class="flex-1 flex items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
-        <div class="w-full max-w-lg">
-            <div class="text-center font-gate">
-                <div class="flex justify-center">
-                    <a asp-controller="Home" asp-action="Index" class="inline-flex items-center gap-3 text-ink">
-                        <img src="~/images/attendTa_logo.jpg" alt="AttendTa" width="44" height="44"
-                             class="rounded-md border border-slate-200 bg-white p-1 object-contain">
-                        <span class="text-xl font-extrabold tracking-tight">AttendTa</span>
-                    </a>
+@section styles {
+    <link rel="stylesheet" href="~/css/login.css" />
+}
+<div class="container py-5 h-100 register-box">
+    <div class="row d-flex justify-content-center align-items-center h-100">
+        <div class="col-xl-10">
+            <div class="card rounded-3 text-black">
+                <div class="row g-0">
+                    <div class="card-body p-md-5 mx-md-4">
+
+                        <div class="text-center">
+                            <img src="https://www.alliance.com.ph/images/asi-logo-invert.svg"
+                                 style="width: 185px;" alt="logo">
+                        </div>
+
+                        <form method="post" action="/Account/Register">
+                            <div class="form-outline mb-4">
+                                <label class="form-label" for="userId">UserId</label>
+                                <input type="text" id="userId" class="form-control"
+                                       asp-for="UserId" placeholder="Enter userid" />
+                                <span asp-validation-for="UserId" class="text-danger"></span>
+                            </div>
+                            <div class="form-outline mb-4">
+                                <label class="form-label" for="name">Name</label>
+                                <input type="text" id="name" class="form-control"
+                                       asp-for="Name" placeholder="Enter name" />
+                                <span asp-validation-for="Name" class="text-danger"></span>
+                            </div>
+                            <div class="form-outline mb-4">
+                                <label class="form-label" for="password">Password</label>
+                                <input type="password" id="password" class="form-control"
+                                       asp-for="Password" placeholder="Enter password" />
+                                <span asp-validation-for="Password" class="text-danger"></span>
+                            </div>
+                            <div class="form-outline mb-4">
+                                <label class="form-label" for="confirmpassword">Confirm Password</label>
+                                <input type="password" id="confirmpassword" class="form-control" 
+                                       asp-for="ConfirmPassword" placeholder="Confirm Password" />
+                                <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
+                            </div>
+                            <div class="text-center pt-1 mb-5 pb-1 d-flex flex-column align-items-center">
+                                <button class="btn btn-primary btn-block login-btn gradient-custom-2 mb-3" type="submit">
+                                    Register
+                                </button>
+                                <a asp-controller="Account" asp-action="Login">
+                                    &#8592 Back
+                                </a>
+                            </div>
+                        </form>
+                    </div>
                 </div>
-                <h1 class="mt-4 text-2xl font-extrabold tracking-tight text-ink">Request Membership</h1>
-                <p class="mt-2 text-sm text-ink-secondary">Submit your details for organization officer verification.</p>
-            </div>
-
-            <!-- Informational banner -->
-            <div class="card-hairline mt-6 bg-white border border-slate-200 rounded-lg p-4">
-                <div class="flex items-start gap-3">
-                    <svg class="icon text-lg flex-none text-amber-600 mt-0.5" aria-hidden="true"><use href="/images/icons.svg#i-check-circle"></use></svg>
-                    <div class="text-xs text-ink-secondary">
-                        <span class="font-semibold text-ink block mb-0.5">How membership works</span>
-                        Submit your request and an officer reviews it in the approvals console. Once approved, your account profile is activated for sign-in.
-                    </div>
-                </div>
-            </div>
-
-            <div class="card-elevated mt-4 p-6 sm:p-8 bg-white rounded-xl shadow-sm border border-slate-200">
-                @if (TempData["ErrorMessage"] != null)
-                {
-                    <div class="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-600 flex items-center gap-2">
-                        <svg class="icon text-base flex-none" aria-hidden="true"><use href="/images/icons.svg#i-x-circle"></use></svg>
-                        <span>@TempData["ErrorMessage"]</span>
-                    </div>
-                }
-
-                <form asp-controller="Account" asp-action="Register" method="post" class="space-y-4" autocomplete="on">
-                    <div asp-validation-summary="ModelOnly" class="text-xs text-status-rose"></div>
-
-                    <div class="field">
-                        <label class="field-label field-required" for="UserId">Student Number / User ID</label>
-                        <input class="input input--mono" id="UserId" name="UserId" type="text" asp-for="UserId" autocomplete="username" required
-                               placeholder="e.g. 2023-10482">
-                        <span asp-validation-for="UserId" class="text-xs text-status-rose"></span>
-                    </div>
-
-                    <div class="field">
-                        <label class="field-label field-required" for="Name">Full Name</label>
-                        <input class="input" id="Name" name="Name" type="text" asp-for="Name" autocomplete="name" required
-                               placeholder="e.g. Maria Clara C. Santos">
-                        <span asp-validation-for="Name" class="text-xs text-status-rose"></span>
-                    </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div class="field">
-                            <label class="field-label" for="CourseYear">Program &amp; Year Level</label>
-                            <input class="input" id="CourseYear" name="CourseYear" type="text" asp-for="CourseYear"
-                                   placeholder="e.g. BSIT 1st Year">
-                        </div>
-
-                        <div class="field">
-                            <label class="field-label" for="Section">Section</label>
-                            <input class="input" id="Section" name="Section" type="text" asp-for="Section"
-                                   placeholder="e.g. 1-A">
-                        </div>
-                    </div>
-
-                    <div class="field">
-                        <label class="field-label" for="Email">Institutional Email</label>
-                        <input class="input" id="Email" name="Email" type="email" asp-for="Email"
-                               placeholder="e.g. student@ustp.edu.ph">
-                    </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div class="field">
-                            <label class="field-label field-required" for="Password">Password</label>
-                            <input class="input" id="Password" name="Password" type="password" asp-for="Password" autocomplete="new-password" required placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
-                            <span asp-validation-for="Password" class="text-xs text-status-rose"></span>
-                        </div>
-
-                        <div class="field">
-                            <label class="field-label field-required" for="ConfirmPassword">Confirm Password</label>
-                            <input class="input" id="ConfirmPassword" name="ConfirmPassword" type="password" asp-for="ConfirmPassword" autocomplete="new-password" required placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
-                            <span asp-validation-for="ConfirmPassword" class="text-xs text-status-rose"></span>
-                        </div>
-                    </div>
-
-                    <button type="submit" class="btn btn--primary btn--lg w-full mt-2 font-medium">Submit Request</button>
-                </form>
-
-                <p class="mt-6 border-t border-slate-100 pt-4 text-center text-xs text-ink-secondary">
-                    Already have an account?
-                    <a asp-controller="Account" asp-action="Login" class="font-semibold text-ink hover:underline">Sign in</a>
-                </p>
             </div>
         </div>
-    </main>
-
-    <footer class="py-4 text-center text-xs text-ink-muted">
-        &copy; @DateTime.Now.Year USTP Student Organization Council &mdash; AttendTa
-    </footer>
-
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/js/toastr.min.js"></script>
-</body>
-</html>
+    </div>
+</div>
+@section scripts {
+    <script>
+        // Check for error message and display Toastr notification
+        var errorMessage = '@TempData["ErrorMessage"]';
+        if (errorMessage) {
+            toastr.error(errorMessage);
+        }
+    </script>
+}

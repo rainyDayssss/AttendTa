@@ -1,168 +1,47 @@
-@using static ASI.Basecode.Resources.Views.Screen
-@{
-    var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
-    var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
-}
+﻿@using static ASI.Basecode.Resources.Views.Screen
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@(ViewData["Title"] ?? "AttendTa") &middot; AttendTa</title>
-    
-    <!-- Design System Tokens & Components -->
-    <link rel="stylesheet" href="~/css/tokens.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/css/components.css" asp-append-version="true" />
-    
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    
-    <!-- Tailwind Engine -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="~/js/tailwind.config.js" asp-append-version="true"></script>
-    
-    <!-- Toastr Notifications -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/css/toastr.min.css" />
-    
+    <title>@ViewData["Title"]</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/main.css" />
+    <link rel="stylesheet" href="~/css/style.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/css/toastr.min.css">
     @RenderSection("Styles", required: false)
 </head>
-<body data-density="compact" class="min-h-[100dvh] flex flex-col bg-canvas-ground font-sans text-ink antialiased">
-    <a class="skip-link" href="#main">Skip to content</a>
-
-    <div class="flex min-h-[100dvh] flex-1">
-        <!-- ===================================================================
-             Officer shell - left sidebar (>=1024px)
-             =================================================================== -->
-        <aside class="sidenav sticky top-0 h-[100dvh]" data-sidebar aria-label="Primary">
-            <div class="sidenav__brand overflow-hidden">
-                <a asp-controller="Home" asp-action="Index" class="flex min-w-0 items-center gap-2.5 text-ink" aria-label="AttendTa home">
-                    <img src="~/images/attendTa_logo.jpg" alt="AttendTa logo" width="28" height="28"
-                         class="h-7 w-7 flex-none rounded object-contain" />
-                    <span class="flex min-w-0 flex-col leading-tight [[data-collapsed=true]_&]:hidden">
-                        <span class="truncate text-sm font-extrabold tracking-tight">AttendTa</span>
-                        <span class="truncate font-mono text-[11px] text-ink-muted">Officer console</span>
-                    </span>
-                </a>
-            </div>
-
-            <nav class="sidenav__nav" aria-label="Sections">
-                <div class="sidenav__group">
-                    <div class="sidenav__group-label">Operations</div>
-                    <a class="sidenav__link" href="#" title="Door Scanner (Transactions Module)">
-                        <svg class="icon" aria-hidden="true"><use href="/images/icons.svg#i-door-open"></use></svg>
-                        <span>Door Scanner</span>
-                    </a>
-                    <a class="sidenav__link" href="#" title="Events (Transactions Module)">
-                        <svg class="icon" aria-hidden="true"><use href="/images/icons.svg#i-calendar"></use></svg>
-                        <span>Events</span>
-                    </a>
-                    <a class="sidenav__link @(currentAction == "Approvals" ? "active" : "")" asp-controller="Account" asp-action="Approvals" title="Membership Approvals">
-                        <svg class="icon" aria-hidden="true"><use href="/images/icons.svg#i-check-circle"></use></svg>
-                        <span>Approvals</span>
-                    </a>
-                    <a class="sidenav__link" href="#" title="Certificates (Transactions Module)">
-                        <svg class="icon" aria-hidden="true"><use href="/images/icons.svg#i-award"></use></svg>
-                        <span>Certificates</span>
-                    </a>
-                    <a class="sidenav__link" href="#" title="Reports (Reports Module)">
-                        <svg class="icon" aria-hidden="true"><use href="/images/icons.svg#i-bar-chart-2"></use></svg>
-                        <span>Reports</span>
-                    </a>
-                </div>
-
-                <div class="sidenav__group">
-                    <div class="sidenav__group-label">Master Data</div>
-                    <a class="sidenav__link @(currentController == "Member" ? "active" : "")" asp-controller="Member" asp-action="Index" aria-current="@(currentController == "Member" ? "page" : "false")">
-                        <svg class="icon" aria-hidden="true"><use href="/images/icons.svg#i-users"></use></svg>
-                        <span>Members</span>
-                    </a>
-                    <a class="sidenav__link @(currentController == "Venue" ? "active" : "")" asp-controller="Venue" asp-action="Index" aria-current="@(currentController == "Venue" ? "page" : "false")">
-                        <svg class="icon" aria-hidden="true"><use href="/images/icons.svg#i-map-pin"></use></svg>
-                        <span>Venues</span>
-                    </a>
-                    <a class="sidenav__link @(currentController == "EventType" ? "active" : "")" asp-controller="EventType" asp-action="Index" aria-current="@(currentController == "EventType" ? "page" : "false")">
-                        <svg class="icon" aria-hidden="true"><use href="/images/icons.svg#i-tag"></use></svg>
-                        <span>Event Types</span>
-                    </a>
-                </div>
-
-                <div class="sidenav__group">
-                    <div class="sidenav__group-label">System</div>
-                    <a class="sidenav__link @(currentController == "Admin" ? "active" : "")" asp-controller="Admin" asp-action="Index" title="Administration & Governance">
-                        <svg class="icon" aria-hidden="true"><use href="/images/icons.svg#i-shield"></use></svg>
-                        <span>Users &amp; Roles</span>
-                    </a>
-                    <a class="sidenav__link" href="#" title="Audit Logs (Admin Module)">
-                        <svg class="icon" aria-hidden="true"><use href="/images/icons.svg#i-clock"></use></svg>
-                        <span>Audit Logs</span>
-                    </a>
-                </div>
-            </nav>
-        </aside>
-
-        <!-- ===================================================================
-             Right column: top bar + main content + footer
-             =================================================================== -->
-        <div class="flex min-w-0 flex-1 flex-col">
-            <header class="sticky top-0 z-sticky flex h-16 items-center gap-2 border-b border-slate-200 bg-white px-4 sm:px-6">
-                <button type="button" class="icon-btn lg:hidden" id="nav-drawer-toggle" aria-label="Open navigation">
-                    <svg class="icon" aria-hidden="true"><use href="/images/icons.svg#i-menu"></use></svg>
-                </button>
-
-                <div class="ml-1 hidden min-w-0 sm:block">
-                    <nav class="breadcrumb" aria-label="Breadcrumb">
-                        <span class="breadcrumb__item"><a asp-controller="Home" asp-action="Index">Home</a></span>
-                        <span class="breadcrumb__sep" aria-hidden="true">/</span>
-                        <span class="breadcrumb__item"><span aria-current="page">@(ViewData["Title"] ?? currentController)</span></span>
-                    </nav>
-                </div>
-
-                <div class="ml-auto flex items-center gap-2 sm:gap-3">
-                    <div class="flex items-center gap-2">
-                        <div class="flex h-8 w-8 flex-none items-center justify-center rounded-pill bg-ink text-xs font-semibold text-ink-inverse" aria-hidden="true">
-                            OP
-                        </div>
-                        <div class="hidden text-right sm:block">
-                            <div class="text-xs font-semibold text-ink">Officer console</div>
-                            <div class="font-mono text-xs text-ink-muted">Master Data</div>
-                        </div>
-                    </div>
-                    <form asp-controller="Account" asp-action="SignOutUser" method="post" class="inline">
-                        <button type="submit" class="btn btn--ghost btn--sm" aria-label="Sign out">
-                            <svg class="icon" aria-hidden="true"><use href="/images/icons.svg#i-log-out"></use></svg>
-                            <span class="hidden sm:inline">Sign Out</span>
-                        </button>
-                    </form>
-                </div>
-            </header>
-
-            <main id="main" class="flex-1 px-4 py-8 sm:px-6 lg:px-8">
-                @RenderBody()
-            </main>
-
-            <footer class="border-t border-slate-200 px-4 py-4 text-xs text-ink-muted sm:px-6 lg:px-8">
-                &copy; @DateTime.Now.Year USTP Student Organization Council &mdash; AttendTa Event &amp; Attendance Management System
-            </footer>
-        </div>
+<body>
+    @Html.Partial("_Header")
+    <div class="container">
+        <main role="main">
+            @RenderBody()
+        </main>
     </div>
+    <footer class="border-top footer text-muted">
+        <div class="container">
+            @Copyright
+        </div>
+    </footer>
 
-    <!-- Core Scripts -->
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.3/jquery.validate.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validation-unobtrusive/3.2.12/jquery.validate.unobtrusive.js"></script>
+    <script src="https://kit.fontawesome.com/7a7c645416.js" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/js/toastr.min.js"></script>
-    <script src="~/js/app.js" asp-append-version="true" defer></script>
     <script>
+        // Configure Toastr options
         toastr.options = {
-            positionClass: "toast-top-center",
+            positionClass: "toast-top-center", // Set the notification position to center
             timeOut: 3000,
             closeButton: true,
             progressBar: true
         };
-        var successMessage = '@Html.Raw(TempData["SuccessMessage"])';
-        var errorMessage = '@Html.Raw(TempData["ErrorMessage"])';
-        if (successMessage && successMessage.trim().length > 0) { toastr.success(successMessage); }
-        if (errorMessage && errorMessage.trim().length > 0) { toastr.error(errorMessage); }
     </script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>

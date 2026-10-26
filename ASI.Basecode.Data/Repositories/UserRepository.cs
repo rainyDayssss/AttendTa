@@ -1,4 +1,4 @@
-using ASI.Basecode.Data.Interfaces;
+﻿using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
 using Basecode.Data.Repositories;
 using System;
@@ -32,16 +32,5 @@ namespace ASI.Basecode.Data.Repositories
             UnitOfWork.SaveChanges();
         }
 
-        public void UpdateUser(User user)
-        {
-            this.SetEntityState(user, Microsoft.EntityFrameworkCore.EntityState.Modified);
-            UnitOfWork.SaveChanges();
-        }
-
-        public void DeleteUser(User user)
-        {
-            this.GetDbSet<User>().Remove(user);
-            UnitOfWork.SaveChanges();
-        }
     }
 }

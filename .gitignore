@@ -197,6 +197,3 @@ $RECYCLE.BIN/
 node_modules
 */src/*/Scripts/**/*.js
 */src/*/Scripts/**/*.js.map
-
-# Local documentation
-docs-local/

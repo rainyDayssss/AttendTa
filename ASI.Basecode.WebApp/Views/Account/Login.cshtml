@@ -1,94 +1,69 @@
-@model ASI.Basecode.WebApp.Models.LoginViewModel
-@{
-    ViewData["Title"] = "Sign In";
-    Layout = null;
+﻿@model LoginViewModel
+@using static ASI.Basecode.Resources.Views.Screen
+@section styles {
+    <link rel="stylesheet" href="~/css/login.css" />
 }
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign in &middot; AttendTa</title>
-    <link rel="stylesheet" href="~/css/tokens.css" asp-append-version="true">
-    <link rel="stylesheet" href="~/css/components.css" asp-append-version="true">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="~/js/tailwind.config.js" asp-append-version="true"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/css/toastr.min.css" />
-</head>
-<body class="min-h-[100dvh] flex flex-col justify-between bg-canvas-ground text-ink font-sans antialiased">
-    <main id="main" class="flex-1 flex items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
-        <div class="w-full max-w-md">
-            <div class="text-center font-gate">
-                <div class="flex justify-center">
-                    <a asp-controller="Home" asp-action="Index" class="inline-flex items-center gap-3 text-ink">
-                        <img src="~/images/attendTa_logo.jpg" alt="AttendTa" width="44" height="44"
-                             class="rounded-md border border-slate-200 bg-white p-1 object-contain">
-                        <span class="text-xl font-extrabold tracking-tight">AttendTa</span>
-                    </a>
+@{
+    ViewBag.LoginView = true;
+    ViewData["Title"] = "Login Page";
+}
+<div>
+    @Html.AntiForgeryToken()
+</div>
+<div class="container py-5" style="display:flex; align-content:center;height:calc(100vh - 64px)">
+    <div class="row d-flex justify-content-center align-items-center h-100">
+        <div class="col-xl-10">
+            <div class="card rounded-3 text-black">
+                <div class="row g-0 w-1000px">
+                    <div class="col-lg-6">
+                        <div class="card-body p-md-5 mx-md-4">
+                            <div class="text-center">
+                                <img src="~/img/asi-logo-invert.svg"
+                                     style="width: 185px;" alt="logo">
+                            </div>
+                            <form method="post" action="/Account/Login" id="loginForm">
+                                <div class="form-outline mb-4">
+                                    <label class="form-label" for="form2Example11">@UserId</label>
+                                    <input type="text" id="form2Example11" class="form-control"
+                                           asp-for="UserId" placeholder="Enter userid" />
+                                    <span asp-validation-for="UserId" class="text-danger"></span>
+                                </div>
+                                <div class="form-outline mb-4">
+                                    <label class="form-label" for="form2Example22">@Password</label>
+                                    <input type="password" id="form2Example22" class="form-control"
+                                           asp-for="Password" placeholder="Enter password" />
+                                    <span asp-validation-for="Password" class="text-danger"></span>
+                                </div>
+                                <div class="text-center pt-1 mb-5 pb-1 d-flex flex-column align-items-center">
+                                    <button class="btn btn-primary btn-block login-btn gradient-custom-2 mb-3" type="submit">
+                                        @Login
+                                    </button>
+                                    <div>
+                                        <a class="text-muted" href="#!">@ForgotPass</a>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center justify-content-center pb-4">
+                                    <p class="mb-0 me-2 mr-1">@DontHaveAcc</p>
+                                    <a asp-controller="Account" asp-action="Register" class="btn btn-outline-danger">@CreateNew</a>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="col-lg-6 d-flex">
+                        <img style="width:400px"src="~/img/LiveIT.png" />
+                    </div>
                 </div>
-                <h1 class="mt-4 text-2xl font-extrabold tracking-tight text-ink">Sign in to AttendTa</h1>
-                <p class="mt-2 text-sm text-ink-secondary">Access your event passes, sessions, and organization consoles.</p>
-            </div>
-
-            <div class="card-elevated mt-6 p-6 sm:p-8 bg-white rounded-xl shadow-sm border border-slate-200">
-                @if (TempData["ErrorMessage"] != null)
-                {
-                    <div class="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-600 flex items-center gap-2">
-                        <svg class="icon text-base flex-none" aria-hidden="true"><use href="/images/icons.svg#i-x-circle"></use></svg>
-                        <span>@TempData["ErrorMessage"]</span>
-                    </div>
-                }
-
-                <div class="mb-5 pb-4 border-b border-slate-100">
-                    <p class="text-xs font-medium text-ink-muted mb-2">Demo personas &mdash; tap to fill identifier &amp; password:</p>
-                    <div class="flex flex-wrap gap-2">
-                        <button type="button" class="btn btn--secondary btn--sm text-xs" onclick="fillPersona('admin', 'Password123!')">Admin</button>
-                        <button type="button" class="btn btn--secondary btn--sm text-xs" onclick="fillPersona('officer', 'Password123!')">Officer</button>
-                        <button type="button" class="btn btn--secondary btn--sm text-xs" onclick="fillPersona('2023-10482', 'Password123!')">Student</button>
-                    </div>
-                </div>
-
-                <form id="login-form" asp-controller="Account" asp-action="Login" asp-route-returnurl="@ViewData["ReturnUrl"]" method="post" class="space-y-4" autocomplete="on">
-                    <div asp-validation-summary="ModelOnly" class="text-xs text-status-rose"></div>
-
-                    <div class="field">
-                        <label class="field-label field-required" for="UserId">Student number or Officer ID</label>
-                        <input class="input" id="UserId" name="UserId" type="text" asp-for="UserId" autocomplete="username" required
-                               placeholder="e.g. 2023-10482 or officer ID">
-                        <span asp-validation-for="UserId" class="text-xs text-status-rose"></span>
-                    </div>
-
-                    <div class="field">
-                        <label class="field-label field-required" for="Password">Password</label>
-                        <input class="input" id="Password" name="Password" type="password" asp-for="Password" autocomplete="current-password" required placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
-                        <span asp-validation-for="Password" class="text-xs text-status-rose"></span>
-                    </div>
-
-                    <button type="submit" class="btn btn--primary btn--lg w-full mt-2 font-medium">Sign in</button>
-                </form>
-
-                <p class="mt-6 border-t border-slate-100 pt-4 text-center text-xs text-ink-secondary">
-                    Need an account?
-                    <a asp-controller="Account" asp-action="Register" class="font-semibold text-ink hover:underline">Request membership</a>
-                </p>
             </div>
         </div>
-    </main>
+    </div>
+</div>
 
-    <footer class="py-4 text-center text-xs text-ink-muted">
-        &copy; @DateTime.Now.Year USTP Student Organization Council &mdash; AttendTa
-    </footer>
-
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/js/toastr.min.js"></script>
+@section scripts {
     <script>
-        function fillPersona(userId, password) {
-            document.getElementById('UserId').value = userId;
-            document.getElementById('Password').value = password;
+        // Check for error message and display Toastr notification
+        var errorMessage = '@TempData["ErrorMessage"]';
+        if (errorMessage) {
+            toastr.error(errorMessage);
         }
     </script>
-</body>
-</html>
+}
