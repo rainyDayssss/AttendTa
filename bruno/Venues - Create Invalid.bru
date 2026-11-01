@@ -1,0 +1,16 @@
+meta {
+  name: Venues - Create Invalid
+  type: http
+  seq: 12
+}
+
+post {
+  url: https://localhost:51629/Venue/Create
+  body: formUrlEncoded
+  auth: none
+}
+
+body:form-urlencoded {
+  RoomName: Room B
+  Capacity: -1
+}

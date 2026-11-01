@@ -6,6 +6,11 @@
              style="width: 185px;" alt="logo"
              onclick="window.location.href = '@Url.Action("Index", "Home")';">
     </div>
+    <nav class="header-nav" style="display:flex; gap:20px; align-items:center;">
+        <a href="@Url.Action("Index", "Member")" style="color:#fff;">Members</a>
+        <a href="@Url.Action("Index", "EventType")" style="color:#fff;">Event Types</a>
+        <a href="@Url.Action("Index", "Venue")" style="color:#fff;">Venues</a>
+    </nav>
     <div class="logosec">
         @HttpContextAccessor.HttpContext.Session.GetString("UserName")
         <div class="mr-20 hover-pointer" style="position: relative">

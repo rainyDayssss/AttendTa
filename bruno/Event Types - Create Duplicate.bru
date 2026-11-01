@@ -1,0 +1,15 @@
+meta {
+  name: Event Types - Create Duplicate
+  type: http
+  seq: 9
+}
+
+post {
+  url: https://localhost:51629/EventType/Create
+  body: formUrlEncoded
+  auth: none
+}
+
+body:form-urlencoded {
+  TypeName: seminar
+}

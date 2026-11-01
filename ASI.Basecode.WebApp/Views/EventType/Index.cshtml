@@ -1,0 +1,31 @@
+@model List<EventTypeViewModel>
+@{
+    ViewData["Title"] = "Event Types";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Event Type Management</h2>
+    <a asp-action="Create" class="btn btn-primary">Add Event Type</a>
+</div>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Type Name</th>
+            <th>Description</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var eventType in Model)
+        {
+            <tr>
+                <td>@eventType.TypeName</td>
+                <td>@eventType.Description</td>
+                <td>
+                    <a asp-action="Edit" asp-route-id="@eventType.TypeId" class="btn btn-sm btn-outline-primary">Edit</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

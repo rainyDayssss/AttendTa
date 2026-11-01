@@ -1,0 +1,24 @@
+@model VenueViewModel
+
+<div class="form-group mb-3">
+    <label asp-for="RoomName" class="form-label"></label>
+    <input asp-for="RoomName" class="form-control" />
+    <span asp-validation-for="RoomName" class="text-danger"></span>
+</div>
+<div class="form-group mb-3">
+    <label asp-for="Capacity" class="form-label"></label>
+    <input asp-for="Capacity" type="number" class="form-control" />
+    <span asp-validation-for="Capacity" class="text-danger"></span>
+</div>
+<div class="form-group mb-3">
+    <label asp-for="Location" class="form-label"></label>
+    <input asp-for="Location" class="form-control" />
+</div>
+<div class="form-group mb-3">
+    <label asp-for="AvailabilityNotes" class="form-label"></label>
+    <textarea asp-for="AvailabilityNotes" class="form-control" rows="3"></textarea>
+</div>
+<div class="form-group mb-3">
+    <label asp-for="ContactPerson" class="form-label"></label>
+    <input asp-for="ContactPerson" class="form-control" />
+</div>

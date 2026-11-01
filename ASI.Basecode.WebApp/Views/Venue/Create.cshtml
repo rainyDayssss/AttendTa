@@ -1,0 +1,17 @@
+@model VenueViewModel
+@{
+    ViewData["Title"] = "Add Venue";
+}
+
+<h2>Add Venue</h2>
+<hr />
+
+<form asp-action="Create" method="post">
+    <partial name="_Form" model="Model" />
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
