@@ -16,6 +16,29 @@ attendance check-in, certificate eligibility, and participation reports.
   (Pass the full path: two `ASI - Backup.*.csproj` files make `dotnet run --project ASI.Basecode.WebApp` ambiguous.)
 - Startup project: `ASI.Basecode.WebApp`. Login is a hardcoded stub (any credentials work).
 
+## Git Workflow (Team Git & QA Guidelines)
+- Follow the team Git Flow policy: `main` is the release branch; `dev` is the integration branch;
+  use short-lived `feature/<name>` and `fix/<name>` or `bugfix/<name>` branches for work.
+- Before starting work, inspect the current branch and remote branches. Start feature/fix branches
+  from an up-to-date `dev` (`git fetch origin`, update local `dev`, then branch from it).
+- Open pull requests from feature/fix branches into `dev`. Never push directly to `main` or `dev`;
+  integrated changes require a PR and at least one reviewer approval.
+- If `dev` is missing from the remote or the repository's branch setup conflicts with this workflow,
+  stop and ask the user/team lead how to proceed. Do not silently substitute `main`, create `dev`,
+  or choose a different PR target.
+- Keep branches focused and small. Periodically merge the latest `dev` into the feature/fix branch.
+  Delete merged feature/fix branches after integration when requested or authorized.
+- Use Conventional Commit format: `<type>: <short description in lowercase imperative mood>`.
+  Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`.
+  Examples: `feat: add member search`, `fix: prevent duplicate student numbers`.
+- QA has three tiers: (1) run available local tests, lint/static checks, and build before pushing;
+  (2) PR CI must pass and at least one peer must review; (3) run integration/E2E checks on `dev`
+  before release to `main`. This repository has no test project yet, so run and report the checks
+  that exist (including `dotnet build`) without claiming unavailable tests passed.
+- Never force-push or run `git reset --hard` on shared branches (`dev` or `main`). Ask before any
+  history-rewriting or destructive Git operation. Stage only intended files, not the entire tree.
+- Only create commits, push branches, or open PRs when the user explicitly requests those actions.
+
 ## Architecture
 4-layer solution (Repository → Service → Controller):
 
