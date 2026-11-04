@@ -7,6 +7,7 @@ using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
@@ -27,11 +28,16 @@ namespace ASI.Basecode.WebApp.Controllers
         { _signInManager = signInManager; _users = users; _requests = requests; }
 
         [HttpGet, AllowAnonymous]
-        public IActionResult Login() => View(new LoginViewModel());
+        public IActionResult Login(string returnUrl = null)
+        {
+            ViewBag.ReturnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl : null;
+            return View(new LoginViewModel());
+        }
 
-        [HttpPost, AllowAnonymous, ValidateAntiForgeryToken]
+        [HttpPost, AllowAnonymous, ValidateAntiForgeryToken, EnableRateLimiting("anonymous-auth")]
         public async Task<IActionResult> Login(LoginViewModel model, string returnUrl = null)
         {
+            ViewBag.ReturnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl : null;
             if (!ModelState.IsValid) return View(model);
             var user = _users.AuthenticateUser(model.Email, model.Password);
             if (user == null)
@@ -47,7 +53,7 @@ namespace ASI.Basecode.WebApp.Controllers
         [HttpGet, AllowAnonymous]
         public IActionResult Register() => View(new AccountRequestViewModel());
 
-        [HttpPost, AllowAnonymous, ValidateAntiForgeryToken]
+        [HttpPost, AllowAnonymous, ValidateAntiForgeryToken, EnableRateLimiting("anonymous-auth")]
         public IActionResult Register(AccountRequestViewModel model)
         {
             if (!ModelState.IsValid) return View(model);

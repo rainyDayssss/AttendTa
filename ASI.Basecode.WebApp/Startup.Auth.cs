@@ -36,6 +36,22 @@ namespace ASI.Basecode.WebApp
             .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
             {
                 options.TokenValidationParameters = tokenValidationParameters;
+                options.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = context =>
+                    {
+                        var id = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                        var role = context.Principal?.FindFirstValue(ClaimTypes.Role);
+                        if (!int.TryParse(id, out var userId) || string.IsNullOrEmpty(role))
+                        {
+                            context.Fail("Invalid account claims.");
+                            return System.Threading.Tasks.Task.CompletedTask;
+                        }
+                        var users = context.HttpContext.RequestServices.GetRequiredService<IUserService>();
+                        if (!users.IsCurrentAccountEligible(userId, role)) context.Fail("Account is inactive or role has changed.");
+                        return System.Threading.Tasks.Task.CompletedTask;
+                    }
+                };
             })
             .AddCookie(Const.AuthenticationScheme, options =>
             {

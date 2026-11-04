@@ -20,12 +20,11 @@ namespace ASI.Basecode.WebApp.Controllers
             ILoggerFactory loggerFactory, IConfiguration configuration, IMapper mapper)
             : base(accessor, loggerFactory, configuration, mapper) { _requests = requests; }
 
-        public IActionResult Index(int page = 1)
+        public IActionResult Index(int page = 1, string search = null)
         {
-            var result = _requests.GetPending(page);
-            ViewBag.Page = Math.Max(1, page);
-            ViewBag.TotalPages = result.TotalPages;
-            return View(result.Items);
+            if (search?.Length > 100) return BadRequest("Search text is too long.");
+            var result = _requests.GetPending(page, search);
+            return View(result);
         }
 
         [HttpPost, ValidateAntiForgeryToken]

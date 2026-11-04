@@ -48,11 +48,6 @@ namespace ASI.Basecode.WebApp.Authentication
             user = new LoginUser();
         }
 
-        public Task<ClaimsIdentity> GetClaimsIdentity(string email, string password)
-        {
-            return Task.FromResult<ClaimsIdentity>(null);
-        }
-
         /// <summary>
         /// Gets the claims identity.
         /// </summary>

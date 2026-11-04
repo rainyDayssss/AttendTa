@@ -7,6 +7,8 @@ using ASI.Basecode.WebApp.Models;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,6 +19,7 @@ using Microsoft.IdentityModel.Tokens;
 using System;
 using System.IO;
 using System.Text;
+using System.Threading.RateLimiting;
 
 namespace ASI.Basecode.WebApp
 {
@@ -90,6 +93,19 @@ namespace ASI.Basecode.WebApp
             });
 
             services.AddControllersWithViews();
+            services.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+                options.AddPolicy("anonymous-auth", context => RateLimitPartition.GetFixedWindowLimiter(
+                    context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 10,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                        AutoReplenishment = true
+                    }));
+            });
             services.AddRazorPages().AddRazorRuntimeCompilation();
 
             //Configuration
@@ -148,6 +164,7 @@ namespace ASI.Basecode.WebApp
 
             this._app.UseSession();
             this._app.UseRouting();
+            this._app.UseRateLimiter();
 
             this._app.UseAuthentication();
             this._app.UseAuthorization();

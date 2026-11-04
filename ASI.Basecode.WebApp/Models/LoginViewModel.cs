@@ -10,11 +10,11 @@ namespace ASI.Basecode.WebApp.Models
     {
         /// <summary>Email address</summary>
         [JsonPropertyName("email")]
-        [Required, EmailAddress]
+        [Required, EmailAddress, StringLength(255)]
         public string Email { get; set; }
         /// <summary>パスワード</summary>
         [JsonPropertyName("password")]
-        [Required(ErrorMessage = "Password is required."), DataType(DataType.Password)]
+        [Required(ErrorMessage = "Password is required."), StringLength(128), DataType(DataType.Password)]
         public string Password { get; set; }
     }
 }

@@ -10,7 +10,7 @@ namespace ASI.Basecode.Services.ServiceModels
         [Range(1, int.MaxValue)] public int YearLevel { get; set; }
         [Required, StringLength(50)] public string Section { get; set; }
         [StringLength(30)] public string MobileNumber { get; set; }
-        [Required, MinLength(8), DataType(DataType.Password)] public string Password { get; set; }
-        [Required, Compare(nameof(Password)), DataType(DataType.Password)] public string ConfirmPassword { get; set; }
+        [Required, StringLength(128, MinimumLength = 8), DataType(DataType.Password)] public string Password { get; set; }
+        [Required, StringLength(128), Compare(nameof(Password)), DataType(DataType.Password)] public string ConfirmPassword { get; set; }
     }
 }

@@ -1,6 +1,5 @@
 ﻿using Microsoft.IdentityModel.Tokens;
 using System;
-using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace ASI.Basecode.WebApp.Authentication
@@ -30,10 +29,6 @@ namespace ASI.Basecode.WebApp.Authentication
         /// Gets or sets the signing credentials.
         /// </summary>
         public SigningCredentials SigningCredentials { get; set; }
-        /// <summary>
-        /// Gets or sets the identity resolver.
-        /// </summary>
-        public Func<string, string, Task<ClaimsIdentity>> IdentityResolver { get; set; }
         /// <summary>
         /// Gets or sets the nonce generator.
         /// </summary>

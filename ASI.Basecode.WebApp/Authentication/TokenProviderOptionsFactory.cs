@@ -25,7 +25,6 @@ namespace ASI.Basecode.WebApp.Authentication
                 Issuer = Const.Issuer,
                 Expiration = TimeSpan.FromMinutes(token.ExpirationMinutes),
                 SigningCredentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256),
-                IdentityResolver = new SignInManager(null, null).GetClaimsIdentity,
             };
 
             return options;

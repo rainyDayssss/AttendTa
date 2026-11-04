@@ -43,6 +43,7 @@ namespace ASI.Basecode.WebApp
 
             // Repositories
             this._services.AddScoped<IUserRepository, UserRepository>();
+            this._services.AddScoped<IAccountRequestRepository, AccountRequestRepository>();
             this._services.AddScoped<IMemberRepository, MemberRepository>();
             this._services.AddScoped<IEventTypeRepository, EventTypeRepository>();
             this._services.AddScoped<IVenueRepository, VenueRepository>();

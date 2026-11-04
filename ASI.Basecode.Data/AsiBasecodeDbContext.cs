@@ -28,19 +28,21 @@ namespace ASI.Basecode.Data
         {
             modelBuilder.Entity<User>(entity =>
             {
-                entity.ToTable("users");
+                entity.ToTable("users", table => table.HasCheckConstraint("CK__users__role", "[role] IN ('admin', 'officer', 'member')"));
                 entity.HasKey(e => e.UserId);
                 entity.Property(e => e.UserId).HasColumnName("user_id").ValueGeneratedOnAdd();
                 entity.Property(e => e.FullName).IsRequired().HasMaxLength(255).HasColumnName("full_name");
                 entity.Property(e => e.Email).IsRequired().HasMaxLength(255).HasColumnName("email");
                 entity.HasIndex(e => e.Email).IsUnique();
                 entity.Property(e => e.PasswordHash).IsRequired().HasMaxLength(255).IsUnicode(false).HasColumnName("password_hash");
-                entity.Property(e => e.Role).IsRequired().HasMaxLength(255).HasColumnName("role");
+                entity.Property(e => e.Role).IsRequired().HasMaxLength(255).HasColumnName("role").HasDefaultValue("member");
                 entity.Property(e => e.IsActive).IsRequired().HasColumnName("is_active").HasDefaultValue(false);
                 entity.Property(e => e.CreatedBy).HasColumnName("created_by");
                 entity.Property(e => e.CreatedAt).HasColumnType("datetime2(3)").HasColumnName("created_at").HasDefaultValueSql("SYSUTCDATETIME()");
                 entity.Property(e => e.UpdatedBy).HasColumnName("updated_by");
                 entity.Property(e => e.UpdatedAt).HasColumnType("datetime2(3)").HasColumnName("updated_at");
+                entity.HasOne<User>().WithMany().HasForeignKey(e => e.CreatedBy).OnDelete(DeleteBehavior.NoAction);
+                entity.HasOne<User>().WithMany().HasForeignKey(e => e.UpdatedBy).OnDelete(DeleteBehavior.NoAction);
             });
 
             modelBuilder.Entity<AccountRequest>(entity =>
@@ -48,6 +50,7 @@ namespace ASI.Basecode.Data
                 entity.ToTable("account_requests", table =>
                 {
                     table.HasCheckConstraint("chk_account_requests_positive_year_level", "year_level > 0");
+                    table.HasCheckConstraint("CK__account_requests__status", "[status] IN ('pending', 'approved', 'rejected')");
                     table.HasCheckConstraint("chk_account_requests_password_by_status", "([status] = 'pending' AND [password_hash] IS NOT NULL) OR ([status] IN ('approved', 'rejected') AND [password_hash] IS NULL)");
                 });
                 entity.HasKey(e => e.RequestId);
@@ -64,12 +67,15 @@ namespace ASI.Basecode.Data
                 entity.Property(e => e.RequestedAt).HasColumnType("datetime2(3)").HasColumnName("requested_at").HasDefaultValueSql("SYSUTCDATETIME()");
                 entity.Property(e => e.ReviewedBy).HasColumnName("reviewed_by");
                 entity.Property(e => e.ReviewedAt).HasColumnType("datetime2(3)").HasColumnName("reviewed_at");
-                entity.Property(e => e.ReviewNotes).HasColumnName("review_notes");
+                entity.Property(e => e.ReviewNotes).IsRequired(false).HasColumnName("review_notes");
                 entity.Property(e => e.CreatedUserId).HasColumnName("created_user_id");
                 entity.HasIndex(e => e.Email).HasDatabaseName("account_requests_index_1");
                 entity.HasIndex(e => e.StudentNumber).HasDatabaseName("account_requests_index_2");
                 entity.HasIndex(e => e.Email).IsUnique().HasFilter("[status] = 'pending'").HasDatabaseName("UX_account_requests_pending_email");
                 entity.HasIndex(e => e.StudentNumber).IsUnique().HasFilter("[status] = 'pending'").HasDatabaseName("UX_account_requests_pending_student_number");
+                entity.HasIndex(e => e.CreatedUserId).IsUnique().HasFilter("[created_user_id] IS NOT NULL").HasDatabaseName("UX_account_requests_created_user_id_not_null");
+                entity.HasOne<User>().WithMany().HasForeignKey(e => e.ReviewedBy).OnDelete(DeleteBehavior.NoAction);
+                entity.HasOne<User>().WithMany().HasForeignKey(e => e.CreatedUserId).OnDelete(DeleteBehavior.NoAction);
             });
 
             modelBuilder.Entity<Member>(entity =>
