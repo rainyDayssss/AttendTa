@@ -7,6 +7,11 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Mvc.Authorization;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication;
+using System.Security.Claims;
+using System;
+using ASI.Basecode.Services.Interfaces;
 
 namespace ASI.Basecode.WebApp
 {
@@ -45,6 +50,26 @@ namespace ASI.Basecode.WebApp
                 options.AccessDeniedPath = new PathString("/html/Forbidden.html");
                 options.ReturnUrlParameter = "ReturnUrl";
                 options.TicketDataFormat = new CustomJwtDataFormat(SecurityAlgorithms.HmacSha256, _tokenValidationParameters, Configuration, tokenProviderOptionsFactory);
+                options.Events = new CookieAuthenticationEvents
+                {
+                    OnValidatePrincipal = async context =>
+                    {
+                        var id = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                        var role = context.Principal?.FindFirstValue(ClaimTypes.Role);
+                        if (!int.TryParse(id, out var userId) || string.IsNullOrEmpty(role))
+                        {
+                            context.RejectPrincipal();
+                            await context.HttpContext.SignOutAsync(Const.AuthenticationScheme);
+                            return;
+                        }
+                        var users = context.HttpContext.RequestServices.GetRequiredService<IUserService>();
+                        if (!users.IsCurrentAccountEligible(userId, role))
+                        {
+                            context.RejectPrincipal();
+                            await context.HttpContext.SignOutAsync(Const.AuthenticationScheme);
+                        }
+                    }
+                };
             });
 
             this._services.AddAuthorization(options =>

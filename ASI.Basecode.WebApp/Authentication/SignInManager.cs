@@ -11,7 +11,6 @@ using ASI.Basecode.Data.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
-using static ASI.Basecode.Resources.Constants.Enums;
 
 namespace ASI.Basecode.WebApp.Authentication
 {
@@ -49,29 +48,17 @@ namespace ASI.Basecode.WebApp.Authentication
             user = new LoginUser();
         }
 
+        public Task<ClaimsIdentity> GetClaimsIdentity(string email, string password)
+        {
+            return Task.FromResult<ClaimsIdentity>(null);
+        }
+
         /// <summary>
         /// Gets the claims identity.
         /// </summary>
         /// <param name="username">The username.</param>
         /// <param name="password">The password.</param>
         /// <returns>The successfully completed task</returns>
-        public Task<ClaimsIdentity> GetClaimsIdentity(string username, string password)
-        {
-            ClaimsIdentity claimsIdentity = null;
-            User userData = new User();
-
-            user.loginResult = LoginResult.Success;//TODO this._accountService.AuthenticateUser(username, password, ref userData);
-
-            if (user.loginResult == LoginResult.Failed)
-            {
-                return Task.FromResult<ClaimsIdentity>(null);
-            }
-
-            user.userData = userData;
-            claimsIdentity = CreateClaimsIdentity(userData);
-            return Task.FromResult(claimsIdentity);
-        }
-
         /// <summary>
         /// Creates the claims identity.
         /// </summary>
@@ -79,15 +66,13 @@ namespace ASI.Basecode.WebApp.Authentication
         /// <returns>Instance of ClaimsIdentity</returns>
         public ClaimsIdentity CreateClaimsIdentity(User user)
         {
-            var token = _configuration.GetTokenAuthentication();
-            //TODO
             var claims = new List<Claim>()
             {
-                new Claim(ClaimTypes.NameIdentifier, user.UserId, ClaimValueTypes.String, Const.Issuer),
-                new Claim(ClaimTypes.Name, user.Name, ClaimValueTypes.String, Const.Issuer),
-
-                new Claim("UserId", user.UserId, ClaimValueTypes.String, Const.Issuer),
-                new Claim("UserName", user.Name, ClaimValueTypes.String, Const.Issuer),
+                new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString(), ClaimValueTypes.Integer32, Const.Issuer),
+                new Claim(ClaimTypes.Name, user.FullName, ClaimValueTypes.String, Const.Issuer),
+                new Claim(ClaimTypes.Email, user.Email, ClaimValueTypes.String, Const.Issuer),
+                new Claim(ClaimTypes.Role, user.Role, ClaimValueTypes.String, Const.Issuer),
+                new Claim("user_id", user.UserId.ToString(), ClaimValueTypes.Integer32, Const.Issuer),
             };
             return new ClaimsIdentity(claims, Const.AuthenticationScheme);
         }

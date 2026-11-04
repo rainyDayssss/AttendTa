@@ -68,7 +68,6 @@ namespace ASI.Basecode.WebApp
                 ClockSkew = TimeSpan.Zero
             };
 
-            PasswordManager.SetUp(this.Configuration.GetSection("TokenAuthentication"));
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         }
 

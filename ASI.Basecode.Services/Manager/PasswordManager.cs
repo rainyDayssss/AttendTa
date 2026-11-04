@@ -1,98 +1,45 @@
-﻿using Microsoft.Extensions.Configuration;
+using Konscious.Security.Cryptography;
 using System;
-using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 
 namespace ASI.Basecode.Services.Manager
 {
-    /// <summary>
-    /// Password Manager
-    /// </summary>
-    public class PasswordManager
+    public static class PasswordManager
     {
-        /// <summary>
-        /// Gets or sets the secret key.
-        /// </summary>
-        public static string secretKey { get; set; }
-
-        /// <summary>
-        /// Sets up.
-        /// </summary>
-        /// <param name="tokenAuthConfig">Token authentication configuration</param>
-        public static void SetUp(IConfigurationSection tokenAuthConfig)
+        public static string HashPassword(string password)
         {
-            secretKey = tokenAuthConfig.GetValue<string>("SecretKey");
-        }
-
-        /// <summary>
-        /// Encrypts the password.
-        /// </summary>
-        /// <param name="password">The password.</param>
-        /// <returns></returns>
-        public static string EncryptPassword(string password)
-        {
-            byte[] iv = new byte[16];
-            byte[] aesKey = new byte[16];
-            byte[] array;
-
-            using (Aes aes = Aes.Create())
+            var salt = RandomNumberGenerator.GetBytes(16);
+            var argon = new Argon2id(Encoding.UTF8.GetBytes(password))
             {
-                var keyBytes = Encoding.UTF8.GetBytes(secretKey);
-                Array.Copy(keyBytes, aesKey, Math.Min(keyBytes.Length, aesKey.Length));
-                aes.Key = aesKey;
-                aes.IV = iv;
-
-                ICryptoTransform encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
-
-                using (MemoryStream memoryStream = new MemoryStream())
-                {
-                    using (CryptoStream cryptoStream = new CryptoStream((Stream)memoryStream, encryptor, CryptoStreamMode.Write))
-                    {
-                        using (StreamWriter streamWriter = new StreamWriter((Stream)cryptoStream))
-                        {
-                            streamWriter.Write(password);
-                        }
-
-                        array = memoryStream.ToArray();
-                    }
-                }
-            }
-
-            return Convert.ToBase64String(array);
+                Salt = salt,
+                DegreeOfParallelism = 2,
+                Iterations = 3,
+                MemorySize = 65536
+            };
+            var hash = argon.GetBytes(32);
+            return $"$argon2id$v=19$m=65536,t=3,p=2${Convert.ToBase64String(salt)}${Convert.ToBase64String(hash)}";
         }
 
-        /// <summary>
-        /// Decrypts the password.
-        /// </summary>
-        /// <param name="encryptedPassword">The encrypted password.</param>
-        /// <returns></returns>
-        public static string DecryptPassword(string encryptedPassword)
+        public static bool VerifyPassword(string password, string encoded)
         {
-            byte[] iv = new byte[16];
-            byte[] aesKey = new byte[16];
-            byte[] buffer = Convert.FromBase64String(encryptedPassword);
-
-            using (Aes aes = Aes.Create())
+            if (string.IsNullOrWhiteSpace(encoded)) return false;
+            try
             {
-                var keyBytes = Encoding.UTF8.GetBytes(secretKey);
-                Array.Copy(keyBytes, aesKey, Math.Min(keyBytes.Length, aesKey.Length));
-                aes.Key = aesKey;
-                aes.IV = iv;
-                ICryptoTransform decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
-
-                using (MemoryStream memoryStream = new MemoryStream(buffer))
+                var parts = encoded.Split('$');
+                if (parts.Length != 6 || parts[1] != "argon2id" || parts[2] != "v=19") return false;
+                var salt = Convert.FromBase64String(parts[4]);
+                var expected = Convert.FromBase64String(parts[5]);
+                var argon = new Argon2id(Encoding.UTF8.GetBytes(password))
                 {
-                    using (CryptoStream cryptoStream = new CryptoStream((Stream)memoryStream, decryptor, CryptoStreamMode.Read))
-                    {
-                        using (StreamReader streamReader = new StreamReader((Stream)cryptoStream))
-                        {
-                            return streamReader.ReadToEnd();
-                        }
-                    }
-                }
+                    Salt = salt,
+                    DegreeOfParallelism = 2,
+                    Iterations = 3,
+                    MemorySize = 65536
+                };
+                return CryptographicOperations.FixedTimeEquals(argon.GetBytes(expected.Length), expected);
             }
+            catch (FormatException) { return false; }
         }
-
     }
 }

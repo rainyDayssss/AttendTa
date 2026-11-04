@@ -18,6 +18,7 @@ namespace ASI.Basecode.Data
         }
 
         public virtual DbSet<User> Users { get; set; }
+        public virtual DbSet<AccountRequest> AccountRequests { get; set; }
         public virtual DbSet<Member> Members { get; set; }
         public virtual DbSet<MemberAccountSummary> MemberAccountSummaries { get; set; }
         public virtual DbSet<EventType> EventTypes { get; set; }
@@ -27,37 +28,48 @@ namespace ASI.Basecode.Data
         {
             modelBuilder.Entity<User>(entity =>
             {
-                entity.HasIndex(e => e.UserId, "UQ__Users__1788CC4D5F4A160F")
-                    .IsUnique();
+                entity.ToTable("users");
+                entity.HasKey(e => e.UserId);
+                entity.Property(e => e.UserId).HasColumnName("user_id").ValueGeneratedOnAdd();
+                entity.Property(e => e.FullName).IsRequired().HasMaxLength(255).HasColumnName("full_name");
+                entity.Property(e => e.Email).IsRequired().HasMaxLength(255).HasColumnName("email");
+                entity.HasIndex(e => e.Email).IsUnique();
+                entity.Property(e => e.PasswordHash).IsRequired().HasMaxLength(255).IsUnicode(false).HasColumnName("password_hash");
+                entity.Property(e => e.Role).IsRequired().HasMaxLength(255).HasColumnName("role");
+                entity.Property(e => e.IsActive).IsRequired().HasColumnName("is_active").HasDefaultValue(false);
+                entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+                entity.Property(e => e.CreatedAt).HasColumnType("datetime2(3)").HasColumnName("created_at").HasDefaultValueSql("SYSUTCDATETIME()");
+                entity.Property(e => e.UpdatedBy).HasColumnName("updated_by");
+                entity.Property(e => e.UpdatedAt).HasColumnType("datetime2(3)").HasColumnName("updated_at");
+            });
 
-                entity.Property(e => e.CreatedBy)
-                    .IsRequired()
-                    .HasMaxLength(50)
-                    .IsUnicode(false);
-
-                entity.Property(e => e.CreatedTime).HasColumnType("datetime");
-
-                entity.Property(e => e.Name)
-                    .IsRequired()
-                    .HasMaxLength(50)
-                    .IsUnicode(false);
-
-                entity.Property(e => e.Password)
-                    .IsRequired()
-                    .HasMaxLength(50)
-                    .IsUnicode(false);
-
-                entity.Property(e => e.UpdatedBy)
-                    .IsRequired()
-                    .HasMaxLength(50)
-                    .IsUnicode(false);
-
-                entity.Property(e => e.UpdatedTime).HasColumnType("datetime");
-
-                entity.Property(e => e.UserId)
-                    .IsRequired()
-                    .HasMaxLength(50)
-                    .IsUnicode(false);
+            modelBuilder.Entity<AccountRequest>(entity =>
+            {
+                entity.ToTable("account_requests", table =>
+                {
+                    table.HasCheckConstraint("chk_account_requests_positive_year_level", "year_level > 0");
+                    table.HasCheckConstraint("chk_account_requests_password_by_status", "([status] = 'pending' AND [password_hash] IS NOT NULL) OR ([status] IN ('approved', 'rejected') AND [password_hash] IS NULL)");
+                });
+                entity.HasKey(e => e.RequestId);
+                entity.Property(e => e.RequestId).HasColumnName("request_id").ValueGeneratedOnAdd();
+                entity.Property(e => e.StudentNumber).IsRequired().HasMaxLength(50).HasColumnName("student_number");
+                entity.Property(e => e.FullName).IsRequired().HasMaxLength(255).HasColumnName("full_name");
+                entity.Property(e => e.Email).IsRequired().HasMaxLength(255).HasColumnName("email");
+                entity.Property(e => e.PasswordHash).HasMaxLength(255).IsUnicode(false).HasColumnName("password_hash");
+                entity.Property(e => e.Course).IsRequired().HasMaxLength(100).HasColumnName("course");
+                entity.Property(e => e.YearLevel).IsRequired().HasColumnName("year_level");
+                entity.Property(e => e.Section).IsRequired().HasMaxLength(50).HasColumnName("section");
+                entity.Property(e => e.MobileNumber).HasMaxLength(30).IsUnicode(false).HasColumnName("mobile_number");
+                entity.Property(e => e.Status).IsRequired().HasMaxLength(255).HasColumnName("status").HasDefaultValue("pending");
+                entity.Property(e => e.RequestedAt).HasColumnType("datetime2(3)").HasColumnName("requested_at").HasDefaultValueSql("SYSUTCDATETIME()");
+                entity.Property(e => e.ReviewedBy).HasColumnName("reviewed_by");
+                entity.Property(e => e.ReviewedAt).HasColumnType("datetime2(3)").HasColumnName("reviewed_at");
+                entity.Property(e => e.ReviewNotes).HasColumnName("review_notes");
+                entity.Property(e => e.CreatedUserId).HasColumnName("created_user_id");
+                entity.HasIndex(e => e.Email).HasDatabaseName("account_requests_index_1");
+                entity.HasIndex(e => e.StudentNumber).HasDatabaseName("account_requests_index_2");
+                entity.HasIndex(e => e.Email).IsUnique().HasFilter("[status] = 'pending'").HasDatabaseName("UX_account_requests_pending_email");
+                entity.HasIndex(e => e.StudentNumber).IsUnique().HasFilter("[status] = 'pending'").HasDatabaseName("UX_account_requests_pending_student_number");
             });
 
             modelBuilder.Entity<Member>(entity =>

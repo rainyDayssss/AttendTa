@@ -10,6 +10,10 @@
         <a href="@Url.Action("Index", "Member")" style="color:#fff;">Members</a>
         <a href="@Url.Action("Index", "EventType")" style="color:#fff;">Event Types</a>
         <a href="@Url.Action("Index", "Venue")" style="color:#fff;">Venues</a>
+        @if (User.IsInRole("admin") || User.IsInRole("officer"))
+        {
+            <a href="@Url.Action("Index", "AccountRequest")" style="color:#fff;">Account Requests</a>
+        }
     </nav>
     <div class="logosec">
         @HttpContextAccessor.HttpContext.Session.GetString("UserName")
@@ -27,7 +31,7 @@
                     </li>
                     <li>
                         <i class="fa-solid fa-right-from-bracket"></i>
-                        <a asp-action="SignOutUser" asp-controller="Account">Logout</a>
+                        <form asp-action="SignOutUser" asp-controller="Account" method="post"><button type="submit" class="btn btn-link p-0">Logout</button></form>
                     </li>
                 </ul>
             </div>
