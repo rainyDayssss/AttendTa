@@ -20,10 +20,10 @@ namespace ASI.Basecode.WebApp.Controllers
             ILoggerFactory loggerFactory, IConfiguration configuration, IMapper mapper)
             : base(accessor, loggerFactory, configuration, mapper) { _requests = requests; }
 
-        public IActionResult Index(int page = 1, string search = null)
+        public IActionResult Index(int page = 1, int pageSize = 25, string search = null)
         {
             if (search?.Length > 100) return BadRequest("Search text is too long.");
-            var result = _requests.GetPending(page, search);
+            var result = _requests.GetPending(page, pageSize, search);
             return View(result);
         }
 

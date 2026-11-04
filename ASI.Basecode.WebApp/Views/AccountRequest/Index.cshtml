@@ -2,7 +2,17 @@
 @{ ViewData["Title"] = "Account requests"; }
 <div class="container py-4">
     <h1>Pending account requests</h1>
-    <form method="get" asp-action="Index" class="mb-3"><label for="search">Search name, email, or student number</label><input id="search" name="search" value="@Model.Search" class="form-control"/><button type="submit" class="btn btn-secondary mt-2">Search</button></form>
+    <form method="get" asp-action="Index" class="mb-3">
+        <label for="search">Search name, email, or student number</label>
+        <input id="search" name="search" value="@Model.Search" class="form-control" />
+        <label for="pageSize" class="mt-2">Rows per page</label>
+        <select id="pageSize" name="pageSize" class="form-select">
+            <option value="10" selected="@(Model.PageSize == 10)">10</option>
+            <option value="25" selected="@(Model.PageSize == 25)">25</option>
+            <option value="50" selected="@(Model.PageSize == 50)">50</option>
+        </select>
+        <button type="submit" class="btn btn-secondary mt-2">Apply</button>
+    </form>
     <p>@Model.TotalCount pending request(s)</p>
     @if (Model.Items.Count == 0) { <p>No pending requests.</p> }
     @foreach (var request in Model.Items)
@@ -16,8 +26,8 @@
         </div></section>
     }
     <nav aria-label="Account request pages" class="d-flex gap-3">
-        @if (Model.Page > 1) { <a asp-action="Index" asp-route-page="@(Model.Page - 1)" asp-route-search="@Model.Search">Previous</a> }
+        @if (Model.Page > 1) { <a asp-action="Index" asp-route-page="@(Model.Page - 1)" asp-route-pageSize="@Model.PageSize" asp-route-search="@Model.Search">Previous</a> }
         <span>Page @Model.Page of @Model.TotalPages (@Model.PageSize per page)</span>
-        @if (Model.Page < Model.TotalPages) { <a asp-action="Index" asp-route-page="@(Model.Page + 1)" asp-route-search="@Model.Search">Next</a> }
+        @if (Model.Page < Model.TotalPages) { <a asp-action="Index" asp-route-page="@(Model.Page + 1)" asp-route-pageSize="@Model.PageSize" asp-route-search="@Model.Search">Next</a> }
     </nav>
 </div>

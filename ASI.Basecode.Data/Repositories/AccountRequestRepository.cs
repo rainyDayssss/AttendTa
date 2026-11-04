@@ -21,7 +21,7 @@ namespace ASI.Basecode.Data.Repositories
             UnitOfWork.SaveChanges();
         }
 
-        public IReadOnlyList<AccountRequest> GetPending(string search, int page, int pageSize, out int totalCount)
+        private IQueryable<AccountRequest> PendingQuery(string search)
         {
             var query = GetDbSet<AccountRequest>().AsNoTracking().Where(r => r.Status == "pending");
             if (!string.IsNullOrWhiteSpace(search))
@@ -29,9 +29,19 @@ namespace ASI.Basecode.Data.Repositories
                 var term = search.Trim();
                 query = query.Where(r => r.FullName.Contains(term) || r.Email.Contains(term) || r.StudentNumber.Contains(term));
             }
-            totalCount = query.Count();
+            return query;
+        }
+
+        public int CountPending(string search) => PendingQuery(search).Count();
+
+        public IReadOnlyList<AccountRequest> GetPending(string search, int page, int pageSize)
+        {
+            if (page < 1 || pageSize < 1) throw new ArgumentOutOfRangeException(nameof(page));
+            var offset = checked(((long)page - 1L) * pageSize);
+            if (offset > int.MaxValue) throw new ArgumentOutOfRangeException(nameof(page));
+            var query = PendingQuery(search);
             return query.OrderBy(r => r.RequestedAt).ThenBy(r => r.RequestId)
-                .Skip((page - 1) * pageSize).Take(pageSize).ToList();
+                .Skip((int)offset).Take(pageSize).ToList();
         }
 
         public AccountRequest GetPending(int requestId) =>

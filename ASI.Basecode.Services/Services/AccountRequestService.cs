@@ -49,22 +49,22 @@ namespace ASI.Basecode.Services.Services
                 _requests.WriteAudit("system", null, "account_request_submitted", request.RequestId);
                 tx.Commit();
             }
-            catch (DbUpdateException ex) when (IsUniqueConflict(ex))
+            catch (DbUpdateException ex) when (IsSubmissionIdentityConflict(ex))
             {
                 tx.Rollback();
                 throw new InvalidDataException("An account request with those details cannot be submitted.");
             }
         }
 
-        public AccountRequestListViewModel GetPending(int page, string search = null)
+        public AccountRequestListViewModel GetPending(int page, int pageSize = 25, string search = null)
         {
             var normalizedSearch = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
-            var countQueryPage = Math.Max(1, page);
-            var items = _requests.GetPending(normalizedSearch, countQueryPage, DefaultPageSize, out var totalCount);
-            var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)DefaultPageSize));
-            var effectivePage = Math.Min(countQueryPage, totalPages);
-            if (effectivePage != countQueryPage)
-                items = _requests.GetPending(normalizedSearch, effectivePage, DefaultPageSize, out totalCount);
+            var effectivePageSize = pageSize is 10 or 25 or 50 ? pageSize : DefaultPageSize;
+            var requestedPage = Math.Max(1, page);
+            var totalCount = _requests.CountPending(normalizedSearch);
+            var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)effectivePageSize));
+            var effectivePage = Math.Min(requestedPage, totalPages);
+            var items = _requests.GetPending(normalizedSearch, effectivePage, effectivePageSize);
             return new AccountRequestListViewModel
             {
                 Items = items.Select(r => new AccountRequestListItemViewModel
@@ -73,7 +73,7 @@ namespace ASI.Basecode.Services.Services
                     Email = r.Email, Course = r.Course, YearLevel = r.YearLevel, Section = r.Section,
                     MobileNumber = r.MobileNumber, RequestedAt = r.RequestedAt
                 }).ToList(),
-                Page = effectivePage, PageSize = DefaultPageSize, TotalCount = totalCount,
+                Page = effectivePage, PageSize = effectivePageSize, TotalCount = totalCount,
                 TotalPages = totalPages, Search = normalizedSearch
             };
         }
@@ -104,7 +104,7 @@ namespace ASI.Basecode.Services.Services
                 _requests.WriteAudit("user", actorUserId, "account_request_approved", requestId);
                 tx.Commit();
             }
-            catch (DbUpdateException ex) when (IsUniqueConflict(ex))
+            catch (DbUpdateException ex) when (IsApprovalIdentityConflict(ex))
             {
                 tx.Rollback();
                 throw new InvalidDataException("This request has already been reviewed or its identity is in use.");
@@ -130,10 +130,34 @@ namespace ASI.Basecode.Services.Services
             catch { tx.Rollback(); throw; }
         }
 
-        private static bool IsUniqueConflict(DbUpdateException exception)
+        private static bool IsSubmissionIdentityConflict(DbUpdateException exception)
         {
             for (Exception current = exception; current != null; current = current.InnerException)
-                if (current is SqlException sql && (sql.Number == 2601 || sql.Number == 2627)) return true;
+            {
+                if (current is not SqlException sql || (sql.Number != 2601 && sql.Number != 2627)) continue;
+                foreach (SqlError error in sql.Errors)
+                {
+                    var message = error.Message;
+                    if (message.Contains("dbo.account_requests", StringComparison.OrdinalIgnoreCase) &&
+                        (message.Contains("UX_account_requests_pending_email", StringComparison.OrdinalIgnoreCase) ||
+                         message.Contains("UX_account_requests_pending_student_number", StringComparison.OrdinalIgnoreCase))) return true;
+                }
+            }
+            return false;
+        }
+
+        private static bool IsApprovalIdentityConflict(DbUpdateException exception)
+        {
+            for (Exception current = exception; current != null; current = current.InnerException)
+            {
+                if (current is not SqlException sql || (sql.Number != 2601 && sql.Number != 2627)) continue;
+                foreach (SqlError error in sql.Errors)
+                {
+                    var message = error.Message;
+                    if (message.Contains("dbo.users", StringComparison.OrdinalIgnoreCase) ||
+                        message.Contains("dbo.members", StringComparison.OrdinalIgnoreCase)) return true;
+                }
+            }
             return false;
         }
     }
