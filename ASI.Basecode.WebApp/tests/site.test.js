@@ -110,3 +110,38 @@ test('a failed preview fetch shows an error notice and no dialog', async () => {
     assert.equal(notice.attributes.role, 'alert');
     assert.match(notice.textContent, /Unable to load the deactivation preview/);
 });
+
+for (const [name, x, y, child, expected] of [
+    ['interior padding', 120, 120, false, false],
+    ['dialog boundary', 100, 100, false, false],
+    ['left backdrop', 99, 120, false, true],
+    ['right backdrop', 301, 120, false, true],
+    ['top backdrop', 120, 99, false, true],
+    ['bottom backdrop', 120, 301, false, true],
+    ['child content', 120, 120, true, false]
+]) {
+    test(`dialog click on ${name} ${expected ? 'dismisses' : 'preserves'} the dialog`, () => {
+        const handlers = [];
+        class HTMLDialogElement {}
+        const dialog = Object.assign(new HTMLDialogElement(), createElement('dialog'), {
+            getBoundingClientRect: () => ({ left: 100, right: 300, top: 100, bottom: 300 }),
+            close() { this.closed = true; }
+        });
+        const document = {
+            body: createElement('body'),
+            createElement,
+            querySelector: () => null,
+            addEventListener(type, handler) {
+                if (type === 'click') handlers.push(handler);
+            }
+        };
+        const $ = callback => callback();
+        const source = fs.readFileSync(path.join(__dirname, '..', 'wwwroot', 'js', 'site.js'), 'utf8');
+        vm.runInNewContext(source, { $, document, HTMLDialogElement });
+
+        const event = { target: child ? createElement('p') : dialog, clientX: x, clientY: y };
+        handlers.forEach(handler => handler(event));
+
+        assert.equal(dialog.closed === true, expected);
+    });
+}

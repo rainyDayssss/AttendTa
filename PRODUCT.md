@@ -46,6 +46,7 @@ The product name is AttendTa, used by a University of Cebu student organization.
 - `docs/architecture.md` and `_bmad-output/initiative-attendta/architecture-attendta/architecture-attendta.md` — implementation baseline.
 - `_bmad-output/initiative-attendta/prd-attendta/` — product requirements and decisions.
 - Working ASP.NET Core MVC application with seeded local demo data; no production customer data or testimonials exist.
+- Preliminary shared-dialog polish for issue #153 covers centering, long-content scrolling and safe backdrop dismissal only. Final 20-screen integrated acceptance remains blocked pending #152 (real integrations) and #135 (demo rehearsal findings); component checks are not whole-app acceptance.
 
 ## Product Principles
 

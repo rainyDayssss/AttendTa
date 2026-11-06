@@ -30,6 +30,7 @@
   a { color: #9a4006; } a:hover { text-decoration: underline; }
   :focus-visible { outline: 2px solid #b45309; outline-offset: 2px; }
   button, input, select, textarea { font: inherit; }
+  dialog { margin: auto; }
 }
 @layer components {
   .skip-link { position: fixed; left: 1rem; top: -5rem; z-index: 50; padding: .75rem; background: white; }
@@ -125,7 +126,8 @@
   .dialog-close { min-width: 32px; min-height: 32px; border: 0; background: transparent; color: #334155; font-size: 1.5rem; line-height: 1; cursor: pointer; }
   .task-dialog form > .muted, .task-dialog form > .field { margin: 1rem 1.5rem 0; }
   .dialog-consequence { margin: 1rem 1.5rem 0; color: #334155; }
-  .dialog-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; padding: 1rem 1.5rem; border-top: 1px solid #e2e8f0; }
+  .dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; margin-top: 1rem; padding: 1rem 1.5rem; border-top: 1px solid #e2e8f0; }
+  .confirm-dialog, .app-dialog, .task-dialog { max-height: calc(100dvh - 3rem); overflow-y: auto; overflow-wrap: anywhere; }
   .empty-state { color: #475569; padding: 1rem; }
   .queue-filter { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem; }
   .queue-filter .field { margin: 0; min-width: min(100%, 14rem); }

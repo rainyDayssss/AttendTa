@@ -32,7 +32,12 @@ $(function () {
     });
 
     document.addEventListener('click', function (event) {
-        if (event.target instanceof HTMLDialogElement) event.target.close();
+        if (!(event.target instanceof HTMLDialogElement)) return;
+        const bounds = event.target.getBoundingClientRect();
+        if (event.clientX < bounds.left || event.clientX > bounds.right ||
+            event.clientY < bounds.top || event.clientY > bounds.bottom) {
+            event.target.close();
+        }
     });
 
     document.addEventListener('submit', function (event) {
