@@ -47,6 +47,8 @@ context: ['docs/DESIGN.md', 'PRODUCT.md']
 
 ## Plan Change Log
 
+- 2026-11-07 follow-up: User authorized a normal merge of origin/dev, conflict resolution, verification, push and draft PR. Merged dev at dc57cd0622821bce9cd6b6c00a7ef1552f87c1e9; only generated wwwroot/css/app.css conflicted. Regenerated it from the cleanly merged source, preserving upstream feature imports and all preliminary dialog fixes. Repeated CSS generation was byte-identical. Post-merge checks: 8/8 Node tests, clean build (zero warnings/errors), 271/271 service tests, 323/323 disposable LocalDB integration tests. Formatter still fails on untouched test whitespace. Merge-wide whitespace check also reports an upstream plan's extra EOF blank line; the scoped diff against origin/dev passes. AFT reports zero diagnostics with TypeScript server unavailable. No new rendered-browser verification or independent approval is claimed; final acceptance gates remain unchanged.
+
 - 2026-11-07: User superseded the earlier no-commit/no-push restriction and authorized a scoped commit, push and draft PR only after a conflict-free check against freshly fetched origin/dev. This does not authorize final acceptance or closing #153. Independent review is not approved: the prior review attempt lacked command tooling/workflow rendering. The earlier handoff remains historical evidence, not approval.
 
 ## Review Triage Log

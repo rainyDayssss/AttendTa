@@ -1,0 +1,40 @@
+@model MyEventsAttendanceTabViewModel
+@if (Model.Rows.Count > 0)
+{
+    <div class="table-scroll attendance-history" role="region" aria-label="Attendance history" tabindex="0">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th scope="col">Event</th>
+                    <th scope="col">Recorded</th>
+                    <th scope="col">Method</th>
+                    <th scope="col">State</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in Model.Rows)
+                {
+                    <tr data-attendance-id="@row.AttendanceId">
+                        <td>@row.EventTitle</td>
+                        <td class="numeric">@ManilaTimeFormatter.Format(row.RecordedAt)</td>
+                        <td>@row.CheckInMethodLabel</td>
+                        <td>
+                            @if (row.IsInvalidated)
+                            {
+                                <span class="badge badge-inactive">Invalidated</span>
+                                @if (!string.IsNullOrWhiteSpace(row.InvalidationReason))
+                                {
+                                    <span class="muted">@row.InvalidationReason</span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="badge badge-active">Valid</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

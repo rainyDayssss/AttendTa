@@ -1,0 +1,59 @@
+@model CertificateLedgerViewModel
+@{
+    ViewData["Title"] = "Certificates";
+}
+
+<div class="page-heading">
+    <div>
+        <h1>Certificate Eligibility &amp; Issuance</h1>
+        <p class="muted">Review completed-event attendance and issue certificates.</p>
+    </div>
+</div>
+
+<partial name="_EventSelector" model="Model.Selector" />
+
+<nav class="filter-tabs" aria-label="Certificate sections">
+    <a class="filter-tab" asp-action="Index" asp-route-tab="eligibility" asp-route-eventId="@Model.Selector.SelectedEventId" aria-current="@(Model.ActiveTab == CertificateLedgerTab.Eligibility ? "page" : null)">
+        Eligibility Review
+        <span class="filter-tab-count numeric">@Model.EligibilityCount</span>
+    </a>
+    <a class="filter-tab" asp-action="Index" asp-route-tab="issued" asp-route-eventId="@Model.Selector.SelectedEventId" aria-current="@(Model.ActiveTab == CertificateLedgerTab.Issued ? "page" : null)">
+        Issued Registry
+        <span class="filter-tab-count numeric">@Model.IssuedCount</span>
+    </a>
+</nav>
+
+<div class="table-scroll ledger-table" role="region" aria-label="Certificate ledger" tabindex="0">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th scope="col">Member</th>
+                <th scope="col">Student number</th>
+                <th scope="col">Event</th>
+                <th scope="col">Attended</th>
+                <th scope="col">Eligibility</th>
+                <th scope="col">Certificate</th>
+                <th scope="col">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in Model.Rows)
+            {
+                <tr data-registration-id="@row.RegistrationId">
+                    <td>@row.MemberName</td>
+                    <td class="numeric">@row.StudentNumber</td>
+                    <td>@row.EventTitle</td>
+                    <td class="numeric">@(row.AttendedAt is null ? string.Empty : ManilaTimeFormatter.Format(row.AttendedAt.Value))</td>
+                    <td><span class="badge @row.StatusBadgeClass">@row.StatusLabel</span></td>
+                    <td class="numeric">@row.CertificateNumber</td>
+                    <td class="actions">
+                        @if (!string.IsNullOrWhiteSpace(row.ViewerUrl))
+                        {
+                            <a class="button button-secondary" href="@row.ViewerUrl">View</a>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

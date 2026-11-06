@@ -1,4 +1,16 @@
 @import "tailwindcss";
+/* Per-surface feature styles, imported once. Tailwind's resolver does not expand globs, so each
+   surface file is listed here; a surface ticket edits only its own file. */
+@import "./features/my-events.css";
+@import "./features/passes.css";
+@import "./features/attendance-history.css";
+@import "./features/certificate-history.css";
+@import "./features/event-dossier.css";
+@import "./features/check-in.css";
+@import "./features/certificate-ledger.css";
+@import "./features/reports.css";
+@import "./features/access-dialogs.css";
+@import "./features/event-selector.css";
 @source "../Views/**/*.cshtml";
 @source "../wwwroot/js/**/*.js";
 /* Dynamic status and shell classes are enumerated so they survive source scanning. */

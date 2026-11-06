@@ -1,0 +1,7 @@
+/* Door scanner surface. */
+@layer components {
+  .scanner-window { padding: 1.5rem; border-radius: 10px; background: #0b1120; color: #ffffff; }
+  .scanner-window h2 { margin-top: 0; }
+  .scanner-viewport { min-height: 16rem; border: 1px dashed #334155; border-radius: 10px; background: #0f172a; }
+  .scanner-result { min-height: 3rem; margin-top: 1rem; }
+}

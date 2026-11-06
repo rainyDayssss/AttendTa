@@ -1,0 +1,19 @@
+@model CertificateViewerViewModel
+@{
+    ViewData["Title"] = "Certificate";
+}
+
+<div class="page-heading">
+    <div>
+        <h1>Certificate</h1>
+        <p class="muted">@Model.EventTitle</p>
+    </div>
+    <a asp-action="Index" class="button button-secondary">Back to certificates</a>
+</div>
+
+<section class="certificate-viewer" aria-label="Certificate document">
+    @if (!string.IsNullOrWhiteSpace(Model.PdfUrl))
+    {
+        <iframe src="@Model.PdfUrl" title="Certificate PDF"></iframe>
+    }
+</section>

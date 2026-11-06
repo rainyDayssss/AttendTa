@@ -1,0 +1,32 @@
+@model MyEventsCertificatesTabViewModel
+@if (Model.Rows.Count > 0)
+{
+    <div class="table-scroll certificate-history" role="region" aria-label="Certificate history" tabindex="0">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th scope="col">Event</th>
+                    <th scope="col">Certificate number</th>
+                    <th scope="col">Issued</th>
+                    <th scope="col">Certificate</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in Model.Rows)
+                {
+                    <tr data-certificate-id="@row.CertificateId">
+                        <td>@row.EventTitle</td>
+                        <td class="numeric">@row.CertificateNumber</td>
+                        <td class="numeric">@ManilaTimeFormatter.Format(row.IssuedAt)</td>
+                        <td>
+                            @if (!string.IsNullOrWhiteSpace(row.DownloadUrl))
+                            {
+                                <a class="button button-secondary" href="@row.DownloadUrl">Download</a>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

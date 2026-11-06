@@ -40,6 +40,10 @@ namespace ASI.Basecode.WebApp.Controllers
         }
 
         [HttpGet]
+        [Route("Member/{id:int}/access")]
+        public IActionResult Access(int id) => PartialView("_AccessDialog", MembershipAccessViewModel.Empty(id));
+
+        [HttpGet]
         [Route("Member/Edit/{id:int}")]
         public IActionResult Edit(int id)
         {

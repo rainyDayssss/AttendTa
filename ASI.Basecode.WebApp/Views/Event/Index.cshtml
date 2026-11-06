@@ -45,6 +45,7 @@ else
                             <partial name="_CheckInControl" model="new CheckInControlViewModel { EventId = eventItem.EventId, IsCheckInOpen = eventItem.IsCheckInOpen, CanChange = eventItem.EventStatusId == EventStatusCode.Published }" />
                         </td>
                         <td class="actions">
+                            <a asp-action="Details" asp-route-id="@eventItem.EventId" class="button button-secondary">Dossier</a>
                             <a asp-action="Cover" asp-route-id="@eventItem.EventId" class="button button-secondary">Cover</a>
                             <a asp-controller="RegistrationReview" asp-action="Index" asp-route-eventId="@eventItem.EventId" class="button button-secondary">Review</a>
                             @if (eventItem.EventStatusId is EventStatusCode.Draft or EventStatusCode.Published)

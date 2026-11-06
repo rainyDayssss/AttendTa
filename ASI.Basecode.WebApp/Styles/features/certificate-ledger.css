@@ -1,0 +1,6 @@
+/* Certificate eligibility ledger and PDF viewer. */
+@layer components {
+  .ledger-table { margin-top: 1rem; }
+  .certificate-viewer { min-height: 24rem; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 10px; }
+  .certificate-viewer iframe { width: 100%; min-height: 24rem; border: 0; }
+}

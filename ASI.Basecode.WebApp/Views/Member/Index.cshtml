@@ -99,6 +99,7 @@ else
                         <td class="actions">
                             <div class="row-actions">
                                 <a asp-action="Edit" asp-route-id="@member.MemberId" class="button button-small button-secondary">Edit</a>
+                                <partial name="_AccessActions" model="MembershipAccessViewModel.For(member)" />
                             </div>
                         </td>
                     </tr>

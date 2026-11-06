@@ -1,0 +1,22 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  // Subagents run on the cheap, fast DeepSeek/Mistral model.
+  // No `#variant` is pinned here on purpose: the orchestrator chooses the reasoning
+  // effort per task by passing `model` to the subagent tool, e.g.
+  //   "mistral/deepseek-v4-1-flash-1017#none"  trivial, deterministic work
+  //   "mistral/deepseek-v4-1-flash-1017#low"   mechanical lookups and small edits
+  //   "mistral/deepseek-v4-1-flash-1017#high"  normal research and implementation
+  //   "mistral/deepseek-v4-1-flash-1017#max"   deep debugging and adversarial review
+  // Verified: the per-call `model` argument overrides this default, so the pinned
+  // value only applies when the orchestrator does not pass one.
+  "agents": {
+    "general": {
+      "mode": "subagent",
+      "model": "mistral/deepseek-v4-1-flash-1017",
+    },
+    "explore": {
+      "mode": "subagent",
+      "model": "mistral/deepseek-v4-1-flash-1017",
+    },
+  },
+}

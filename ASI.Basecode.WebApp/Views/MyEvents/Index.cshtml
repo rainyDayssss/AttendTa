@@ -1,0 +1,41 @@
+@model MyEventsViewModel
+@{
+    ViewData["Title"] = "Participation History";
+    var tabs = new[]
+    {
+        (Tab: MyEventsTab.Registrations, Label: "My Registrations", Action: "Registrations"),
+        (Tab: MyEventsTab.Attendance, Label: "My Attendance", Action: "Attendance"),
+        (Tab: MyEventsTab.Certificates, Label: "My Certificates", Action: "Certificates")
+    };
+}
+
+<div class="page-heading">
+    <div>
+        <h1>Participation History</h1>
+        <p class="muted">Review your registrations, attendance and certificates.</p>
+    </div>
+</div>
+
+<div class="panel">
+    <nav class="filter-tabs" aria-label="Participation history sections">
+        @foreach (var tab in tabs)
+        {
+            <a class="filter-tab" asp-action="@tab.Action" aria-current="@(Model.ActiveTab == tab.Tab ? "page" : null)">
+                @tab.Label
+            </a>
+        }
+    </nav>
+
+    @switch (Model.ActiveTab)
+    {
+        case MyEventsTab.Attendance:
+            <partial name="_AttendanceHistoryPartial" model="Model.Attendance" />
+            break;
+        case MyEventsTab.Certificates:
+            <partial name="_CertificateLinkPartial" model="Model.Certificates" />
+            break;
+        default:
+            <partial name="_RegistrationsTab" model="Model.Registrations" />
+            break;
+    }
+</div>

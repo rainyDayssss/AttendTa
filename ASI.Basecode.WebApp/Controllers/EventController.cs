@@ -51,6 +51,26 @@ namespace ASI.Basecode.WebApp.Controllers
         public async Task<IActionResult> Index(int? page, CancellationToken cancellationToken) =>
             View(_eventStateOverlay.Apply(await _eventService.GetPageAsync(page, cancellationToken)));
 
+        /// <summary>
+        /// Officer event dossier. The real event header is loaded now; the roster slot stays empty
+        /// until the dossier surface ticket fills it.
+        /// </summary>
+        [HttpGet]
+        [Route("Event/{id:int}")]
+        public async Task<IActionResult> Details(int id, CancellationToken cancellationToken)
+        {
+            var model = await _eventService.GetEventAsync(id, cancellationToken);
+            if (model == null)
+            {
+                return HandleDomainException(
+                    new DomainException(OutcomeCode.NotFound, "Event not found."),
+                    model: null,
+                    redirectAction: nameof(Index));
+            }
+
+            return View(EventDossierViewModel.FromEvent(_eventStateOverlay.Apply(model)));
+        }
+
         [HttpGet]
         public async Task<IActionResult> Cover(int id, CancellationToken cancellationToken)
         {

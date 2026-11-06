@@ -1,0 +1,77 @@
+@model EventDossierViewModel
+@{
+    ViewData["Title"] = Model.Title;
+}
+
+<div class="page-heading">
+    <div>
+        <h1>@Model.Title</h1>
+        <p class="muted">@Model.TypeName · @Model.VenueName</p>
+    </div>
+    <a asp-action="Index" class="button button-secondary">Back to events</a>
+</div>
+
+<section class="panel" aria-labelledby="event-dossier-heading">
+    <h2 id="event-dossier-heading">Event details</h2>
+
+    <dl class="profile-details event-details">
+        <div>
+            <dt>Starts</dt>
+            <dd>@ManilaTimeFormatter.Format(Model.StartsAt)</dd>
+        </div>
+        <div>
+            <dt>Signup deadline</dt>
+            <dd>@ManilaTimeFormatter.Format(Model.RegistrationDeadline)</dd>
+        </div>
+        <div>
+            <dt>Venue</dt>
+            <dd>@Model.VenueName</dd>
+        </div>
+        <div>
+            <dt>Event type</dt>
+            <dd>@Model.TypeName</dd>
+        </div>
+        <div>
+            <dt>Participant limit</dt>
+            <dd class="numeric">@Model.ParticipantLimit</dd>
+        </div>
+        <div>
+            <dt>Status</dt>
+            <dd>@Model.StatusLabel</dd>
+        </div>
+    </dl>
+
+    @if (!string.IsNullOrWhiteSpace(Model.Description))
+    {
+        <section aria-labelledby="event-dossier-description-heading">
+            <h3 id="event-dossier-description-heading">About this event</h3>
+            <p>@Model.Description</p>
+        </section>
+    }
+</section>
+
+<section class="panel dossier-roster" aria-labelledby="event-roster-heading">
+    <h2 id="event-roster-heading">Registrations</h2>
+
+    <div class="table-scroll" role="region" aria-label="Event registrations" tabindex="0">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th scope="col">Participant</th>
+                    <th scope="col">Student number</th>
+                    <th scope="col">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in Model.Roster)
+                {
+                    <tr data-registration-id="@row.RegistrationId">
+                        <td>@row.MemberName</td>
+                        <td class="numeric">@row.StudentNumber</td>
+                        <td><span class="badge @row.StatusBadgeClass">@row.StatusLabel</span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>

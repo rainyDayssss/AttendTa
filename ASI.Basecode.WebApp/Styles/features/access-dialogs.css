@@ -1,0 +1,4 @@
+/* Account and membership access dialogs. */
+@layer components {
+  .access-dialog { width: min(100% - 2rem, 32rem); }
+}

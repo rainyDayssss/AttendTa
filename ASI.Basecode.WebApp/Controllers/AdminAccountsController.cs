@@ -49,6 +49,10 @@ namespace ASI.Basecode.WebApp.Controllers
         }
 
         [HttpGet]
+        [Route("admin/accounts/{id:int}/access")]
+        public IActionResult Access(int id) => PartialView("_AccessDialog", AccountAccessViewModel.Empty(id));
+
+        [HttpGet]
         [Route("admin/accounts/{id:int}/role")]
         public async Task<IActionResult> ChangeRole(int id)
         {

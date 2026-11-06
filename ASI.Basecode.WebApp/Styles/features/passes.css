@@ -1,0 +1,6 @@
+/* Door pass card slot. */
+@layer components {
+  .pass-card { display: grid; gap: 1rem; padding: 1rem; border-top: 3px solid #d97706; background: #f8fafc; }
+  .pass-card-body p { margin: 0 0 .35rem; }
+  .pass-qr { width: 168px; height: 168px; object-fit: contain; background: white; }
+}

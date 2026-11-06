@@ -1,0 +1,6 @@
+/* Participation History host and My Registrations tab. */
+@layer components {
+  .registration-list { display: grid; gap: 1rem; }
+  .registration-card { display: flex; flex-direction: column; overflow: hidden; background: white; border: 1px solid #e2e8f0; border-radius: 10px; }
+  .registration-card-body { flex: 1; padding: 1rem; }
+}

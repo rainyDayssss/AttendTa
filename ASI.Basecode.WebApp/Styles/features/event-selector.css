@@ -1,0 +1,5 @@
+/* Shared labelled GET event selector. */
+@layer components {
+  .event-selector { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem; }
+  .event-selector .field { margin: 0; min-width: min(100%, 18rem); }
+}

@@ -1,0 +1,87 @@
+@model ParticipationReportViewModel
+@{
+    ViewData["Title"] = "Participation report";
+}
+
+<div class="page-heading">
+    <div>
+        <h1>Participation &amp; Attendance Report</h1>
+        <p class="muted">Per-event participation summary and breakdowns.</p>
+    </div>
+</div>
+
+<partial name="_EventSelector" model="Model.Selector" />
+
+<section class="report-summary" aria-label="Report summary">
+    @if (Model.EventId is not null)
+    {
+        <article class="panel">
+            <h2>Confirmed</h2>
+            <p class="numeric">@Model.ConfirmedCount</p>
+        </article>
+        <article class="panel">
+            <h2>Valid attendees</h2>
+            <p class="numeric">@Model.ValidAttendeeCount</p>
+        </article>
+        <article class="panel">
+            <h2>Attendance rate</h2>
+            <p class="numeric">@(Model.AttendanceRate is null ? "N/A" : Model.AttendanceRate.Value.ToString("P0"))</p>
+        </article>
+        <article class="panel">
+            <h2>No-shows</h2>
+            <p class="numeric">@Model.NoShowCount</p>
+        </article>
+    }
+</section>
+
+<section class="panel" aria-labelledby="report-detail-heading">
+    <h2 id="report-detail-heading">Participants</h2>
+    <div class="table-scroll" role="region" aria-label="Participant details" tabindex="0">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th scope="col">Member</th>
+                    <th scope="col">Student number</th>
+                    <th scope="col">Course</th>
+                    <th scope="col">Year</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Attended</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in Model.Rows)
+                {
+                    <tr data-registration-id="@row.RegistrationId">
+                        <td>@row.MemberName</td>
+                        <td class="numeric">@row.StudentNumber</td>
+                        <td>@row.Course</td>
+                        <td class="numeric">@row.YearLevel</td>
+                        <td>@row.StatusLabel</td>
+                        <td>@(row.Attended ? "Yes" : "No")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="report-breakdowns" aria-label="Attendance breakdowns">
+    <article class="panel">
+        <h2>By course</h2>
+        <ul class="report-breakdown">
+            @foreach (var item in Model.CourseBreakdown)
+            {
+                <li><span>@item.Label</span><span class="numeric">@item.Count</span></li>
+            }
+        </ul>
+    </article>
+    <article class="panel">
+        <h2>By year level</h2>
+        <ul class="report-breakdown">
+            @foreach (var item in Model.YearBreakdown)
+            {
+                <li><span>@item.Label</span><span class="numeric">@item.Count</span></li>
+            }
+        </ul>
+    </article>
+</section>
