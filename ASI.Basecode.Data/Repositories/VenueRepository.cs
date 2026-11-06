@@ -27,21 +27,31 @@ namespace ASI.Basecode.Data.Repositories
                 .ToListAsync(cancellationToken);
         }
 
-        public Task<int> CountAsync(CancellationToken cancellationToken = default) =>
-            GetDbSet<Venue>().AsNoTracking().CountAsync(cancellationToken);
+        public Task<int> CountAsync(string status, CancellationToken cancellationToken = default) =>
+            FilterVenues(status).CountAsync(cancellationToken);
 
-        public async Task<IReadOnlyList<Venue>> GetPageAsync(int skip, int take, CancellationToken cancellationToken = default)
+        public async Task<IReadOnlyList<Venue>> GetPageAsync(string status, int skip, int take, CancellationToken cancellationToken = default)
         {
             if (skip < 0) throw new ArgumentOutOfRangeException(nameof(skip));
             if (take <= 0) throw new ArgumentOutOfRangeException(nameof(take));
 
-            return await GetDbSet<Venue>()
-                .AsNoTracking()
+            return await FilterVenues(status)
                 .OrderBy(venue => venue.RoomName)
                 .ThenBy(venue => venue.VenueId)
                 .Skip(skip)
                 .Take(take)
                 .ToListAsync(cancellationToken);
+        }
+
+        private IQueryable<Venue> FilterVenues(string status)
+        {
+            var query = GetDbSet<Venue>().AsNoTracking();
+            return status switch
+            {
+                "active" => query.Where(venue => venue.IsActive),
+                "inactive" => query.Where(venue => !venue.IsActive),
+                _ => query
+            };
         }
 
         public Venue GetVenue(int venueId)

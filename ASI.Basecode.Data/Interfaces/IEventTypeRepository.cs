@@ -8,8 +8,8 @@ namespace ASI.Basecode.Data.Interfaces
     public interface IEventTypeRepository
     {
         Task<IReadOnlyList<EventType>> GetActiveEventTypesAsync(CancellationToken cancellationToken = default);
-        Task<int> CountEventTypesAsync(CancellationToken cancellationToken = default);
-        Task<IReadOnlyList<EventType>> GetEventTypesPageAsync(int offset, int pageSize, CancellationToken cancellationToken = default);
+        Task<int> CountEventTypesAsync(string status, CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<EventType>> GetEventTypesPageAsync(string status, int offset, int pageSize, CancellationToken cancellationToken = default);
         EventType GetEventType(int typeId);
         Task<EventType> LockEventTypeAsync(int typeId, CancellationToken cancellationToken = default);
         Task<int> CountLinkedEventsAsync(int typeId, CancellationToken cancellationToken = default);

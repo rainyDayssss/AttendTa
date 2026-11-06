@@ -9,8 +9,8 @@ hitl: false
 risk: high
 tracker_id: "18"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/18"
-tracker_status: backlog
-assignee: "LucielCienAmir"
+tracker_status: done
+assignee: "rainyDayssss,wigglebop25"
 ---
 
 # Management Account Request approval and rejection in caller transaction with audit

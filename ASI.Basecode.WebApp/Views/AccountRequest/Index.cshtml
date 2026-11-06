@@ -1,32 +1,89 @@
-@model PagedResult<AccountRequestQueueItemViewModel>
+@model AccountRequestQueueViewModel
 @using System
+@using System.Linq
 @{
     ViewData["Title"] = "Account requests";
-    var selectedStatus = ViewBag.Status as string ?? "pending";
+    var filters = new[]
+    {
+        (Key: "all", Label: "All", Count: Model.AllCount),
+        (Key: "pending", Label: "Pending", Count: Model.PendingCount),
+        (Key: "approved", Label: "Approved", Count: Model.ApprovedCount),
+        (Key: "rejected", Label: "Rejected", Count: Model.RejectedCount)
+    };
+    var emptyLabel = Model.Status == "all" ? "account requests" : $"{Model.Status} account requests";
+    var decisionError = ViewBag.DecisionError as string;
+    var decisionRequestId = ViewBag.DecisionRequestId as int?;
+    var decisionReason = ViewBag.DecisionReason as string;
+    var isRejection = ViewBag.IsRejection is true;
+    var reopenInDialog = isRejection && decisionRequestId is not null && Model.Items.Any(item => item.RequestId == decisionRequestId);
+    var reasonHintId = reopenInDialog ? $"reason-error-{decisionRequestId}" : "reject-reason-hint";
+    var query = Context.Request.QueryString.ToString();
+
+    string BadgeClass(string status) => status switch
+    {
+        "Approved" => "badge badge-approved",
+        "Rejected" => "badge badge-rejected",
+        _ => "badge badge-pending"
+    };
 }
 
 <div class="page-heading">
-    <h2>Account Request Queue</h2>
-    <span class="muted">Review submitted account requests by status.</span>
+    <div>
+        <h1>Membership Account Requests</h1>
+        <p class="muted">Review submitted account requests and record a decision.</p>
+    </div>
 </div>
 
-<form asp-action="Index" method="get" class="spacing-bottom">
-    <div class="search-group">
-        <div class="field">
-            <label for="status">Request status</label>
-            <select id="status" name="status" class="field-control">
-                <option value="pending" selected="@(selectedStatus == "pending")">Pending</option>
-                <option value="approved" selected="@(selectedStatus == "approved")">Approved</option>
-                <option value="rejected" selected="@(selectedStatus == "rejected")">Rejected</option>
-            </select>
-        </div>
-        <button type="submit" class="button button-secondary">Filter</button>
+@if (decisionError != null && !reopenInDialog)
+{
+    <div class="notice notice-error" role="alert">
+        @decisionError <a href="@(Url.Action("Index") + query)">Refresh the queue</a>.
     </div>
+    @if (isRejection && !Model.Items.Any(item => item.RequestId == decisionRequestId))
+    {
+        <div class="field">
+            <label for="saved-rejection-reason">Your entered rejection reason (copy it before refreshing)</label>
+            <textarea id="saved-rejection-reason" class="field-control" rows="2" readonly>@decisionReason</textarea>
+        </div>
+    }
+}
+
+<form asp-action="Index" method="get" class="search-group spacing-bottom" role="search">
+    <input type="hidden" name="status" value="@Model.Status" />
+    <input type="hidden" name="sort" value="@Model.Sort" />
+    <input id="request-search"
+           name="search"
+           value="@Model.Search"
+           type="search"
+           placeholder="Search name, email, or student number"
+           aria-label="Search account requests" />
+    <button type="submit" class="button button-secondary">Search</button>
+    @if (!string.IsNullOrWhiteSpace(Model.Search))
+    {
+        <a class="button button-secondary" asp-action="Index" asp-route-status="@Model.Status" asp-route-sort="@Model.Sort">Clear</a>
+    }
 </form>
+
+<nav class="filter-tabs" aria-label="Request status">
+    @foreach (var filter in filters)
+    {
+        <a class="filter-tab"
+           asp-action="Index"
+           asp-route-status="@filter.Key"
+           asp-route-search="@Model.Search"
+           asp-route-sort="@Model.Sort"
+           aria-current="@(Model.Status == filter.Key ? "page" : null)">
+            @filter.Label
+            <span class="filter-tab-count">@filter.Count</span>
+        </a>
+    }
+</nav>
 
 @if (Model.Items.Count == 0)
 {
-    <p class="empty-state">No @selectedStatus account requests found.</p>
+    <div class="panel">
+        <p class="empty-state">No @emptyLabel found.</p>
+    </div>
 }
 else
 {
@@ -34,7 +91,15 @@ else
         <table class="data-table">
             <thead>
                 <tr>
-                    <th scope="col">Requested</th>
+                    <th scope="col">
+                        <a asp-action="Index"
+                           asp-route-status="@Model.Status"
+                           asp-route-search="@Model.Search"
+                           asp-route-sort="@Model.NextSort"
+                           aria-label="Sort by requested time, currently @(Model.Sort == "oldest" ? "oldest first" : "newest first")">
+                            Requested @(Model.Sort == "oldest" ? "↑" : "↓")
+                        </a>
+                    </th>
                     <th scope="col">Student Number</th>
                     <th scope="col">Full Name</th>
                     <th scope="col">Email</th>
@@ -43,21 +108,47 @@ else
                     <th scope="col">Section</th>
                     <th scope="col">Mobile</th>
                     <th scope="col">Status</th>
+                    <th scope="col" class="actions">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var request in Model.Items)
                 {
                     <tr data-request-id="@request.RequestId">
-                        <td><time datetime="@(DateTime.SpecifyKind(request.RequestedAt, DateTimeKind.Utc).ToString("O"))" aria-label="Requested at in Asia/Manila">@ManilaTimeFormatter.Format(request.RequestedAt)</time></td>
-                        <td>@request.StudentNumber</td>
+                        <td class="numeric"><time datetime="@(DateTime.SpecifyKind(request.RequestedAt, DateTimeKind.Utc).ToString("O"))" aria-label="Requested at in Asia/Manila">@ManilaTimeFormatter.Format(request.RequestedAt)</time></td>
+                        <td class="numeric">@request.StudentNumber</td>
                         <td>@request.FullName</td>
                         <td>@request.Email</td>
                         <td>@request.Course</td>
-                        <td>@request.YearLevel</td>
+                        <td class="numeric">@request.YearLevel</td>
                         <td>@request.Section</td>
-                        <td>@request.MobileNumber</td>
-                        <td>@request.Status</td>
+                        <td class="numeric">@request.MobileNumber</td>
+                        <td><span class="@BadgeClass(request.Status)">@request.Status</span></td>
+                        <td class="actions">
+                            @if (request.Status == "Pending")
+                            {
+                                <div class="row-actions">
+                                    <button type="button"
+                                            class="button button-small button-primary"
+                                            data-dialog-open="approve-dialog"
+                                            data-dialog-value-id="@request.RequestId"
+                                            data-dialog-value-summary="Approve @request.FullName (@request.StudentNumber)?">
+                                        Approve
+                                    </button>
+                                    <button type="button"
+                                            class="button button-small button-secondary"
+                                            data-dialog-open="reject-dialog"
+                                            data-dialog-value-id="@request.RequestId"
+                                            data-dialog-value-summary="Decline the request from @request.FullName (@request.StudentNumber)?">
+                                        Decline
+                                    </button>
+                                </div>
+                            }
+                            else
+                            {
+                                <span class="muted">Reviewed</span>
+                            }
+                        </td>
                     </tr>
                 }
             </tbody>
@@ -66,3 +157,66 @@ else
 
     <partial name="_Pager" model="Model" />
 }
+
+<p class="muted result-count" aria-live="polite">
+    @if (Model.TotalCount == 0)
+    {
+        <span>No requests match this filter.</span>
+    }
+    else
+    {
+        <span>Showing @Model.FirstItemNumber–@Model.LastItemNumber of @Model.TotalCount @(Model.TotalCount == 1 ? "request" : "requests").</span>
+    }
+</p>
+
+<dialog id="reject-dialog"
+        class="task-dialog"
+        aria-labelledby="reject-dialog-title"
+        data-reopen="@(reopenInDialog ? "true" : null)"
+        data-reopen-id="@decisionRequestId"
+        data-reopen-reason="@decisionReason">
+    <form asp-controller="AccountRequest" asp-action="Reject" asp-route-status="@Model.Status" asp-route-search="@Model.Search" asp-route-sort="@Model.Sort" method="post">
+        <input type="hidden" name="id" data-dialog-field="id" />
+        <div class="dialog-header">
+            <h2 id="reject-dialog-title">Decline account request</h2>
+            <button type="button" class="dialog-close" data-dialog-close aria-label="Close dialog">&times;</button>
+        </div>
+        <p class="muted" data-dialog-field="summary"></p>
+        <div class="field">
+            <label for="reject-reason">Reason for declining</label>
+            <textarea id="reject-reason"
+                      name="reason"
+                      rows="4"
+                      maxlength="500"
+                      required
+                      class="field-control"
+                      aria-describedby="@reasonHintId"
+                      aria-invalid="@(reopenInDialog ? "true" : null)"></textarea>
+            <span id="reject-reason-hint" class="field-hint">Required. The applicant is not shown this reason.</span>
+            @if (reopenInDialog)
+            {
+                <span id="reason-error-@decisionRequestId" class="field-error" role="alert">@decisionError</span>
+            }
+        </div>
+        <div class="dialog-actions">
+            <button type="button" class="button button-secondary" data-dialog-close>Cancel</button>
+            <button type="submit" class="button button-danger" data-submitting-label="Declining&hellip;">Decline request</button>
+        </div>
+    </form>
+</dialog>
+
+<dialog id="approve-dialog" class="task-dialog" aria-labelledby="approve-dialog-title">
+    <form asp-controller="AccountRequest" asp-action="Approve" asp-route-status="@Model.Status" asp-route-search="@Model.Search" asp-route-sort="@Model.Sort" method="post">
+        <input type="hidden" name="id" data-dialog-field="id" />
+        <div class="dialog-header">
+            <h2 id="approve-dialog-title">Approve account request</h2>
+            <button type="button" class="dialog-close" data-dialog-close aria-label="Close dialog">&times;</button>
+        </div>
+        <p class="muted" data-dialog-field="summary"></p>
+        <p class="dialog-consequence">This creates an active member account and lets the applicant sign in with the password they chose. It cannot be undone from this screen.</p>
+        <div class="dialog-actions">
+            <button type="button" class="button button-secondary" data-dialog-close>Cancel</button>
+            <button type="submit" class="button button-primary" data-submitting-label="Approving&hellip;">Approve request</button>
+        </div>
+    </form>
+</dialog>

@@ -9,4 +9,6 @@ public interface IPagedResult
     int TotalPages { get; }
     bool HasPreviousPage { get; }
     bool HasNextPage { get; }
+    int FirstItemNumber { get; }
+    int LastItemNumber { get; }
 }

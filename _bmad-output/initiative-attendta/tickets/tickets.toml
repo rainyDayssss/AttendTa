@@ -1,4 +1,6 @@
-# AttendTa epics in build order. Owners follow prd addendum C; see each epic file's Notes.
+# AttendTa capability epics; stable ids and historical delivery are preserved.
+# 2026-11-06: the five-builder shared queue in delivery-queue.md overrides fixed human assignments.
+# Each open entry's phase/area/queue metadata orders work across capabilities; after holds prerequisites only.
 # Shared requirements: R33 (audit) — e1 builds the writer and append-only enforcement, every other epic logs its own actions, e5 adds the viewer.
 # R36 (pager) — e1 builds the helper and pages the request queue; every epic pages its own lists.
 # R13 — e3 completes the Event and closes Check-in; e6 creates Certificate Reviews in that transaction.
@@ -36,7 +38,7 @@ slug = "epic-check-in"
 title = "Confirmed members get a QR Pass and officers record attendance"
 description = "A confirmed Member downloads a QR Pass PNG; Management opens Check-in, scans (laptop camera on localhost) or looks up participants, records exactly one Attendance Record per Registration, and invalidates mistakes; Members see their attendance."
 covers = ["R20", "R21", "R22", "R23", "R24", "R25", "R26", "R33", "R36"]
-after = [{ epic = 3, needs = "Confirmed Registrations carrying QR tokens, the Event check-in flag and the My Events page" }]
+after = [{ epic = 1, needs = "the shared frontend shell, prototype isolation and route/data-source contracts from 1.13" }, { epic = 3, needs = "Confirmed Registrations carrying QR tokens, the Event check-in flag, and My Events host/partial contracts from 3.17, with real queries from 3.13 for integration" }]
 
 [[epic]]
 id = 5

@@ -6,8 +6,6 @@ namespace ASI.Basecode.Services.ServiceModels
     {
         public int MemberId { get; set; }
 
-        public int UserId { get; set; }
-
         [Required(ErrorMessage = "Full name is required.")]
         [StringLength(255, ErrorMessage = "Full name cannot exceed 255 characters.")]
         public string FullName { get; set; }

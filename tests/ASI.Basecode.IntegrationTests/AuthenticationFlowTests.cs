@@ -472,14 +472,15 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
     }
 
     [Theory]
-    [InlineData("/Member", "No members found.")]
-    [InlineData("/Member?search=%20%20", "No members found.")]
+    [InlineData("/Member", "No members yet. Members are created when an account request is approved.")]
+    [InlineData("/Member?search=%20%20", "No members yet. Members are created when an account request is approved.")]
     [InlineData("/Member?search=unmatched", "No members match your search.")]
     public async Task EmptyMemberDirectoryExplainsSearchState(string path, string message)
     {
         await SignInAsync(AdminEmail, Password);
         var html = await client.GetStringAsync(path, TestContext.Current.CancellationToken);
         Assert.Contains(message, html, StringComparison.Ordinal);
+        Assert.Contains("data-table", html, StringComparison.Ordinal);
     }
 
     private static void AssertErrorAssociation(string html, string field)
@@ -615,13 +616,15 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
     private static void AssertReadOnlyProfile(string html)
     {
         Assert.Contains("<dl class=\"profile-details\">", html, StringComparison.Ordinal);
-        var profileMarkupStart = html.IndexOf("<section class=\"panel\"", StringComparison.Ordinal);
-        var profileMarkupEnd = html.IndexOf("</section>", profileMarkupStart, StringComparison.Ordinal);
-        Assert.True(profileMarkupStart >= 0 && profileMarkupEnd > profileMarkupStart, "Profile details section was not rendered.");
-        var profileMarkup = html[profileMarkupStart..(profileMarkupEnd + "</section>".Length)];
-        Assert.False(Regex.IsMatch(profileMarkup, "<(input|select|textarea)\\b", RegexOptions.IgnoreCase));
-        Assert.DoesNotContain("Save", profileMarkup, StringComparison.Ordinal);
-        Assert.DoesNotContain("Edit profile", profileMarkup, StringComparison.Ordinal);
+        var sections = Regex.Matches(html, "<section class=\"panel\".*?</section>", RegexOptions.Singleline);
+        Assert.True(sections.Count > 0, "Profile details section was not rendered.");
+        foreach (Match section in sections)
+        {
+            var profileMarkup = section.Value;
+            Assert.False(Regex.IsMatch(profileMarkup, "<(input|select|textarea)\\b", RegexOptions.IgnoreCase));
+            Assert.DoesNotContain("Save", profileMarkup, StringComparison.Ordinal);
+            Assert.DoesNotContain("Edit profile", profileMarkup, StringComparison.Ordinal);
+        }
     }
 
     private static string? GetLocationPath(HttpResponseMessage response)

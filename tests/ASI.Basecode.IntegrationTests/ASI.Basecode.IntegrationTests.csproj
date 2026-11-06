@@ -26,6 +26,7 @@
     <Content Include="..\..\database\seed-event-types.sql" Link="database\seed-event-types.sql" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\database\migrate-venue-image-paths.sql" Link="database\migrate-venue-image-paths.sql" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\database\provision-demo-runtime.sql" Link="database\provision-demo-runtime.sql" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\docs\demo-host-readiness-evidence.md" Link="docs\demo-host-readiness-evidence.md" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\_bmad-output\initiative-attendta\ux-attendta\imports\prototype-assets\event-cyber.jpg" Link="TestAssets\venue-upload.jpg" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

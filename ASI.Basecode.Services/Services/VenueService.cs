@@ -37,12 +37,13 @@ namespace ASI.Basecode.Services.Services
             _logger = logger;
         }
 
-        public async Task<PagedResult<VenueViewModel>> GetPageAsync(int? pageNumber, CancellationToken cancellationToken = default)
+        public async Task<PagedResult<VenueViewModel>> GetPageAsync(string status, int? pageNumber, CancellationToken cancellationToken = default)
         {
-            var totalCount = await _repository.CountAsync(cancellationToken);
+            var totalCount = await _repository.CountAsync(status, cancellationToken);
             var pageRequest = new PageRequest(pageNumber);
             var normalizedPage = pageRequest.NormalizePageNumber(totalCount);
             var venues = await _repository.GetPageAsync(
+                status,
                 pageRequest.GetOffset(normalizedPage),
                 PageRequest.FixedPageSize,
                 cancellationToken);

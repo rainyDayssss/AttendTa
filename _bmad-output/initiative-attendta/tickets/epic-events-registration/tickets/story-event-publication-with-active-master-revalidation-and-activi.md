@@ -9,7 +9,8 @@ hitl: false
 risk: medium
 tracker_id: "31"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/31"
-tracker_status: backlog
+tracker_status: done
+assignee: "rainyDayssss"
 ---
 
 # Event publication with active master revalidation and activity audit

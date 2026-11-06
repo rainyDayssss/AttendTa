@@ -68,7 +68,7 @@ public sealed class VenueToggleAuditTests : IClassFixture<SqlServerDatabaseFixtu
         var pageTwo = await officerClient.GetStringAsync("/Venue?page=2", ct);
         Assert.Contains("Page 2 of 2", pageTwo, StringComparison.Ordinal);
         var targetRow = Row(pageTwo, venueId);
-        Assert.Contains("<td>Active</td>", targetRow, StringComparison.Ordinal);
+        Assert.Contains("class=\"badge badge-active\">Active</span>", targetRow, StringComparison.Ordinal);
         Assert.Contains("Deactivate", targetRow, StringComparison.Ordinal);
         Assert.Contains("name=\"page\" value=\"2\"", targetRow, StringComparison.Ordinal);
 
@@ -78,7 +78,7 @@ public sealed class VenueToggleAuditTests : IClassFixture<SqlServerDatabaseFixtu
 
         var afterToggle = await officerClient.GetStringAsync("/Venue?page=2", ct);
         var inactiveRow = Row(afterToggle, venueId);
-        Assert.Contains("<td>Inactive</td>", inactiveRow, StringComparison.Ordinal);
+        Assert.Contains("class=\"badge badge-inactive\">Inactive</span>", inactiveRow, StringComparison.Ordinal);
         Assert.Contains("Activate", inactiveRow, StringComparison.Ordinal);
         Assert.DoesNotContain("Deactivate", inactiveRow, StringComparison.Ordinal);
 

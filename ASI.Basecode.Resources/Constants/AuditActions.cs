@@ -6,6 +6,12 @@ public static class AuditActions
     public const string AccountRequestRejected = "account_request.rejected";
     public const string EventUpdated = "event.updated";
     public const string EventPublished = "event.published";
+    public const string EventCancelled = "event.cancelled";
+    public const string RegistrationCancelled = "registration.cancelled";
+    public const string RegistrationApproved = "registration.approved";
+    public const string RegistrationPromoted = "registration.promoted";
+    public const string RegistrationDeclined = "registration.declined";
+    public const string RegistrationAdminCancelled = "registration.admin_cancelled";
     public const string EventTypeCreated = "event_type.created";
     public const string EventTypeEdited = "event_type.edited";
     public const string EventTypeStatusChanged = "event_type.status_changed";

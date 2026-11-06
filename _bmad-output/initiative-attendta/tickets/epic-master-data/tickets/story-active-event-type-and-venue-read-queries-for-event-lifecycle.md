@@ -9,7 +9,8 @@ hitl: false
 risk: low
 tracker_id: "24"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/24"
-tracker_status: backlog
+tracker_status: done
+assignee: "wigglebop25"
 ---
 
 # Active Event Type and Venue read queries for event lifecycle

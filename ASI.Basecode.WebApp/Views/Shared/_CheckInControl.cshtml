@@ -1,0 +1,21 @@
+@model CheckInControlViewModel
+@{
+    var stateLabel = Model.IsCheckInOpen ? "Check-in open" : "Check-in closed";
+    var stateBadge = Model.IsCheckInOpen ? "badge-checkin-open" : "badge-checkin-closed";
+    var action = Model.IsCheckInOpen ? "CloseCheckIn" : "OpenCheckIn";
+    var actionLabel = Model.IsCheckInOpen ? "Close check-in for this event" : "Open check-in for this event";
+    var actionText = Model.IsCheckInOpen ? "Close check-in" : "Open check-in";
+}
+
+@if (Model.CanChange)
+{
+    <form asp-controller="Event" asp-action="@action" method="post" class="check-in-control">
+        <input type="hidden" name="id" value="@Model.EventId" />
+        <span class="badge @stateBadge">@stateLabel</span>
+        <button type="submit" class="button button-secondary button-small" aria-label="@actionLabel">@actionText</button>
+    </form>
+}
+else
+{
+    <span class="badge @stateBadge">@stateLabel</span>
+}

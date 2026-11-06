@@ -49,15 +49,15 @@ namespace ASI.Basecode.Data.Repositories
             return this.GetMemberRecords().FirstOrDefault(member => member.MemberId == memberId);
         }
 
-        public Task<int> CountAsync(string search, CancellationToken cancellationToken = default) =>
-            FilterMembers(search).CountAsync(cancellationToken);
+        public Task<int> CountAsync(string search, string status, CancellationToken cancellationToken = default) =>
+            FilterMembers(search, status).CountAsync(cancellationToken);
 
-        public async Task<IReadOnlyList<MemberRecord>> GetPageAsync(string search, int skip, int take, CancellationToken cancellationToken = default)
+        public async Task<IReadOnlyList<MemberRecord>> GetPageAsync(string search, string status, int skip, int take, CancellationToken cancellationToken = default)
         {
             if (skip < 0) throw new ArgumentOutOfRangeException(nameof(skip));
             if (take <= 0) throw new ArgumentOutOfRangeException(nameof(take));
 
-            return await FilterMembers(search)
+            return await FilterMembers(search, status)
                 .OrderBy(member => member.FullName)
                 .ThenBy(member => member.MemberId)
                 .Skip(skip)
@@ -65,18 +65,33 @@ namespace ASI.Basecode.Data.Repositories
                 .ToListAsync(cancellationToken);
         }
 
-        private IQueryable<MemberRecord> FilterMembers(string search)
+        private IQueryable<MemberRecord> FilterMembers(string search, string status)
         {
             var query = GetMemberRecords();
-            return string.IsNullOrWhiteSpace(search)
-                ? query
-                : query.Where(member => member.FullName.Contains(search) || member.Email.Contains(search) || member.StudentNumber.Contains(search));
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                query = query.Where(member => member.FullName.Contains(search) || member.Email.Contains(search) || member.StudentNumber.Contains(search));
+            }
+
+            return status switch
+            {
+                "active" => query.Where(member => member.Status == "active"),
+                "inactive" => query.Where(member => member.Status == "inactive"),
+                _ => query
+            };
         }
 
         public Task<MemberRecord> GetMemberRecordByUserIdAsync(int userId, CancellationToken cancellationToken = default)
         {
             return this.GetMemberRecords()
                 .FirstOrDefaultAsync(member => member.UserId == userId, cancellationToken);
+        }
+
+        public Task<Member> GetMemberByUserIdAsync(int userId, CancellationToken cancellationToken = default)
+        {
+            return this.GetDbSet<Member>()
+                .AsNoTracking()
+                .SingleOrDefaultAsync(member => member.UserId == userId, cancellationToken);
         }
 
         public Member GetMember(int memberId)

@@ -9,7 +9,8 @@ hitl: false
 risk: medium
 tracker_id: "54"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/54"
-tracker_status: backlog
+tracker_status: done
+assignee: "Wynnwrath"
 ---
 
 # Upcoming registration impact preview for deactivation

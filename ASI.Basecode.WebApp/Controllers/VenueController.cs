@@ -37,8 +37,8 @@ namespace ASI.Basecode.WebApp.Controllers
         [HttpGet]
         [Route("Venue", Name = VenueIndexRoute)]
         [Route("Venue/Index")]
-        public async Task<IActionResult> Index(int? page, CancellationToken cancellationToken) =>
-            View(await _venueService.GetPageAsync(page, cancellationToken));
+        public async Task<IActionResult> Index(string status, int? page, CancellationToken cancellationToken) =>
+            View(await _venueService.GetPageAsync(status, page, cancellationToken));
 
         [HttpGet]
         public async Task<IActionResult> Photo(int id, CancellationToken cancellationToken)
@@ -70,7 +70,7 @@ namespace ASI.Basecode.WebApp.Controllers
                 TempData["SuccessMessage"] = "Venue added successfully.";
                 return RedirectToAction("Index");
             }
-            catch (DomainException ex) { ReportError(ex); return View(model); }
+            catch (DomainException ex) { return HandleDomainException(ex, model); }
         }
 
         [HttpGet]
@@ -91,7 +91,7 @@ namespace ASI.Basecode.WebApp.Controllers
                 TempData["SuccessMessage"] = "Venue updated successfully.";
                 return RedirectToAction("Index");
             }
-            catch (DomainException ex) { ReportError(ex); return View(model); }
+            catch (DomainException ex) { return HandleDomainException(ex, model); }
         }
 
         [HttpPost]
@@ -104,12 +104,6 @@ namespace ASI.Basecode.WebApp.Controllers
             }
             catch (DomainException ex) { TempData["ErrorMessage"] = ex.Message; }
             return page is > 0 ? RedirectToRoute(VenueIndexRoute, new { page }) : RedirectToRoute(VenueIndexRoute);
-        }
-
-        private void ReportError(DomainException ex)
-        {
-            if (ex.Field != null) ModelState.AddModelError(ex.Field, ex.Message);
-            else TempData["ErrorMessage"] = ex.Message;
         }
     }
 }

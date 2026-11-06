@@ -9,7 +9,8 @@ hitl: false
 risk: low
 tracker_id: "39"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/39"
-tracker_status: backlog
+tracker_status: done
+assignee: "FivePesos"
 ---
 
 # Event start cutoff enforcement and Not confirmed before cutoff status

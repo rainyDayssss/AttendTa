@@ -9,7 +9,8 @@ hitl: false
 risk: low
 tracker_id: "30"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/30"
-tracker_status: backlog
+tracker_status: done
+assignee: "rainyDayssss"
 ---
 
 # Event Cover upload, replacement, and draft removal via shared storage

@@ -33,15 +33,52 @@ risk = "medium"
 unknown = "Who is the authorized signatory (name, title, and signature image) for official certificate issuance?"
 
 [[entry]]
+id = 12
+type = "story"
+title = "Frontend certificate ledger decision dialogs and document viewer"
+description = "Build DESIGN screens 16–17 with the existing fixed template, renderer and configured signatory: completed-event selector, Eligibility Review and Issued Registry tabs, approve, decline and issue dialogs with reason and consequence, and a quiet PDF view and download surface. Until 6.4–6.8 exist, the reviews created when an event is completed, the decisions and the issuance run on demo data (M-10a, M-10b, M-11a, M-11b): the PDF is rendered in memory through the real snapshot render (never the watermarked sample render) with a certificate number from the demo store, and nothing is retained. No bulk issuance; success shows only after the command returns. Own certificate presentation and scoped assets, not the member-history partial. 6.13's member history reads its issued certificates from the same demo store; 6.4 and 6.6–6.8 later replace its review, decision and issuance sources. The completed-event selector is the shared event selector partial from 1.13."
+verify = "An Officer selects the seeded completed event, sees a review for each member checked in, approves one, declines one with a required reason, issues the approved one, sees that deciding an already-decided review or issuing an unapproved one is refused, and opens its landscape A4 PDF with the configured signatory; the registry lists it; nothing on screen or in the PDF says it is demo data; tabs and dialogs work on desktop and phone width."
+covers = ["R4", "R5", "R6", "R7", "R8"]
+after = ["1.13", "1.14", 2, 3]
+hitl = false
+risk = "medium"
+phase = "frontend"
+area = "frontend"
+queue = 50
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Demo phase (2026-11-06 demo rescope): frontend only. Use the real backend where a service method exists and demo data per `demo-mock-register.md` (rows M-10a, M-10b, M-11a, M-11b) where it does not; nothing on screen may show that data is demo data. Add or fill this ticket's register rows in the same pull request.", "Done check: `dotnet build`, `npm run css:build` when views or styles change, and one look at the changed screen with `DemoData__Enabled=true`. No new automated tests, no per-ticket Impeccable critique or polish and no separate code-review pass; the pull request keeps green existing CI and one peer approval. Critique, polish and the full Verify line run once in 8.15.", "Real review/issue/download acceptance remains in #64–#68; the signatory configured by #63/PR102 is reused, not a new blocker."]
+
+[[entry]]
+id = 13
+type = "story"
+title = "Frontend member certificate history and download-link states"
+description = "Fill the _CertificateLinkPartial slot that 1.13 placed in the My Events Certificates tab with the member's pending, eligible, declined, issued and unavailable states and an issued-only View/Download. Until 6.9 and 6.8 exist the list is demo data (M-12) from the same demo store 6.12 issues into, and View/Download streams the same in-memory render. Own only the certificate partial and its scoped assets, not the My Events controller, pass or attendance partial."
+verify = "A Member with the seeded issued certificate opens Certificates, views and downloads the PDF, sees review states without a download, and an empty state when there is none; keyboard, phone width and independent paging work; nothing on screen says the data is demo data."
+covers = ["R2", "R6"]
+after = ["1.13", "1.14"]
+hitl = false
+risk = "low"
+phase = "frontend"
+area = "frontend"
+queue = 90
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Demo phase (2026-11-06 demo rescope): frontend only. Use the real backend where a service method exists and demo data per `demo-mock-register.md` (rows M-12) where it does not; nothing on screen may show that data is demo data. Add or fill this ticket's register rows in the same pull request.", "Done check: `dotnet build`, `npm run css:build` when views or styles change, and one look at the changed screen with `DemoData__Enabled=true`. No new automated tests, no per-ticket Impeccable critique or polish and no separate code-review pass; the pull request keeps green existing CI and one peer approval. Critique, polish and the full Verify line run once in 8.15."]
+
+[[entry]]
 id = 4
 type = "story"
 title = "Create certificate reviews in event completion transaction"
 description = "Implements IEventCompletionHandler, which epic-events-registration's completion transaction (3.12) declares and calls inside its own transaction, inserting through CertificateRepository a pending_approval certificate review for each Registration with Valid Attendance (ParticipationFacts, AD-5) under the event lock completion already holds, with created_by set to the completing officer and no file or PDF work, delivering R1."
 verify = "Completing an event creates pending_approval review rows for every Registration with Valid Attendance and none for absent or invalidated attendance, all in the completion's database transaction, and a completion that fails rolls back every review."
 covers = ["R1"]
-after = ["1.2", "1.3", "3.12", "4.3"]
+after = ["1.2", "1.3", "3.12"]
 hitl = false
 risk = "medium"
+phase = "integration"
+area = "backend"
+queue = 290
+notes = ["Use the mapped attendance table and canonical Valid Attendance fact; implementation can start once the completion hook exists without waiting for scanner UI or the recording engine. Final integration 8.11 still requires real attendance end to end.", "Removes demo data M-10a (2026-11-06 demo rescope): implement the real source behind the contract the demo provider serves, delete the provider classes and their registration, and set the rows to `removed` with the commit in `demo-mock-register.md`. The screen should not change visibly. No per-ticket Impeccable critique or polish; 8.12 covers it."]
+references = ["_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
 
 [[entry]]
 id = 5
@@ -53,28 +90,43 @@ covers = ["R3"]
 after = [4, "4.6"]
 hitl = false
 risk = "high"
+phase = "integration"
+area = "backend"
+queue = 340
+references = ["_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["No register row of its own (2026-11-06 review): it replaces the 1.14 store's invalidation-to-review rule and must be in place before 6.7 removes M-11a."]
 
 [[entry]]
 id = 6
 type = "story"
 title = "Management certificate review queue and approval decisions"
 description = "Implements the 25-row paged review queue on the shared PageRequest and _Pager (AD-13), and the approve and decline decisions: each discovers its candidate, locks the owner's users row and then the event, rechecks pending_approval status and Valid Attendance through ParticipationFacts, and refuses as Stale a candidate that changed; decline displays the SPEC §14.2 warning that the decision cannot be reopened in this release and requires a non-blank reason validated inside the transaction; each decision appends a certificate.approved or certificate.declined entry, delivering R8, R4 and R7."
-verify = "An Officer approves a pending review to mark it eligible and declines another with a required reason to make it not_eligible; both append Activity Log entries, a decline without a reason is refused, the queue shows 25 rows per page, and a decision on a review invalidated since it was listed is refused as Stale."
+verify = "An Officer approves a pending review to mark it eligible and declines another with a required reason to make it not_eligible; both append Activity Log entries, a decline without a reason is refused and the queue shows 25 rows per page. A focused fixture-backed guard check proves a changed/non-pending review is refused as Stale without mutation; the actual invalidation-versus-decision flow is verified after 6.5 at the finale."
 covers = ["R4", "R7", "R8"]
-after = [4, 5, "1.3", "1.6", "1.9"]
+after = [4, 5, 12, "1.3", "1.6", "1.9"]
 hitl = false
 risk = "medium"
+phase = "integration"
+area = "backend"
+queue = 350
+notes = ["Wire the 6.12 ledger contract with real read/decision sources, not a second screen. Review commands recheck Valid Attendance; 6.5 protects invalidation and must be present before issuance in 6.7.", "Removes demo data M-10b (2026-11-06 demo rescope): implement the real source behind the contract the demo provider serves, delete the provider classes and their registration, and set the rows to `removed` with the commit in `demo-mock-register.md`. The screen should not change visibly. No per-ticket Impeccable critique or polish; 8.12 covers it."]
+references = ["_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
 
 [[entry]]
 id = 7
 type = "story"
 title = "Transactional certificate issuance pipeline and audit"
-description = "Delivers the issuance use case for R5 and the paged issuance queue for R8 (AD-13) in this order: pre-checks and the existing issued state are read outside any lock; the fixed template renders to bytes with a unique certificate number (format decided by this story, Deferred); the bytes are saved to the temporary area and promoted to certificates/ through IPrivateFileStore, with server-generated names opened CreateNew; then one ExecuteInTransactionAsync locks the owner's users row, the event and the review through CertificateRepository.LockCertificateAsync(id), which this entry adds (AD-4 step 7), rechecks approval, Valid Attendance and Completed status, and sets certificate_number, the snapshots, issuer_name_snapshot, file_path (relative, certificates/…), issued_by and issued_at, appending a certificate.issued entry whose values exclude file_path; if the transaction fails the promoted file is deleted inline (no background cleanup, AD-16), and a repeat issuance is refused as Duplicate without touching the issued PDF. The SM-4 concurrency tests in tests/ASI.Basecode.IntegrationTests (AD-17) run parallel issuance and invalidation against real locks, with the renderer replaced by a test double that returns fixed valid PDF bytes, since the CI workflow from epic-platform-access (entry 10) has no Chromium, delivering R3 (the invalidation-versus-issuance race), R5 (issuance), R7 (the certificate.issued audit entry) and R8 (the issuance queue)."
-verify = "An Officer issues an eligible certificate from the paged queue, and the stored PDF is a relative certificates/ path whose bytes start with %PDF-, with unique certificate_number, issuer_name_snapshot and issued_at recorded; a repeat issuance is refused as Duplicate and leaves the stored file unchanged; SQL Server integration tests show parallel issuance yields exactly one issued certificate, and parallel invalidation and issuance each resolve to exactly one outcome (the invalidation is refused and the certificate is issued, or the certificate is not issued and the review is not_eligible)."
+description = "Wire 6.12's 25-row paged issuance queue/control to the real query and use case: pre-check issued state outside locks; render using the existing fixed template with a unique number; write/promote through IPrivateFileStore; then in one caller-owned transaction lock owner user, event and certificate, recheck approval, Valid Attendance and Completed status, and save certificate_number, retained snapshots, issuer_name_snapshot, relative file_path, issuer/time and certificate.issued audit. Rendering/file I/O stays outside locks. Failed commit deletes the new file; retry never replaces an issued PDF. Implement the invalidation guard from 6.5 before enabling issuance. Critical real-SQL race authoring is centralized in 8.5, execution in 8.4; use a PDF test double for lock tests and the installed Chromium for renderer checks."
+verify = "Focused development check: one eligible issuance persists the retained PDF and snapshots/audit, and a duplicate attempt leaves its bytes unchanged. Finale cases CERT-01/02 in finale-test-cases.md must prove exactly one issuance under concurrent requests and a safe invalidation-versus-issuance outcome before release."
 covers = ["R3", "R5", "R7", "R8"]
-after = [2, 6, "1.3", "1.6", "1.9", "2.2"]
+after = [2, 3, 5, 6, "1.3", "1.6", "1.9", "2.2"]
 hitl = false
 risk = "high"
+phase = "integration"
+area = "backend"
+queue = 360
+references = ["_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Removes demo data M-11a (2026-11-06 demo rescope): implement the real source behind the contract the demo provider serves, delete the provider classes and their registration, and set the rows to `removed` with the commit in `demo-mock-register.md`. The screen should not change visibly. No per-ticket Impeccable critique or polish; 8.12 covers it."]
 
 [[entry]]
 id = 8
@@ -83,28 +135,41 @@ title = "Authorized certificate streaming download endpoint"
 description = "Delivers R6 through a GET action that takes a certificate id and never a path, admits the owner (matching ActorUserId) or any caller with the Management policy, lets inactive memberships through, relies on the AD-8 session check that refuses inactive Accounts, and streams the file_path read through IPrivateFileStore.OpenReadAsync after a containment check as application/pdf."
 verify = "The owner and a Management user each download an issued certificate as application/pdf; an unauthenticated request and an inactive Account are sent to sign-in, a non-owner Member and an unknown id receive the identical not-found response, and no request can name a path."
 covers = ["R6"]
-after = [7]
+after = [7, 12]
 hitl = false
 risk = "medium"
+phase = "integration"
+area = "backend"
+queue = 370
+references = ["_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Removes demo data M-11b (2026-11-06 demo rescope): implement the real source behind the contract the demo provider serves, delete the provider classes and their registration, and set the rows to `removed` with the commit in `demo-mock-register.md`. The screen should not change visibly. No per-ticket Impeccable critique or polish; 8.12 covers it."]
 
 [[entry]]
 id = 9
 type = "story"
 title = "Member certificate download links in My Events"
-description = "Delivers R2 by adding the issued-certificate query and link fields to epic-events-registration's MyEventCardViewModel and rendering _CertificateLinkPartial inside its My Events card, filling the _CertificateLinkPartial host slot created by 3.13, so a Member sees a download link only for an issued certificate they own; the controller and card model stay with e3 (AD-14)."
+description = "Replace 6.13's demo certificate source with the real owner-scoped issued-certificate query and agreed link fields consumed by the existing _CertificateLinkPartial. Preserve the 3.17/3.13 host contract; only an issued certificate owned by the current member receives the authorized 6.8 download URL. No second My Events controller, card model or presentation rewrite."
 verify = "A Member views a completed attended event in My Events and sees a download link for their issued certificate, while a review that is not yet issued shows no link."
 covers = ["R2"]
-after = [8, "3.13"]
+after = [8, 13, "3.13"]
 hitl = false
 risk = "low"
+phase = "integration"
+area = "backend"
+queue = 380
+references = ["_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Removes demo data M-12 (2026-11-06 demo rescope): implement the real source behind the contract the demo provider serves, delete the provider classes and their registration, and set the rows to `removed` with the commit in `demo-mock-register.md`. The screen should not change visibly. No per-ticket Impeccable critique or polish; 8.12 covers it."]
 
 [[entry]]
 id = 11
 type = "story"
 title = "Refactor sweep"
-description = "Cleans up technical debt, temporary test scaffolding, the entry 1 tracer action, and review findings deferred during certificate review, issuance, and download implementation."
-verify = "The full solution builds with zero warnings, linters pass, and all unit, integration, and concurrency tests run green."
+description = "Finale backend-only cleanup of concrete certificate service, transaction, storage and endpoint findings, including retiring the development tracer without replacing the retained-PDF pipeline. Frontend critique/polish belongs to 8.12; no imaginary lint command or extra full-app audit."
+verify = "Build and the focused affected issuance/download check pass; no agreed backend finding or enabled tracer remains. 8.4 records the full existing service, SQL and PDF regression once."
 covers = []
-after = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+after = [1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13]
 hitl = false
 risk = "low"
+phase = "finale"
+area = "backend"
+queue = 480

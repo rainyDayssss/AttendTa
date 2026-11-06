@@ -9,7 +9,8 @@ hitl: true
 risk: medium
 tracker_id: "63"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/63"
-tracker_status: backlog
+tracker_status: done
+assignee: "Wynnwrath"
 ---
 
 # Configure official authorized signatory details

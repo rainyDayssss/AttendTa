@@ -1,16 +1,18 @@
 @model VenueViewModel
 @{
-    ViewData["Title"] = "Add Venue";
+    ViewData["Title"] = "New Venue";
+    ViewData["PhotoRequired"] = true;
 }
 
-<h2>Add Venue</h2>
+<h1>New Venue</h1>
 
-
-<form asp-action="Create" method="post" enctype="multipart/form-data">
+<form asp-action="Create" method="post" enctype="multipart/form-data" class="form-panel">
     <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
     <partial name="_Form" model="Model" />
-    <button type="submit" class="button button-primary">Save</button>
-    <a asp-action="Index" class="button button-secondary">Cancel</a>
+    <div class="form-actions">
+        <button type="submit" class="button button-primary">Save</button>
+        <a asp-action="Index" class="button button-secondary">Cancel</a>
+    </div>
 </form>
 
 @section Scripts {

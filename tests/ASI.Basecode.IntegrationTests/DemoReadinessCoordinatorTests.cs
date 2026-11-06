@@ -14,7 +14,7 @@ public class DemoReadinessCoordinatorTests
     private static readonly string[] CheckNames =
     [
         "runtime SQL identity and audit permissions", "private storage",
-        "Playwright Chromium", "localhost login HTTP 200"
+        "Playwright Chromium PDF rendering", "localhost login HTTP 200"
     ];
 
     [Fact]
@@ -112,11 +112,48 @@ public class DemoReadinessCoordinatorTests
             var output = await stdout;
             var errors = await stderr;
             Assert.Equal(1, process.ExitCode);
-            Assert.Contains("FAIL Playwright Chromium", errors);
+            Assert.Contains("FAIL Playwright Chromium PDF rendering", errors);
             Assert.Contains(OfflineNotice, output);
             Assert.DoesNotContain("sensitive-connection-detail", output + errors, StringComparison.Ordinal);
         }
         finally { Directory.Delete(browserRoot, true); }
+    }
+
+    [Fact]
+    public async Task StagedChromiumLaunchesAndRendersNonEmptyPdf()
+    {
+        await DemoReadiness.CheckBrowserAsync();
+    }
+
+    [Fact]
+    public async Task ChecklistLeavesUnverifiedRowsBlockedWithoutPassOrIssueProof()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "docs", "demo-host-readiness-evidence.md");
+        var text = await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken);
+        Assert.Contains("not proof", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("may say `PASS` only when", text, StringComparison.Ordinal);
+
+        var start = text.IndexOf("## Readiness checks", StringComparison.Ordinal);
+        Assert.True(start >= 0);
+        var section = text[start..];
+        var end = section.IndexOf("\n## ", StringComparison.Ordinal);
+        if (end >= 0) section = section[..end];
+
+        var rows = section.Split('\n')
+            .Select(line => line.Trim())
+            .Where(line => line.StartsWith("|", StringComparison.Ordinal))
+            .Select(line => line.Split('|'))
+            .Where(cells => cells.Length >= 7)
+            .Where(cells => !cells[1].Trim().Equals("#", StringComparison.Ordinal))
+            .Where(cells => !cells[1].Trim().All(character => character is '-' or ':'))
+            .ToList();
+
+        Assert.NotEmpty(rows);
+        foreach (var cells in rows)
+        {
+            Assert.Equal("BLOCKED", cells[4].Trim());
+            Assert.False(string.IsNullOrWhiteSpace(cells[5]));
+        }
     }
 
     private static async Task<string> RespondAsync(TcpListener listener, int status, CancellationToken cancellationToken)

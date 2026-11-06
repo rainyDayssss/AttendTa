@@ -1,6 +1,6 @@
 {
   "name": "attendta-webapp",
   "private": true,
-  "scripts": { "css:build": "tailwindcss -i ./Styles/app.css -o ./wwwroot/css/app.css --minify" },
+  "scripts": { "css:build": "tailwindcss -i ./Styles/app.css -o ./wwwroot/css/app.css --minify", "test:js": "node --test tests/site.test.js" },
   "devDependencies": { "@tailwindcss/cli": "4.3.4", "tailwindcss": "4.3.4" }
 }

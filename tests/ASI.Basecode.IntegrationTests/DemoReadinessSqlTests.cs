@@ -39,6 +39,55 @@ public sealed class DemoReadinessSqlTests(SqlServerDatabaseFixture fixture) : IC
         Assert.Equal(0, await ScalarIntAsync(connection, "SELECT @@TRANCOUNT"));
     }
 
+    [Fact]
+    public async Task ProvisioningScriptRejectsColumnLevelAuditUpdateWithoutChangingPermissions()
+    {
+        await using var connection = OpenTestConnection();
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        var user = await CreateRestrictedUserAsync(connection);
+        await ExecuteAsync(connection, $"GRANT UPDATE (description) ON dbo.activity_logs TO [{user}]");
+        var before = await ScalarIntAsync(connection, $"SELECT COUNT(*) FROM sys.database_permissions WHERE grantee_principal_id = DATABASE_PRINCIPAL_ID(N'{user}')");
+        var path = Path.Combine(AppContext.BaseDirectory, "database", "provision-demo-runtime.sql");
+        var script = (await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken))
+            .Replace("$(RuntimeUser)", user, StringComparison.Ordinal)
+            .Replace("N'AttendTa_Demo'", $"N'{fixture.DatabaseName}'", StringComparison.Ordinal);
+
+        var error = await Assert.ThrowsAsync<SqlException>(() =>
+            SqlServerDatabaseFixture.ExecuteScriptAsync(connection, script, TestContext.Current.CancellationToken));
+
+        Assert.Equal(51104, error.Number);
+        Assert.Equal(before, await ScalarIntAsync(connection, $"SELECT COUNT(*) FROM sys.database_permissions WHERE grantee_principal_id = DATABASE_PRINCIPAL_ID(N'{user}')"));
+        Assert.Equal(0, await ScalarIntAsync(connection, "SELECT @@TRANCOUNT"));
+    }
+
+    [Fact]
+    public async Task DatabaseRoleMembershipIsRejected()
+    {
+        await using var connection = OpenTestConnection();
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        var user = await CreateRestrictedUserAsync(connection);
+        await ExecuteAsync(connection, $"EXECUTE AS USER = '{user}'");
+        try
+        {
+            await DemoReadiness.CheckDatabaseRolesAsync(connection);
+        }
+        finally
+        {
+            await ExecuteAsync(connection, "REVERT");
+        }
+
+        await ExecuteAsync(connection, $"ALTER ROLE db_backupoperator ADD MEMBER [{user}]");
+        await ExecuteAsync(connection, $"EXECUTE AS USER = '{user}'");
+        try
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => DemoReadiness.CheckDatabaseRolesAsync(connection));
+        }
+        finally
+        {
+            await ExecuteAsync(connection, "REVERT");
+        }
+    }
+
     [Theory]
     [InlineData("UPDATE")]
     [InlineData("DELETE")]
@@ -75,6 +124,96 @@ public sealed class DemoReadinessSqlTests(SqlServerDatabaseFixture fixture) : IC
         Assert.Equal(0, await ScalarIntAsync(connection, "SELECT @@TRANCOUNT"));
         await ExecuteAsync(connection, "REVERT");
         Assert.Equal(identityBefore, await AuditIdentityAsync(connection));
+    }
+
+    [Fact]
+    public async Task ColumnLevelAuditUpdatePermissionIsRejectedBeforeTransaction()
+    {
+        await using var connection = OpenTestConnection();
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        var user = await CreateRestrictedUserAsync(connection);
+        await ExecuteAsync(connection, $"GRANT UPDATE (description) ON dbo.activity_logs TO [{user}]");
+        await InsertBaselineAsync(connection);
+        var before = await CountProbesAsync(connection);
+        var identityBefore = await AuditIdentityAsync(connection);
+        await ExecuteAsync(connection, $"EXECUTE AS USER = '{user}'");
+        try
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => DemoReadiness.CheckAuditAsync(connection));
+            Assert.Equal(0, await ScalarIntAsync(connection, "SELECT @@TRANCOUNT"));
+        }
+        finally
+        {
+            await ExecuteAsync(connection, "REVERT");
+        }
+        Assert.Equal(before, await CountProbesAsync(connection));
+        Assert.Equal(identityBefore, await AuditIdentityAsync(connection));
+    }
+
+    [Fact]
+    public async Task CleanRuntimeLoginPassesServerPermissionCheck()
+    {
+        var login = await CreateTemporaryLoginAsync();
+        try
+        {
+            await using var master = OpenMasterConnection();
+            await master.OpenAsync(TestContext.Current.CancellationToken);
+            await ExecuteAsync(master, $"EXECUTE AS LOGIN = N'{login}'");
+            try
+            {
+                await DemoReadiness.CheckServerPermissionsAsync(master);
+            }
+            finally
+            {
+                await ExecuteAsync(master, "REVERT");
+            }
+        }
+        finally { await DropTemporaryLoginAsync(login); }
+    }
+
+    [Fact]
+    public async Task DirectServerPrivilegeIsRejected()
+    {
+        var login = await CreateTemporaryLoginAsync();
+        try
+        {
+            await using var master = OpenMasterConnection();
+            await master.OpenAsync(TestContext.Current.CancellationToken);
+            await ExecuteAsync(master, $"GRANT ALTER ANY LOGIN TO [{login}]");
+            await ExecuteAsync(master, $"EXECUTE AS LOGIN = N'{login}'");
+            try
+            {
+                await Assert.ThrowsAsync<InvalidOperationException>(() => DemoReadiness.CheckServerPermissionsAsync(master));
+            }
+            finally
+            {
+                await ExecuteAsync(master, "REVERT");
+            }
+        }
+        finally { await DropTemporaryLoginAsync(login); }
+    }
+
+    [Fact]
+    public async Task CustomRoleServerPrivilegeIsRejected()
+    {
+        var login = await CreateTemporaryLoginAsync();
+        var role = "readiness_role_" + Guid.NewGuid().ToString("N");
+        try
+        {
+            await using var master = OpenMasterConnection();
+            await master.OpenAsync(TestContext.Current.CancellationToken);
+            await ExecuteAsync(master, $"CREATE SERVER ROLE [{role}]; GRANT ALTER ANY LOGIN TO [{role}]; ALTER SERVER ROLE [{role}] ADD MEMBER [{login}];");
+            await ExecuteAsync(master, $"EXECUTE AS LOGIN = N'{login}'");
+            try
+            {
+                await Assert.ThrowsAsync<InvalidOperationException>(() => DemoReadiness.CheckServerPermissionsAsync(master));
+            }
+            finally
+            {
+                await ExecuteAsync(master, "REVERT");
+            }
+        }
+        finally { await DropTemporaryLoginAsync(login, role); }
     }
 
     [Fact]
@@ -145,6 +284,42 @@ public sealed class DemoReadinessSqlTests(SqlServerDatabaseFixture fixture) : IC
     {
         Pooling = false
     }.ConnectionString);
+
+    private SqlConnection OpenMasterConnection() => new(new SqlConnectionStringBuilder(fixture.MasterConnectionString)
+    {
+        Pooling = false
+    }.ConnectionString);
+
+    private async Task<string> CreateTemporaryLoginAsync()
+    {
+        var login = "readiness_login_" + Guid.NewGuid().ToString("N");
+        var password = "R" + Guid.NewGuid().ToString("N") + "!9a";
+        await using (var master = OpenMasterConnection())
+        {
+            await master.OpenAsync(TestContext.Current.CancellationToken);
+            await ExecuteAsync(master, $"CREATE LOGIN [{login}] WITH PASSWORD = N'{password}', CHECK_POLICY = OFF;");
+        }
+        await using (var connection = OpenTestConnection())
+        {
+            await connection.OpenAsync(TestContext.Current.CancellationToken);
+            await ExecuteAsync(connection, $"CREATE USER [{login}] FOR LOGIN [{login}]; GRANT SELECT, INSERT ON dbo.activity_logs TO [{login}];");
+        }
+        return login;
+    }
+
+    private async Task DropTemporaryLoginAsync(string login, string? role = null)
+    {
+        await using (var connection = OpenTestConnection())
+        {
+            await connection.OpenAsync(TestContext.Current.CancellationToken);
+            await ExecuteAsync(connection, $"IF USER_ID(N'{login}') IS NOT NULL DROP USER [{login}];");
+        }
+        await using var master = OpenMasterConnection();
+        await master.OpenAsync(TestContext.Current.CancellationToken);
+        await ExecuteAsync(master, $"IF SUSER_ID(N'{login}') IS NOT NULL DROP LOGIN [{login}];");
+        if (role is not null)
+            await ExecuteAsync(master, $"IF EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'{role}') DROP SERVER ROLE [{role}];");
+    }
 
     private static async Task<string> CreateRestrictedUserAsync(SqlConnection connection)
     {

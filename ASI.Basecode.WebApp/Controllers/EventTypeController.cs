@@ -17,6 +17,8 @@ namespace ASI.Basecode.WebApp.Controllers
     [AutoValidateAntiforgeryToken]
     public class EventTypeController : ControllerBase<EventTypeController>
     {
+        private const string EventTypeIndexRoute = "EventTypeIndex";
+
         private readonly IEventTypeService _eventTypeService;
 
         public EventTypeController(IHttpContextAccessor httpContextAccessor,
@@ -29,11 +31,12 @@ namespace ASI.Basecode.WebApp.Controllers
         }
 
         [HttpGet]
-        [Route("EventType")]
+        [Route("EventType", Name = EventTypeIndexRoute)]
         [Route("EventType/Index")]
-        public async Task<IActionResult> Index(int? page = null)
+        public async Task<IActionResult> Index(string status, int? page = null)
         {
-            var eventTypes = await _eventTypeService.GetPageAsync(page, HttpContext.RequestAborted);
+            var eventTypes = await _eventTypeService.GetPageAsync(status, page, HttpContext.RequestAborted);
+            ViewBag.Status = status;
             return View(eventTypes);
         }
 
@@ -96,7 +99,7 @@ namespace ASI.Basecode.WebApp.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> ToggleActive(int id)
+        public async Task<IActionResult> ToggleActive(int id, int? page)
         {
             try
             {
@@ -108,7 +111,7 @@ namespace ASI.Basecode.WebApp.Controllers
                 TempData["ErrorMessage"] = ex.Message;
             }
 
-            return RedirectToAction("Index");
+            return page is > 0 ? RedirectToRoute(EventTypeIndexRoute, new { page }) : RedirectToAction("Index");
         }
     }
 }

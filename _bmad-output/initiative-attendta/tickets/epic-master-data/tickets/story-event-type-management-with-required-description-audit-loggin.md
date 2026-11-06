@@ -9,7 +9,8 @@ hitl: false
 risk: low
 tracker_id: "20"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/20"
-tracker_status: backlog
+tracker_status: done
+assignee: "FivePesos"
 ---
 
 # Event Type management with required description, audit logging, and paged Tailwind list

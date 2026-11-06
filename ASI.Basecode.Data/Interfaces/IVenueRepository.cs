@@ -9,8 +9,8 @@ namespace ASI.Basecode.Data.Interfaces
     public interface IVenueRepository
     {
         Task<IReadOnlyList<Venue>> GetActiveVenuesAsync(CancellationToken cancellationToken = default);
-        Task<int> CountAsync(CancellationToken cancellationToken = default);
-        Task<IReadOnlyList<Venue>> GetPageAsync(int skip, int take, CancellationToken cancellationToken = default);
+        Task<int> CountAsync(string status, CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<Venue>> GetPageAsync(string status, int skip, int take, CancellationToken cancellationToken = default);
         Venue GetVenue(int venueId);
         Task<Venue> LockVenueAsync(int venueId, CancellationToken cancellationToken = default);
         Task<int> CountLinkedEventsAsync(int venueId, CancellationToken cancellationToken = default);

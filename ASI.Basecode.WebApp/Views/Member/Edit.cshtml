@@ -3,10 +3,9 @@
     ViewData["Title"] = "Edit Member";
 }
 
-<h2>Edit Member</h2>
+<h1>Edit Member</h1>
 
-
-<form asp-action="Edit" method="post">
+<form asp-action="Edit" method="post" class="form-panel">
     <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
     <input type="hidden" asp-for="MemberId" />
     <div class="field">
@@ -14,8 +13,10 @@
         <input asp-for="Email" class="field-control" readonly aria-readonly="true" />
     </div>
     <partial name="_Form" model="Model" />
-    <button type="submit" class="button button-primary">Save</button>
-    <a asp-action="Index" class="button button-secondary">Cancel</a>
+    <div class="form-actions">
+        <button type="submit" class="button button-primary">Save</button>
+        <a asp-action="Index" class="button button-secondary">Cancel</a>
+    </div>
 </form>
 
 @section Scripts {

@@ -215,28 +215,28 @@ public sealed class EventTypePagingTests(SqlServerDatabaseFixture fixture) : ICl
         await using var reader = EventTypeTestSupport.Context(fixture.ConnectionString);
         var service = EventTypeTestSupport.Service(reader, actorId);
 
-        var first = await service.GetPageAsync(1, ct);
+        var first = await service.GetPageAsync(null, 1, ct);
         Assert.Equal(26, first.TotalCount);
         Assert.Equal(2, first.TotalPages);
         Assert.Equal(1, first.PageNumber);
         Assert.Equal(25, first.Items.Count);
         Assert.Equal(Enumerable.Range(1, 25).Select(index => $"Paging Type {index:D2}"), first.Items.Select(item => item.TypeName));
 
-        var second = await service.GetPageAsync(2, ct);
+        var second = await service.GetPageAsync(null, 2, ct);
         Assert.Equal(2, second.PageNumber);
         Assert.Single(second.Items);
         Assert.Equal("Paging Type 26", second.Items[0].TypeName);
 
-        var pastEnd = await service.GetPageAsync(999, ct);
+        var pastEnd = await service.GetPageAsync(null, 999, ct);
         Assert.Equal(2, pastEnd.PageNumber);
         Assert.Single(pastEnd.Items);
         Assert.Equal("Paging Type 26", pastEnd.Items[0].TypeName);
 
-        var zero = await service.GetPageAsync(0, ct);
+        var zero = await service.GetPageAsync(null, 0, ct);
         Assert.Equal(1, zero.PageNumber);
         Assert.Equal(25, zero.Items.Count);
 
-        var missing = await service.GetPageAsync(null, ct);
+        var missing = await service.GetPageAsync(null, null, ct);
         Assert.Equal(1, missing.PageNumber);
         Assert.Equal(25, missing.Items.Count);
     }

@@ -28,7 +28,7 @@ public static class DemoReadiness
 
         await Check("runtime SQL identity and audit permissions", checks.Sql);
         await Check("private storage", checks.Storage);
-        await Check("Playwright Chromium", checks.Browser);
+        await Check("Playwright Chromium PDF rendering", checks.Browser);
         await Check("localhost login HTTP 200", checks.Login);
         await output.WriteLineAsync("INFO Offline status not verified; a disconnected-host run requires separate operator evidence.");
         return failed ? 1 : 0;
@@ -61,16 +61,34 @@ public static class DemoReadiness
               AND IS_SRVROLEMEMBER('serveradmin') = 0 AND IS_SRVROLEMEMBER('dbcreator') = 0
               AND IS_SRVROLEMEMBER('processadmin') = 0 AND IS_SRVROLEMEMBER('setupadmin') = 0
               AND IS_SRVROLEMEMBER('bulkadmin') = 0 AND IS_SRVROLEMEMBER('diskadmin') = 0
-              AND IS_ROLEMEMBER('db_owner') = 0
-              AND IS_ROLEMEMBER('db_ddladmin') = 0 AND IS_ROLEMEMBER('db_securityadmin') = 0
-              AND IS_ROLEMEMBER('db_accessadmin') = 0
               AND HAS_PERMS_BY_NAME(DB_NAME(), 'DATABASE', 'CONTROL') = 0
               AND HAS_PERMS_BY_NAME(DB_NAME(), 'DATABASE', 'ALTER') = 0
               THEN 1 ELSE 0 END";
             command.Parameters.AddWithValue("@login", expectedLogin);
             if (Convert.ToInt32(await command.ExecuteScalarAsync()) != 1) throw new InvalidOperationException();
         }
+        await CheckDatabaseRolesAsync(connection);
+        await CheckServerPermissionsAsync(connection);
         await CheckAuditAsync(connection);
+    }
+
+    // Any database role membership is unsupported; this matches the provisioning script's guard.
+    internal static async Task CheckDatabaseRolesAsync(SqlConnection connection)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = @"SELECT CASE WHEN EXISTS (
+            SELECT 1 FROM sys.database_role_members WHERE member_principal_id = DATABASE_PRINCIPAL_ID())
+            THEN 0 ELSE 1 END";
+        if (Convert.ToInt32(await command.ExecuteScalarAsync()) != 1) throw new InvalidOperationException();
+    }
+
+    // Effective server permissions catch direct and custom-role grants that IS_SRVROLEMEMBER misses.
+    internal static async Task CheckServerPermissionsAsync(SqlConnection connection)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = @"SELECT COUNT(*) FROM sys.fn_my_permissions(NULL, 'SERVER')
+            WHERE permission_name NOT IN (N'CONNECT SQL', N'VIEW ANY DATABASE')";
+        if (Convert.ToInt32(await command.ExecuteScalarAsync()) != 0) throw new InvalidOperationException();
     }
 
     // Separated from the immutable demo identity guard so disposable test databases can
@@ -86,6 +104,10 @@ public static class DemoReadiness
               AND HAS_PERMS_BY_NAME('dbo.activity_logs', 'OBJECT', 'INSERT') = 1
               AND HAS_PERMS_BY_NAME('dbo.activity_logs', 'OBJECT', 'UPDATE') = 0
               AND HAS_PERMS_BY_NAME('dbo.activity_logs', 'OBJECT', 'DELETE') = 0
+              AND NOT EXISTS (
+                  SELECT 1 FROM sys.columns AS column_definition
+                  WHERE column_definition.object_id = OBJECT_ID(N'dbo.activity_logs')
+                    AND HAS_PERMS_BY_NAME(N'dbo.activity_logs', N'OBJECT', N'UPDATE', column_definition.name, N'COLUMN') = 1)
               THEN 1 ELSE 0 END";
             if (Convert.ToInt32(await command.ExecuteScalarAsync()) != 1) throw new InvalidOperationException();
         }
@@ -110,20 +132,36 @@ public static class DemoReadiness
     public static void ValidateStorage(string root)
     {
         if (string.IsNullOrWhiteSpace(root) || !Path.IsPathFullyQualified(root)) throw new InvalidOperationException();
-        foreach (var area in new[] { "keys", "logs", "temporary", "uploads/venues", "uploads/events", "certificates" })
-        {
-            var directory = Path.Combine(root, area);
-            if (!Directory.Exists(directory)) throw new DirectoryNotFoundException();
-            var probe = Path.Combine(directory, $".readiness-{Guid.NewGuid():N}");
-            try { using var file = new FileStream(probe, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1, FileOptions.DeleteOnClose); file.WriteByte(1); }
-            finally { if (File.Exists(probe)) File.Delete(probe); }
-        }
+        foreach (var area in new[] { "keys", "temporary", "uploads/venues", "uploads/events", "certificates" })
+            ProbeWritableDirectory(Path.Combine(root, area), create: false);
+
+        // The logger writes beneath logs/<yyyyMM>, so probe that directory and never create a missing logs/ silently.
+        var logs = Path.Combine(root, "logs");
+        if (!Directory.Exists(logs)) throw new DirectoryNotFoundException();
+        ProbeWritableDirectory(Path.Combine(logs, DateTime.Today.ToString("yyyyMM")), create: true);
     }
 
-    private static async Task CheckBrowserAsync()
+    private static void ProbeWritableDirectory(string directory, bool create)
+    {
+        if (!Directory.Exists(directory))
+        {
+            if (!create) throw new DirectoryNotFoundException();
+            Directory.CreateDirectory(directory);
+        }
+        var probe = Path.Combine(directory, $".readiness-{Guid.NewGuid():N}");
+        try { using var file = new FileStream(probe, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1, FileOptions.DeleteOnClose); file.WriteByte(1); }
+        finally { if (File.Exists(probe)) File.Delete(probe); }
+    }
+
+    internal static async Task CheckBrowserAsync()
     {
         using var playwright = await Playwright.CreateAsync();
         await using var browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = true });
+        await using var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<!doctype html><html><body><p>AttendTa readiness PDF</p></body></html>");
+        var pdf = await page.PdfAsync();
+        if (pdf is null || pdf.Length < 4 || pdf[0] != (byte)'%' || pdf[1] != (byte)'P' || pdf[2] != (byte)'D' || pdf[3] != (byte)'F')
+            throw new InvalidOperationException();
     }
 
     private static Task CheckLoginAsync() => CheckLoginAsync(Environment.GetEnvironmentVariable("ATTENDTA_READINESS_LOGIN_URL"));

@@ -9,7 +9,8 @@ hitl: true
 risk: high
 tracker_id: "61"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/61"
-tracker_status: backlog
+tracker_status: done
+assignee: "Wynnwrath"
 ---
 
 # Playwright .NET setup and certificate PDF issuance tracer

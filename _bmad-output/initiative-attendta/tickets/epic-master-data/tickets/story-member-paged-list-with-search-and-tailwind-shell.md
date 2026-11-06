@@ -9,7 +9,8 @@ hitl: false
 risk: low
 tracker_id: "26"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/26"
-tracker_status: backlog
+tracker_status: done
+assignee: "LucielCienAmir"
 ---
 
 # Member paged list with search and Tailwind shell

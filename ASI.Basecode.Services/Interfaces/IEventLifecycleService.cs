@@ -14,6 +14,7 @@ namespace ASI.Basecode.Services.Interfaces
         Task<int> CreateDraftAsync(EventViewModel model, CancellationToken cancellationToken = default);
         Task UpdateDraftAsync(EventViewModel model, CancellationToken cancellationToken = default);
         Task PublishAsync(int eventId, CancellationToken cancellationToken = default);
+        Task CancelAsync(int eventId, string reason, CancellationToken cancellationToken = default);
         Task<EventCoverViewModel> GetCoverManagementAsync(int eventId, CancellationToken cancellationToken = default);
         Task<EventCoverStream> OpenCoverAsync(int eventId, CancellationToken cancellationToken = default);
         Task UploadCoverAsync(int eventId, Stream image, string extension, CancellationToken cancellationToken = default);

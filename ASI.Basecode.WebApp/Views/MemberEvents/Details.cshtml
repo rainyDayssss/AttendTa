@@ -1,0 +1,141 @@
+@using ASI.Basecode.Data.Models.Lookups
+@model MemberEventDetailViewModel
+@{
+    ViewData["Title"] = Model.Title;
+    var registrationStatus = Model.RegistrationStatus;
+    var registrationLabel = RegistrationStatusDisplay.Label(registrationStatus, Model.IsStartCutoffPassed);
+    var registrationBadge = RegistrationStatusDisplay.BadgeClass(registrationStatus, Model.IsStartCutoffPassed);
+    var registrationNotice = registrationStatus == RegistrationStatusCode.Cancelled
+        || RegistrationStatusDisplay.IsNotConfirmedBeforeCutoff(registrationStatus, Model.IsStartCutoffPassed)
+        ? "notice"
+        : "notice notice-success";
+}
+
+<div class="page-heading">
+    <div>
+        <h1>@Model.Title</h1>
+        <p class="muted">@Model.TypeName · @Model.VenueName</p>
+    </div>
+    <a asp-action="Index" class="button button-secondary">Back to events</a>
+</div>
+
+<section class="panel" aria-labelledby="event-details-heading">
+    <h2 id="event-details-heading">Event details</h2>
+
+    @if (Model.HasCover)
+    {
+        <img class="event-detail-cover" src="@Url.Action("Image", "EventCover", new { id = Model.EventId })" alt="Cover for @Model.Title" />
+    }
+
+    <dl class="profile-details event-details">
+        <div>
+            <dt>Starts</dt>
+            <dd>@ManilaTimeFormatter.Format(Model.StartsAt)</dd>
+        </div>
+        <div>
+            <dt>Signup deadline</dt>
+            <dd>@ManilaTimeFormatter.Format(Model.RegistrationDeadline)</dd>
+        </div>
+        <div>
+            <dt>Venue</dt>
+            <dd>@Model.VenueName</dd>
+        </div>
+        <div>
+            <dt>Event type</dt>
+            <dd>@Model.TypeName</dd>
+        </div>
+        <div>
+            <dt>Event status</dt>
+            <dd><span class="badge @EventStatusDisplay.BadgeClass(Model.EventStatusId)">@Model.StatusLabel</span></dd>
+        </div>
+        <div>
+            <dt>Confirmed participants</dt>
+            <dd>@Model.ConfirmedCount of @Model.ParticipantLimit</dd>
+        </div>
+        <div>
+            <dt>Signup status</dt>
+            <dd>@(Model.IsSignupOpen ? "Open" : "Closed")</dd>
+        </div>
+        @if (Model.IsCheckInOpen || Model.IsStartCutoffPassed)
+        {
+            <div>
+                <dt>Check-in</dt>
+                <dd>
+                    <span class="badge @(Model.IsCheckInOpen ? "badge-checkin-open" : "badge-checkin-closed")">@(Model.IsCheckInOpen ? "Open" : "Closed")</span>
+                </dd>
+            </div>
+        }
+    </dl>
+
+    @if (!string.IsNullOrWhiteSpace(Model.Description))
+    {
+        <section aria-labelledby="event-description-heading">
+            <h2 id="event-description-heading">About this event</h2>
+            <p>@Model.Description</p>
+        </section>
+    }
+</section>
+
+<section class="event-registration" aria-labelledby="event-registration-heading">
+    <h2 id="event-registration-heading">Registration</h2>
+
+    @if (Model.HasRegistration)
+    {
+        <p class="@registrationNotice" role="status">
+            You already have a registration for this event. Your registration is <span class="badge @registrationBadge">@registrationLabel</span>.
+        </p>
+
+        @if (registrationStatus == RegistrationStatusCode.Cancelled)
+        {
+            <p class="muted">This registration was cancelled. You cannot register again for this event.</p>
+        }
+        else if (Model.CanCancel)
+        {
+            <button type="button" class="button button-danger" data-cancel-open>Cancel my registration</button>
+            <p class="muted">Cancelling releases your seat and cannot be undone.</p>
+
+            <dialog id="cancel-registration-dialog" class="confirm-dialog" aria-labelledby="cancel-registration-heading">
+                <h2 id="cancel-registration-heading">Cancel this registration?</h2>
+                <p>Cancellation is final. Your seat is released and you cannot register for this event again.</p>
+                <form asp-action="Cancel" asp-route-id="@Model.EventId" method="post" class="confirm-dialog-actions">
+                    <button type="submit" class="button button-danger">Yes, cancel my registration</button>
+                    <button type="button" class="button button-secondary" data-cancel-close>Keep my registration</button>
+                </form>
+            </dialog>
+        }
+    }
+    else if (!Model.IsSignupOpen)
+    {
+        <p class="notice" role="status">Signup closed on @ManilaTimeFormatter.Format(Model.RegistrationDeadline).</p>
+    }
+    else if (!Model.CanRegister)
+    {
+        <p class="notice" role="status">Only active members can register for events.</p>
+    }
+    else
+    {
+        @if (Model.IsFull)
+        {
+            <p class="notice" role="status">This event is full. You can still submit a registration, but a seat is not guaranteed.</p>
+        }
+
+        <form asp-action="Register" asp-route-id="@Model.EventId" method="post">
+            <button type="submit" class="button button-primary">Submit registration</button>
+        </form>
+        <p class="muted">Submitting creates a pending request. An officer reviews it before a seat is confirmed.</p>
+    }
+</section>
+
+@section Scripts {
+    <script>
+        (function () {
+            var dialog = document.getElementById('cancel-registration-dialog');
+            if (!dialog) return;
+
+            var open = document.querySelector('[data-cancel-open]');
+            var close = dialog.querySelector('[data-cancel-close]');
+            if (open) open.addEventListener('click', function () { dialog.showModal(); });
+            if (close) close.addEventListener('click', function () { dialog.close(); });
+        })();
+    </script>
+}

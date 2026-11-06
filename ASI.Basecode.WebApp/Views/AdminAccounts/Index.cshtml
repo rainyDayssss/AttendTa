@@ -41,7 +41,14 @@ else
                         <td>@account.Email</td>
                         <td><span class="badge badge-@account.RoleCode">@account.RoleLabel</span></td>
                         <td><span class="badge @(account.IsActive ? "badge-active" : "badge-inactive")">@(account.IsActive ? "Active" : "Inactive")</span></td>
-                        <td><a asp-action="ChangeRole" asp-route-id="@account.AccountId" class="button button-secondary">Change role</a></td>
+                        <td class="actions">
+                            <a asp-action="ChangeRole" asp-route-id="@account.AccountId" class="button button-secondary">Change role</a>
+                            @if (account.IsActive)
+                            {
+                                <button type="button" class="button button-secondary" data-deactivation-preview="@Url.Action("Index", "DeactivationPreview", new { userId = account.AccountId })">Preview deactivation</button>
+                            }
+                            <partial name="_AccessActions" model="AccountAccessViewModel.For(account)" />
+                        </td>
                     </tr>
                 }
             </tbody>

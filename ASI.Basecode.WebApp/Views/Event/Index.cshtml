@@ -26,6 +26,7 @@ else
                     <th scope="col">Signup deadline</th>
                     <th scope="col">Participant limit</th>
                     <th scope="col">Status</th>
+                    <th scope="col">Check-in</th>
                     <th scope="col">Actions</th>
                 </tr>
             </thead>
@@ -39,15 +40,31 @@ else
                         <td>@ManilaTimeFormatter.Format(eventItem.StartsAt)</td>
                         <td>@ManilaTimeFormatter.Format(eventItem.RegistrationDeadline)</td>
                         <td>@eventItem.ParticipantLimit</td>
-                        <td>@eventItem.StatusLabel</td>
+                        <td><span class="badge @EventStatusDisplay.BadgeClass(eventItem.EventStatusId)">@eventItem.StatusLabel</span></td>
+                        <td>
+                            <partial name="_CheckInControl" model="new CheckInControlViewModel { EventId = eventItem.EventId, IsCheckInOpen = eventItem.IsCheckInOpen, CanChange = eventItem.EventStatusId == EventStatusCode.Published }" />
+                        </td>
                         <td class="actions">
+                            <a asp-action="Details" asp-route-id="@eventItem.EventId" class="button button-secondary">Dossier</a>
                             <a asp-action="Cover" asp-route-id="@eventItem.EventId" class="button button-secondary">Cover</a>
-                            @if (eventItem.EventStatusId == EventStatusCode.Draft)
+                            <a asp-controller="RegistrationReview" asp-action="Index" asp-route-eventId="@eventItem.EventId" class="button button-secondary">Review</a>
+                            @if (eventItem.EventStatusId is EventStatusCode.Draft or EventStatusCode.Published)
                             {
                                 <a asp-action="Edit" asp-route-id="@eventItem.EventId" class="button button-secondary">Edit</a>
+                                <a asp-action="Cancel" asp-route-id="@eventItem.EventId" class="button button-secondary">Cancel</a>
+                            }
+                            @if (eventItem.EventStatusId == EventStatusCode.Draft)
+                            {
                                 <form asp-action="Publish" method="post" class="inline-form">
                                     <input type="hidden" name="id" value="@eventItem.EventId" />
                                     <button type="submit" class="button button-primary">Publish</button>
+                                </form>
+                            }
+                            @if (eventItem.EventStatusId == EventStatusCode.Published)
+                            {
+                                <form asp-action="Complete" method="post" class="inline-form">
+                                    <input type="hidden" name="id" value="@eventItem.EventId" />
+                                    <button type="submit" class="button button-secondary">Complete</button>
                                 </form>
                             }
                         </td>

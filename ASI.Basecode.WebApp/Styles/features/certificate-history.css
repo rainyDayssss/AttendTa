@@ -1,0 +1,4 @@
+/* Member certificate history slot. */
+@layer components {
+  .certificate-history { margin-top: 1rem; }
+}

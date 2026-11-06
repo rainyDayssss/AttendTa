@@ -7,6 +7,20 @@ namespace ASI.Basecode.Services.Tests;
 
 public sealed class ParticipationFactsTests
 {
+    [Theory]
+    [InlineData(-1, true)]
+    [InlineData(0, false)]
+    [InlineData(1, false)]
+    public void SignupBoundaryUsesClockTicks(long offsetTicks, bool expectedOpen)
+    {
+        var deadline = new DateTimeOffset(2026, 3, 1, 12, 0, 0, TimeSpan.Zero);
+        var clock = new FixedClock(deadline.AddTicks(offsetTicks));
+        var eventItem = Event(deadline.UtcDateTime, EventStatusCode.Published);
+        eventItem.RegistrationDeadline = deadline.UtcDateTime;
+
+        Assert.Equal(expectedOpen, ParticipationFacts.SignupOpen(clock.GetUtcNow().UtcDateTime).Compile()(eventItem));
+    }
+
     [Fact]
     public void ExpressionsApplyExactEligibilityAttendanceSeatCutoffSignupAndPublishBoundaries()
     {
@@ -72,6 +86,25 @@ public sealed class ParticipationFactsTests
         Assert.Equal(new[] { 5, 6 }, ParticipationFacts.ValidAttendances(attendance).Select(row => row.RegistrationId));
         Assert.Equal(new[] { 4, 7 }, ParticipationFacts.NoShows(registrations, events, attendance).Select(row => row.RegistrationId));
         Assert.Equal(new decimal?[] { 1m / 3m, 1m, null }, ParticipationFacts.AttendanceRates(events, registrations, attendance).ToArray());
+    }
+
+    [Fact]
+    public void NoShowsReturnOnlyConfirmedRowsOfCompletedEvents()
+    {
+        var registrations = new[]
+        {
+            new Registration { RegistrationId = 1, EventId = 1, RegistrationStatusId = RegistrationStatusCode.Pending },
+            new Registration { RegistrationId = 2, EventId = 1, RegistrationStatusId = RegistrationStatusCode.Waitlisted },
+            new Registration { RegistrationId = 3, EventId = 1, RegistrationStatusId = RegistrationStatusCode.Cancelled },
+            new Registration { RegistrationId = 4, EventId = 1, RegistrationStatusId = RegistrationStatusCode.Confirmed },
+            new Registration { RegistrationId = 5, EventId = 1, RegistrationStatusId = RegistrationStatusCode.Confirmed }
+        }.AsQueryable();
+        var events = new[] { Event(DateTime.UtcNow, EventStatusCode.Completed, 1) }.AsQueryable();
+        var attendance = new[] { new Attendance { RegistrationId = 5 } }.AsQueryable();
+
+        var noShows = ParticipationFacts.NoShows(registrations, events, attendance).Select(row => row.RegistrationId);
+
+        Assert.Equal(new[] { 4 }, noShows);
     }
 
     private static Event Event(DateTime now, EventStatusCode status, int id = 1) => new()

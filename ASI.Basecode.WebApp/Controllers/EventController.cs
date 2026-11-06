@@ -3,6 +3,7 @@ using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
+using ASI.Basecode.WebApp.DemoData;
 using ASI.Basecode.WebApp.Formatting;
 using ASI.Basecode.WebApp.Mvc;
 using AutoMapper;
@@ -28,21 +29,47 @@ namespace ASI.Basecode.WebApp.Controllers
         private const string EventIndexRoute = "EventIndex";
 
         private readonly IEventLifecycleService _eventService;
+        private readonly IEventStateCommands _eventStateCommands;
+        private readonly IEventStateOverlay _eventStateOverlay;
 
         public EventController(IHttpContextAccessor httpContextAccessor,
                                ILoggerFactory loggerFactory,
                                IConfiguration configuration,
                                IMapper mapper,
-                               IEventLifecycleService eventService) : base(httpContextAccessor, loggerFactory, configuration, mapper)
+                               IEventLifecycleService eventService,
+                               IEventStateCommands eventStateCommands,
+                               IEventStateOverlay eventStateOverlay) : base(httpContextAccessor, loggerFactory, configuration, mapper)
         {
             _eventService = eventService;
+            _eventStateCommands = eventStateCommands;
+            _eventStateOverlay = eventStateOverlay;
         }
 
         [HttpGet]
         [Route("Event", Name = EventIndexRoute)]
         [Route("Event/Index")]
         public async Task<IActionResult> Index(int? page, CancellationToken cancellationToken) =>
-            View(await _eventService.GetPageAsync(page, cancellationToken));
+            View(_eventStateOverlay.Apply(await _eventService.GetPageAsync(page, cancellationToken)));
+
+        /// <summary>
+        /// Officer event dossier. The real event header is loaded now; the roster slot stays empty
+        /// until the dossier surface ticket fills it.
+        /// </summary>
+        [HttpGet]
+        [Route("Event/{id:int}")]
+        public async Task<IActionResult> Details(int id, CancellationToken cancellationToken)
+        {
+            var model = await _eventService.GetEventAsync(id, cancellationToken);
+            if (model == null)
+            {
+                return HandleDomainException(
+                    new DomainException(OutcomeCode.NotFound, "Event not found."),
+                    model: null,
+                    redirectAction: nameof(Index));
+            }
+
+            return View(EventDossierViewModel.FromEvent(_eventStateOverlay.Apply(model)));
+        }
 
         [HttpGet]
         public async Task<IActionResult> Cover(int id, CancellationToken cancellationToken)
@@ -129,9 +156,9 @@ namespace ASI.Basecode.WebApp.Controllers
                 return RedirectToRoute(EventIndexRoute);
             }
 
-            if (model.EventStatusId != EventStatusCode.Draft)
+            if (model.EventStatusId is not (EventStatusCode.Draft or EventStatusCode.Published))
             {
-                TempData["ErrorMessage"] = "Only draft events can be edited.";
+                TempData["ErrorMessage"] = "Only draft or published events can be edited.";
                 return RedirectToRoute(EventIndexRoute);
             }
 
@@ -142,6 +169,16 @@ namespace ASI.Basecode.WebApp.Controllers
         [HttpPost]
         public async Task<IActionResult> Edit(EventViewModel model, CancellationToken cancellationToken)
         {
+            var current = await _eventService.GetEventAsync(model.EventId, cancellationToken);
+            if (current == null || current.EventStatusId is not (EventStatusCode.Draft or EventStatusCode.Published))
+            {
+                TempData["ErrorMessage"] = "This event can no longer be edited.";
+                return RedirectToRoute(EventIndexRoute);
+            }
+            model.EventStatusId = current.EventStatusId;
+            model.TypeName = current.TypeName;
+            model.VenueName = current.VenueName;
+            ModelState.Remove(nameof(model.EventStatusId));
             if (!ModelState.IsValid)
             {
                 return View(await WithOptionsAsync(model, cancellationToken));
@@ -151,7 +188,7 @@ namespace ASI.Basecode.WebApp.Controllers
             try
             {
                 await _eventService.UpdateDraftAsync(model, cancellationToken);
-                TempData["SuccessMessage"] = "Draft event updated.";
+                TempData["SuccessMessage"] = "Event updated.";
                 return RedirectToRoute(EventIndexRoute);
             }
             catch (DomainException ex)
@@ -175,6 +212,115 @@ namespace ASI.Basecode.WebApp.Controllers
             }
 
             return RedirectToRoute(EventIndexRoute);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> OpenCheckIn(int id, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await _eventStateCommands.OpenCheckInAsync(id, cancellationToken);
+                TempData["SuccessMessage"] = "Check-in opened.";
+            }
+            catch (DomainException exception)
+            {
+                TempData["ErrorMessage"] = exception.Message;
+            }
+
+            return RedirectToRoute(EventIndexRoute);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CloseCheckIn(int id, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await _eventStateCommands.CloseCheckInAsync(id, cancellationToken);
+                TempData["SuccessMessage"] = "Check-in closed.";
+            }
+            catch (DomainException exception)
+            {
+                TempData["ErrorMessage"] = exception.Message;
+            }
+
+            return RedirectToRoute(EventIndexRoute);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Complete(int id, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await _eventStateCommands.CompleteAsync(id, cancellationToken);
+                TempData["SuccessMessage"] = "Event completed.";
+            }
+            catch (DomainException exception)
+            {
+                TempData["ErrorMessage"] = exception.Message;
+            }
+
+            return RedirectToRoute(EventIndexRoute);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Cancel(int id, CancellationToken cancellationToken)
+        {
+            var model = await _eventService.GetEventAsync(id, cancellationToken);
+            if (model == null)
+            {
+                TempData["ErrorMessage"] = "Event not found.";
+                return RedirectToRoute(EventIndexRoute);
+            }
+
+            if (model.EventStatusId is not (EventStatusCode.Draft or EventStatusCode.Published))
+            {
+                TempData["ErrorMessage"] = "Only draft or published events can be cancelled.";
+                return RedirectToRoute(EventIndexRoute);
+            }
+
+            return View(new EventCancelViewModel
+            {
+                EventId = model.EventId,
+                Title = model.Title,
+                EventStatusId = model.EventStatusId,
+                StartsAt = model.StartsAt
+            });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Cancel(EventCancelViewModel model, CancellationToken cancellationToken)
+        {
+            if (!ModelState.IsValid)
+            {
+                return await CancelViewAsync(model, cancellationToken);
+            }
+
+            try
+            {
+                await _eventService.CancelAsync(model.EventId, model.Reason, cancellationToken);
+                TempData["SuccessMessage"] = "Event cancelled.";
+            }
+            catch (DomainException exception)
+            {
+                TempData["ErrorMessage"] = exception.Message;
+            }
+
+            return RedirectToRoute(EventIndexRoute);
+        }
+
+        private async Task<IActionResult> CancelViewAsync(EventCancelViewModel model, CancellationToken cancellationToken)
+        {
+            var current = await _eventService.GetEventAsync(model.EventId, cancellationToken);
+            if (current == null)
+            {
+                TempData["ErrorMessage"] = "Event not found.";
+                return RedirectToRoute(EventIndexRoute);
+            }
+
+            model.Title = current.Title;
+            model.EventStatusId = current.EventStatusId;
+            model.StartsAt = current.StartsAt;
+            return View(model);
         }
 
         private async Task<EventViewModel> WithOptionsAsync(EventViewModel model, CancellationToken cancellationToken)

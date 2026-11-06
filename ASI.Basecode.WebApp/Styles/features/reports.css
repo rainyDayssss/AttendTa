@@ -1,0 +1,11 @@
+/* Per-event participation report. */
+@layer components {
+  .report-summary { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); margin-bottom: 1rem; }
+  .report-summary .panel { margin: 0; }
+  .report-summary h2 { font-size: 1rem; }
+  .report-breakdowns { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
+  .report-breakdown { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+  .report-breakdown li { display: flex; justify-content: space-between; gap: 1rem; border-bottom: 1px solid #e2e8f0; padding-bottom: .35rem; }
+  @media (min-width: 640px) { .report-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (min-width: 1024px) { .report-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); } .report-breakdowns { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+}

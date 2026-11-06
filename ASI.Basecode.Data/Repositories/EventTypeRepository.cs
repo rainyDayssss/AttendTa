@@ -26,23 +26,33 @@ namespace ASI.Basecode.Data.Repositories
                 .ToListAsync(cancellationToken);
         }
 
-        public Task<int> CountEventTypesAsync(CancellationToken cancellationToken = default)
+        public Task<int> CountEventTypesAsync(string status, CancellationToken cancellationToken = default)
         {
-            return this.GetDbSet<EventType>().AsNoTracking().CountAsync(cancellationToken);
+            return FilterEventTypes(status).CountAsync(cancellationToken);
         }
 
-        public async Task<IReadOnlyList<EventType>> GetEventTypesPageAsync(int offset, int pageSize, CancellationToken cancellationToken = default)
+        public async Task<IReadOnlyList<EventType>> GetEventTypesPageAsync(string status, int offset, int pageSize, CancellationToken cancellationToken = default)
         {
             if (offset < 0) throw new ArgumentOutOfRangeException(nameof(offset));
             if (pageSize <= 0) throw new ArgumentOutOfRangeException(nameof(pageSize));
 
-            return await this.GetDbSet<EventType>()
-                .AsNoTracking()
+            return await FilterEventTypes(status)
                 .OrderBy(eventType => eventType.TypeName)
                 .ThenBy(eventType => eventType.TypeId)
                 .Skip(offset)
                 .Take(pageSize)
                 .ToListAsync(cancellationToken);
+        }
+
+        private IQueryable<EventType> FilterEventTypes(string status)
+        {
+            var query = this.GetDbSet<EventType>().AsNoTracking();
+            return status switch
+            {
+                "active" => query.Where(eventType => eventType.IsActive),
+                "inactive" => query.Where(eventType => !eventType.IsActive),
+                _ => query
+            };
         }
 
         public EventType GetEventType(int typeId)

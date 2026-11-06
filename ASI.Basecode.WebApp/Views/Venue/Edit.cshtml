@@ -3,17 +3,29 @@
     ViewData["Title"] = "Edit Venue";
 }
 
-<h2>Edit Venue</h2>
+<h1>Edit Venue</h1>
 
+<div class="form-panel">
+    @if (!string.IsNullOrWhiteSpace(Model.ImagePath))
+    {
+        <div class="field">
+            <p class="field-label">Current photo</p>
+            <a asp-action="Photo" asp-route-id="@Model.VenueId" target="_blank" rel="noopener">
+                <img src="@Url.Action("Photo", new { id = Model.VenueId })" alt="Current photo of @Model.RoomName" width="96" height="64" class="venue-thumb" />
+            </a>
+        </div>
+    }
 
-<form asp-action="Edit" method="post" enctype="multipart/form-data">
-    <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
-    <input type="hidden" asp-for="VenueId" />
-    <p class="muted">A venue photo is currently stored. Upload a replacement up to 2 MiB if needed.</p>
-    <partial name="_Form" model="Model" />
-    <button type="submit" class="button button-primary">Save</button>
-    <a asp-action="Index" class="button button-secondary">Cancel</a>
-</form>
+    <form asp-action="Edit" method="post" enctype="multipart/form-data">
+        <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
+        <input type="hidden" asp-for="VenueId" />
+        <partial name="_Form" model="Model" />
+        <div class="form-actions">
+            <button type="submit" class="button button-primary">Save</button>
+            <a asp-action="Index" class="button button-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />

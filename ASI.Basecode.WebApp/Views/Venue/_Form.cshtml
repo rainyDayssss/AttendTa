@@ -1,33 +1,47 @@
 @model VenueViewModel
+@{
+    var photoRequired = ViewData["PhotoRequired"] is true;
+}
 
-<div class="field">
-    <label asp-for="RoomName" class="field-label">Room name</label>
-    <input asp-for="RoomName" aria-describedby="RoomName-validation" class="field-control" />
-    <span id="RoomName-validation" asp-validation-for="RoomName" class="field-error"></span>
-</div>
-<div class="field">
-    <label asp-for="Capacity" class="field-label"></label>
-    <input asp-for="Capacity" aria-describedby="Capacity-validation" type="number" class="field-control" />
-    <span id="Capacity-validation" asp-validation-for="Capacity" class="field-error"></span>
-</div>
-<div class="field">
-    <label asp-for="Location" class="field-label"></label>
-    <input asp-for="Location" aria-describedby="Location-validation" class="field-control" />
-    <span id="Location-validation" asp-validation-for="Location" class="field-error"></span>
-</div>
-<div class="field">
-    <label asp-for="AvailabilityNotes" class="field-label">Availability notes</label>
-    <textarea asp-for="AvailabilityNotes" aria-describedby="AvailabilityNotes-validation" class="field-control" rows="3"></textarea>
-    <span id="AvailabilityNotes-validation" asp-validation-for="AvailabilityNotes" class="field-error"></span>
-</div>
-<div class="field">
-    <label asp-for="ContactPerson" class="field-label">Contact person</label>
-    <input asp-for="ContactPerson" aria-describedby="ContactPerson-validation" class="field-control" />
-    <span id="ContactPerson-validation" asp-validation-for="ContactPerson" class="field-error"></span>
-</div>
-<div class="field">
-    <label for="photo" class="field-label">Venue photo</label>
-    <input id="photo" name="photo" aria-describedby="photo-help photo-validation" type="file" accept="image/png,image/jpeg" class="field-control" />
-    <small id="photo-help" class="muted">A JPEG or PNG photo up to 2 MiB is required when creating a venue. Select a new photo to replace the existing one.</small>
-    @Html.ValidationMessage("photo", null, new { id = "photo-validation", @class = "field-error" })
-</div>
+<fieldset>
+    <legend>Facility details</legend>
+    <div class="field">
+        <label asp-for="RoomName" class="field-label">Room name <span class="required" aria-hidden="true">*</span></label>
+        <input asp-for="RoomName" aria-describedby="RoomName-validation" class="field-control" required aria-required="true" />
+        <span id="RoomName-validation" asp-validation-for="RoomName" class="field-error"></span>
+    </div>
+    <div class="field">
+        <label asp-for="Capacity" class="field-label">Capacity <span class="required" aria-hidden="true">*</span></label>
+        <input asp-for="Capacity" aria-describedby="Capacity-validation" type="number" min="1" class="field-control" required aria-required="true" />
+        <span id="Capacity-validation" asp-validation-for="Capacity" class="field-error"></span>
+    </div>
+    <div class="field">
+        <label asp-for="Location" class="field-label">Location</label>
+        <input asp-for="Location" aria-describedby="Location-validation" class="field-control" />
+        <span id="Location-validation" asp-validation-for="Location" class="field-error"></span>
+    </div>
+</fieldset>
+
+<fieldset>
+    <legend>Availability</legend>
+    <div class="field">
+        <label asp-for="AvailabilityNotes" class="field-label">Availability notes</label>
+        <textarea asp-for="AvailabilityNotes" aria-describedby="AvailabilityNotes-validation" class="field-control" rows="3"></textarea>
+        <span id="AvailabilityNotes-validation" asp-validation-for="AvailabilityNotes" class="field-error"></span>
+    </div>
+    <div class="field">
+        <label asp-for="ContactPerson" class="field-label">Contact person</label>
+        <input asp-for="ContactPerson" aria-describedby="ContactPerson-validation" class="field-control" />
+        <span id="ContactPerson-validation" asp-validation-for="ContactPerson" class="field-error"></span>
+    </div>
+</fieldset>
+
+<fieldset>
+    <legend>Photo</legend>
+    <div class="field">
+        <label for="photo" class="field-label">Venue photo @if (photoRequired) { <span class="required" aria-hidden="true">*</span> }</label>
+        <input id="photo" name="photo" aria-describedby="photo-help photo-validation" type="file" accept="image/png,image/jpeg" class="field-control" required="@(photoRequired ? "required" : null)" />
+        <small id="photo-help" class="muted">A JPEG or PNG photo up to 2 MiB is required when creating a venue. Select a new photo to replace the existing one.</small>
+        @Html.ValidationMessage("photo", null, new { id = "photo-validation", @class = "field-error" })
+    </div>
+</fieldset>

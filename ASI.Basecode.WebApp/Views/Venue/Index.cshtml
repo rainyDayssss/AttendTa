@@ -1,60 +1,100 @@
 @model PagedResult<VenueViewModel>
 @{
-    ViewData["Title"] = "Venues";
+    ViewData["Title"] = "Campus Facilities & Venues";
+    var statusFilter = ViewBag.Status as string;
 }
 
 <div class="page-heading">
-    <h2>Venue Management</h2>
-    <a asp-action="Create" class="button button-primary">Add Venue</a>
+    <h1>Campus Facilities &amp; Venues</h1>
+    <a asp-action="Create" class="button button-primary">New Venue</a>
 </div>
+
+<nav class="filter-tabs" aria-label="Venue status">
+    <a class="filter-tab" asp-action="Index" aria-current="@(string.IsNullOrEmpty(statusFilter) ? "page" : null)">All</a>
+    <a class="filter-tab" asp-action="Index" asp-route-status="active" aria-current="@(statusFilter == "active" ? "page" : null)">Active</a>
+    <a class="filter-tab" asp-action="Index" asp-route-status="inactive" aria-current="@(statusFilter == "inactive" ? "page" : null)">Inactive</a>
+</nav>
 
 @if (Model.Items.Count == 0)
 {
-    <p class="empty-state">No records found.</p>
+    <div class="table-scroll" role="region" aria-label="Venue table" tabindex="0">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th scope="col">Room Name</th>
+                    <th scope="col">Capacity</th>
+                    <th scope="col">Location</th>
+                    <th scope="col">Availability Notes</th>
+                    <th scope="col">Contact Person</th>
+                    <th scope="col">Photo</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="8" class="empty-state">
+                        @if (string.IsNullOrEmpty(statusFilter))
+                        {
+                            <text>No venues yet. Use "New Venue" to create the first one.</text>
+                        }
+                        else
+                        {
+                            <text>No @statusFilter venues.</text>
+                        }
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
 }
 else
 {
     <div class="table-scroll" role="region" aria-label="Venue table" tabindex="0">
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th scope="col">Room Name</th>
-                <th scope="col">Capacity</th>
-                <th scope="col">Location</th>
-                <th scope="col">Availability Notes</th>
-                <th scope="col">Contact Person</th>
-                <th scope="col">Photo</th>
-                <th scope="col">Status</th>
-                <th scope="col">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var venue in Model.Items)
-            {
-                <tr data-venue-id="@venue.VenueId">
-                    <td>@venue.RoomName</td>
-                    <td>@venue.Capacity</td>
-                    <td>@venue.Location</td>
-                    <td>@venue.AvailabilityNotes</td>
-                    <td>@venue.ContactPerson</td>
-                    <td>
-                        <a asp-action="Photo" asp-route-id="@venue.VenueId" target="_blank" rel="noopener">
-                            <img src="@Url.Action("Photo", new { id = venue.VenueId })" alt="Photo of @venue.RoomName" width="96" height="64" class="venue-thumb" />
-                        </a>
-                    </td>
-                    <td>@(venue.IsActive ? "Active" : "Inactive")</td>
-                    <td class="actions">
-                        <a asp-action="Edit" asp-route-id="@venue.VenueId" class="button button-secondary">Edit</a>
-                        <form asp-action="ToggleActive" asp-route-id="@venue.VenueId" method="post" class="inline-form">
-                            <input type="hidden" name="page" value="@Model.PageNumber" />
-                            <button type="submit" class="button button-secondary">@(venue.IsActive ? "Deactivate" : "Activate")</button>
-                        </form>
-                    </td>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th scope="col">Room Name</th>
+                    <th scope="col">Capacity</th>
+                    <th scope="col">Location</th>
+                    <th scope="col">Availability Notes</th>
+                    <th scope="col">Contact Person</th>
+                    <th scope="col">Photo</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Actions</th>
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach (var venue in Model.Items)
+                {
+                    <tr data-venue-id="@venue.VenueId">
+                        <td>@venue.RoomName</td>
+                        <td class="numeric">@venue.Capacity</td>
+                        <td>@venue.Location</td>
+                        <td>@venue.AvailabilityNotes</td>
+                        <td>@venue.ContactPerson</td>
+                        <td>
+                            <a asp-action="Photo" asp-route-id="@venue.VenueId" target="_blank" rel="noopener">
+                                <img src="@Url.Action("Photo", new { id = venue.VenueId })" alt="Photo of @venue.RoomName" width="96" height="64" class="venue-thumb" />
+                            </a>
+                        </td>
+                        <td><span class="badge @(venue.IsActive ? "badge-active" : "badge-inactive")">@(venue.IsActive ? "Active" : "Inactive")</span></td>
+                        <td class="actions">
+                            <div class="row-actions">
+                                <a asp-action="Edit" asp-route-id="@venue.VenueId" class="button button-small button-secondary">Edit</a>
+                                <form asp-action="ToggleActive" asp-route-id="@venue.VenueId" method="post" class="inline-form">
+                                    <input type="hidden" name="page" value="@Model.PageNumber" />
+                                    <button type="submit" class="button button-small button-secondary">@(venue.IsActive ? "Deactivate" : "Activate")</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
     </div>
 
     <partial name="_Pager" model="Model" />
 }
+
+<partial name="_ResultCount" model="Model" />

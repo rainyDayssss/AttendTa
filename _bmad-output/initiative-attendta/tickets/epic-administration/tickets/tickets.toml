@@ -35,12 +35,17 @@ risk = "medium"
 id = 4
 type = "story"
 title = "Account deactivation with registration cancellation cascade and session refusal"
-description = "Applies Account deactivation with a mandatory reason in one ExecuteInTransactionAsync under the Administrator policy. When the target is an active Administrator it takes the app lock attendta:last-admin (AD-4 step 1; refusing deactivation if the target is the last active Administrator), then locks the target's users row, then calls IRegistrationCancellationService.CancelUpcomingForUserAsync(userId, AccountDeactivated, reason) from epic-events-registration (AD-6), which cancels the upcoming Registrations, clears their QR tokens and locks their events in ascending order. It then sets users.is_active to false and appends one user.deactivated Activity Log entry. Session refusal on the next request comes from epic-platform-access's OnValidatePrincipal (AD-8); this entry adds no session code and only verifies it. The confirm step opens the entry 3 preview dialog."
+description = "Applies Account deactivation with a mandatory reason in one ExecuteInTransactionAsync under the Administrator policy. When the target is an active Administrator it takes the app lock attendta:last-admin (AD-4 step 1; refusing deactivation if the target is the last active Administrator), then locks the target's users row, then calls IRegistrationCancellationService.CancelUpcomingForUserAsync(userId, AccountDeactivated, reason) from epic-events-registration (AD-6), which cancels the upcoming Registrations, clears their QR tokens and locks their events in ascending order. It then sets users.is_active to false and appends one user.deactivated Activity Log entry. Session refusal on the next request comes from epic-platform-access's OnValidatePrincipal (AD-8); this entry adds no session code and only verifies it. The confirm step opens the entry 3 preview dialog. It replaces 5.11's demo account commands."
 verify = "Executing the UJ-5 flow, deactivating an officer account with a valid reason cancels their upcoming registrations, releases their seats without auto-promoting waitlisted members, records an attributable activity log entry, and immediately refuses their active session on their next request. An integration test in ASI.Basecode.IntegrationTests with parallel connections runs two account deactivations of the two active Administrators at once; exactly one succeeds and one Administrator stays active."
 covers = ["R3", "R4"]
-after = [2, 3, "1.1", "3.15"]
+after = [2, 3, 11, "1.1", "3.15"]
 hitl = false
 risk = "medium"
+phase = "integration"
+area = "backend"
+queue = 250
+references = ["_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Removes demo data M-14a (2026-11-06 demo rescope): implement the real source behind the contract the demo provider serves, delete the provider classes and their registration, and set the rows to `removed` with the commit in `demo-mock-register.md`. The screen should not change visibly. No per-ticket Impeccable critique or polish; 8.12 covers it."]
 
 [[entry]]
 id = 5
@@ -52,17 +57,27 @@ covers = ["R3", "R4"]
 after = [4]
 hitl = false
 risk = "low"
+phase = "integration"
+area = "backend"
+queue = 260
+references = ["_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Removes demo data M-14b (2026-11-06 demo rescope): implement the real source behind the contract the demo provider serves, delete the provider classes and their registration, and set the rows to `removed` with the commit in `demo-mock-register.md`. The screen should not change visibly. No per-ticket Impeccable critique or polish; 8.12 covers it."]
 
 [[entry]]
 id = 6
 type = "story"
 title = "Member membership deactivation with preview, reason and cancellation cascade"
-description = "Adds the membership deactivation action to the Management Member screen, whose status control epic-master-data removed (entry 2.6). The modal shows the preview from entry 3 and requires a non-empty reason. Submitting runs one ExecuteInTransactionAsync under the Management policy: it locks the member's users row (which also protects the members row, AD-4), sets members.membership_status_id to inactive, calls IRegistrationCancellationService.CancelUpcomingForUserAsync(userId, MembershipDeactivated, reason) from epic-events-registration (AD-6), and appends one member.membership_deactivated Activity Log entry. It takes no app lock and leaves users.is_active unchanged."
+description = "Wires 5.11's membership deactivation action to the real command; it adds no new action UI. The dialog shows the preview from entry 3 and requires a non-empty reason. Submitting runs one ExecuteInTransactionAsync under the Management policy: it locks the member's users row (which also protects the members row, AD-4), sets members.membership_status_id to inactive, calls IRegistrationCancellationService.CancelUpcomingForUserAsync(userId, MembershipDeactivated, reason) from epic-events-registration (AD-6), and appends one member.membership_deactivated Activity Log entry. It takes no app lock and leaves users.is_active unchanged. It replaces 5.11's demo membership commands."
 verify = "Management opens a Member; the deactivation modal lists that member's upcoming Registrations, and submission with an empty reason is refused. With a reason entered, the membership status reads inactive, those Registrations show Cancelled with QR tokens cleared, the user can still log in, and the Activity Log holds one member.membership_deactivated entry."
 covers = ["R1", "R3", "R4"]
-after = [3, "2.6", "3.15"]
+after = [3, 5, 11, "2.6", "3.15"]
 hitl = false
 risk = "low"
+phase = "integration"
+area = "backend"
+queue = 270
+references = ["_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Removes demo data M-15a (2026-11-06 demo rescope): implement the real source behind the contract the demo provider serves, delete the provider classes and their registration, and set the rows to `removed` with the commit in `demo-mock-register.md`. The screen should not change visibly. No per-ticket Impeccable critique or polish; 8.12 covers it."]
 
 [[entry]]
 id = 7
@@ -74,6 +89,11 @@ covers = ["R1", "R4"]
 after = [6]
 hitl = false
 risk = "medium"
+phase = "integration"
+area = "backend"
+queue = 280
+references = ["_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Removes demo data M-15b (2026-11-06 demo rescope): implement the real source behind the contract the demo provider serves, delete the provider classes and their registration, and set the rows to `removed` with the commit in `demo-mock-register.md`. The screen should not change visibly. No per-ticket Impeccable critique or polish; 8.12 covers it."]
 
 [[entry]]
 id = 8
@@ -90,9 +110,28 @@ risk = "low"
 id = 10
 type = "story"
 title = "Refactor sweep"
-description = "Cleans up technical debt with scope set at its start from plans and review findings the epic deferred; cleanup only, removing dead administration controller, service and view-model code while leaving the audit writer and its JSON formatting to epic-platform-access (AD-7)."
-verify = "All unit and integration tests across administration and audit logging pass green; the solution builds with zero warnings and no unused administration controller, service or view-model type remains."
+description = "Finale backend-only cleanup of concrete administration command, query and outcome-contract findings; keep the existing audit writer and cancellation path. No frontend redesign or duplicate whole-suite authoring."
+verify = "The solution builds with zero warnings and the focused access/cascade smoke remains correct; no agreed backend cleanup finding is unresolved. Full administration regression is recorded by 8.4."
 covers = []
-after = [1, 2, 3, 4, 5, 6, 7, 8]
+after = [1, 2, 3, 4, 5, 6, 7, 8, 11]
 hitl = false
 risk = "low"
+phase = "finale"
+area = "backend"
+queue = 470
+
+[[entry]]
+id = 11
+type = "story"
+title = "Frontend account and membership access dialogs"
+description = "Complete the account and membership access screens on the real 5.3 impact preview and the existing accounts list: deactivate and reactivate dialogs with a required reason, the consequence, and the blocked last-active-Administrator state, keeping account access distinct from membership eligibility. 5.11 fills the two access-action slot partials that 1.13 placed in the Accounts and Members list rows and changes no other markup in those lists; 2.13 changes only the Member Edit trigger and form. Until 5.4–5.7 exist, the commands run on demo data (M-14a, M-14b, M-15a, M-15b) and the lists show the changed state for the session. The preview's promise of a deactivation action is met by this action. Follow docs/DESIGN.md."
+verify = "An Administrator previews an account's affected registrations, deactivates it with a reason and reactivates it; an Officer deactivates and reactivates a membership with a reason; an empty reason is refused; the last active Administrator shows the blocked explanation; the lists show the changed state; nothing on screen says the data is demo data. Account and membership states stay distinct on desktop and phone width."
+covers = ["R1", "R2", "R3", "R4", "R6"]
+after = [3, "1.13", "1.14"]
+hitl = false
+risk = "medium"
+phase = "frontend"
+area = "frontend"
+queue = 100
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Demo phase (2026-11-06 demo rescope): frontend only. Use the real backend where a service method exists and demo data per `demo-mock-register.md` (rows M-14a, M-14b, M-15a, M-15b) where it does not; nothing on screen may show that data is demo data. Add or fill this ticket's register rows in the same pull request.", "Done check: `dotnet build`, `npm run css:build` when views or styles change, and one look at the changed screen with `DemoData__Enabled=true`. No new automated tests, no per-ticket Impeccable critique or polish and no separate code-review pass; the pull request keeps green existing CI and one peer approval. Critique, polish and the full Verify line run once in 8.15.", "The backend account and membership mutation tickets serialize their shared administration source changes; this is a code-boundary dependency, not a permanent human/module assignment."]

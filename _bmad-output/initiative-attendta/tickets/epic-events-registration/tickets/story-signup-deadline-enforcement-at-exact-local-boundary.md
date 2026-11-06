@@ -9,7 +9,8 @@ hitl: false
 risk: low
 tracker_id: "34"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/34"
-tracker_status: backlog
+tracker_status: done
+assignee: "wigglebop25"
 ---
 
 # Signup deadline enforcement at exact local boundary

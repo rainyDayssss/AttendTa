@@ -9,7 +9,8 @@ hitl: false
 risk: low
 tracker_id: "38"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/38"
-tracker_status: backlog
+tracker_status: done
+assignee: "FivePesos"
 ---
 
 # Member self-cancellation and re-registration refusal

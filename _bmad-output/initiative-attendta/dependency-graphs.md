@@ -1,5 +1,61 @@
 # AttendTa dependency graphs
 
+## Current frontend-first dependency overlay — 6 November 2026
+
+The approved live plan is [delivery-queue.md](delivery-queue.md), backed by current leaf `after`
+values and `tickets.toml`. Epics retain capability ids; they are not fixed person lanes or whole-
+backend gates for the new frontend slices. Already merged work is reused, including #133/#134.
+
+For the current sequential/parallel five-builder batches and shared-provider handoffs, use
+[delivery-waves.md](delivery-waves.md), not the archived original waves below.
+
+```mermaid
+flowchart TD
+  A["1.12 Early frontend walkthrough"] --> B["1.13 Shell / routes / typed fixture contracts"]
+  B --> C["3.17 My Events host"]
+  B --> D["4.11 Scanner / manual UI"]
+  B --> E["6.12 Certificate ledger / viewer UI"]
+  B --> F["7.4 Report UI"]
+  B --> G["3.16 Officer dossier / roster UI"]
+  C --> H["4.10 Pass UI / 4.12 Attendance UI / 6.13 Certificate history UI"]
+  B --> I["2.12 Shared dialog + Event Type"]
+  I --> J["2.13 Member / 2.14 Venue dialogs"]
+  J --> K["5.11 Access dialogs / 2.11 Editor acceptance"]
+  G --> L["3.12 Completion + hook"]
+  C --> M["3.13 Real registrations query"]
+  D --> N["4.2 Window -> 4.3 Recording -> camera/manual adapters"]
+  L --> N
+  L --> O["6.4 Reviews -> decisions -> issuance / retained downloads"]
+  N --> O
+  F --> P["7.1-3 Real report reads"]
+  K --> Q["5.4-7 Real access changes"]
+  M --> R["Focused backend sweeps -> 8.13 Hardening"]
+  H --> R
+  N --> R
+  O --> R
+  P --> R
+  Q --> R
+  R --> S["8.11 Remove mocks / prove real integration"]
+  S --> T["8.12 Final frontend walkthrough / refactor / polish"]
+  T --> U["8.10 Pre-acceptance cleanup"]
+  U --> V["8.5 Important cases -> 8.4 Combined automated run"]
+  V --> W["8.6 Manual -> 8.7 Demo -> 8.8 Sign-off"]
+  X["8.14 Actual host readiness"] --> Y["8.2 Phone HTTPS / 8.3 Restore evidence"]
+  Y --> W
+  W --> Z["8.9 Release LAST"]
+```
+
+This is a grouped readability overlay, not a claim that every item in a box is serial. In
+particular 4.4 camera and 4.5 manual use separate adapters and can wire in parallel after the
+shared engine; real report reads and review creation use canonical mapped facts without waiting
+for every scanner screen. Leaf dependencies and the source-boundary handoff remain authoritative.
+
+## Archived original baseline (not current execution order)
+
+The graphs and waves below are retained as historical context from the original planning
+snapshot. They omit the frontend slices and show the now-superseded post-release 8.10 sweep.
+Do not use their counts, critical path or ownership assumptions to select current work.
+
 Source: `_bmad-output/initiative-attendta/tickets/` at commit `420f72c`. Solid arrow = same epic, provider → consumer. Dashed arrow = prerequisite story in another epic. `hitl` marks a step a person runs.
 
 ## Epic graph (count = prerequisite edges between the epics' stories)

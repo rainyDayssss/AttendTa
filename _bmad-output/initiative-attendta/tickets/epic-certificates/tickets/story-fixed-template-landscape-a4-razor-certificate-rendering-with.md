@@ -9,7 +9,8 @@ hitl: false
 risk: high
 tracker_id: "62"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/62"
-tracker_status: backlog
+tracker_status: done
+assignee: "Wynnwrath"
 ---
 
 # Fixed-template landscape A4 Razor certificate rendering with embedded fonts

@@ -1,4 +1,5 @@
 using ASI.Basecode.Data.Interfaces;
+using ASI.Basecode.Data.Models;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.Services.Services;
@@ -113,6 +114,18 @@ public sealed class CertificateTracerServiceTests
 
     private sealed class FakeRegistrationRepository : IRegistrationRepository
     {
+        public Task<RegistrationReviewIdentity> DiscoverReviewAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<RegistrationPromotionCandidate> DiscoverPromotionCandidateAsync(int eventId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<bool> HasEligibleWaitlistAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<bool> HasValidAttendanceAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<bool> HasValidAttendanceForEventAsync(int eventId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<bool> HasIssuedCertificateForEventAsync(int eventId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<int> CountReviewQueueAsync(ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode status, int? eventId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<RegistrationReviewRow>> GetReviewQueueAsync(ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode status, int? eventId, int offset, int limit, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<Registration> GetForCancellationAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<Registration>> GetOpenForEventAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<int>> DiscoverOpenEventIdsForUserAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<UpcomingRegistrationRow>> GetUpcomingForUserAsync(int id, DateTime now, int? eventId = null, CancellationToken ct = default) => throw new NotSupportedException();
         public bool IsConfirmed { get; init; }
         public int LookupCount { get; private set; }
 
@@ -121,6 +134,11 @@ public sealed class CertificateTracerServiceTests
             LookupCount++;
             return Task.FromResult(IsConfirmed);
         }
+
+        public Task<bool> ExistsAsync(int eventId, int memberId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<MemberRegistrationRow> GetMemberRegistrationAsync(int eventId, int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<int> CountConfirmedAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task AddAsync(Registration registration, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private sealed class FakeRenderer : ICertificatePdfRenderer

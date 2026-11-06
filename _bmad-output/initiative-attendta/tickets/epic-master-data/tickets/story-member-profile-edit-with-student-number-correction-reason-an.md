@@ -9,7 +9,8 @@ hitl: false
 risk: medium
 tracker_id: "25"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/25"
-tracker_status: backlog
+tracker_status: done
+assignee: "wigglebop25"
 ---
 
 # Member profile edit with student-number correction reason and audit

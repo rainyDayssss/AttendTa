@@ -25,13 +25,13 @@ namespace ASI.Basecode.WebApp
         {
             public AutoMapperProfileConfiguration()
             {
-                CreateMap<EventTypeViewModel, EventType>();
                 CreateMap<EventType, EventTypeViewModel>();
-                CreateMap<VenueViewModel, Venue>();
                 CreateMap<Venue, VenueViewModel>();
                 CreateMap<EventViewModel, Event>();
                 CreateMap<Event, EventViewModel>();
                 CreateMap<EventListItem, EventViewModel>();
+                CreateMap<PublishedEventListItem, MemberEventListItemViewModel>();
+                CreateMap<PublishedEventDetail, MemberEventDetailViewModel>();
             }
         }
     }

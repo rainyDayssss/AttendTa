@@ -1,17 +1,39 @@
 @model MemberViewModel
 @{
-    ViewData["Title"] = "Profile";
+    ViewData["Title"] = "My Member Profile";
+    var initials = string.Concat(
+        (Model.FullName ?? string.Empty)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Take(2)
+            .Select(part => char.ToUpperInvariant(part[0])));
+    var active = Model.Status == "active";
 }
 
 <div class="page-heading">
     <div>
-        <h1>Your profile</h1>
+        <h1>My Member Profile</h1>
         <p class="muted">Review the account, academic and membership details linked to your account.</p>
     </div>
 </div>
 
-<section class="panel" aria-labelledby="profile-details-heading">
-    <h2 id="profile-details-heading">Profile details</h2>
+<section class="identity-strip" aria-label="Member identity">
+    <span class="identity-avatar" aria-hidden="true">@initials</span>
+    <div class="identity-text">
+        <p class="identity-name">@Model.FullName</p>
+        <p class="identity-meta">@Model.Email · @Model.StudentNumber</p>
+    </div>
+    <span class="badge @(active ? "badge-active" : "badge-inactive")">@(active ? "Active" : "Inactive")</span>
+</section>
+
+<p class="notice notice-amber" role="status">Profile details are managed by an organization officer. Contact one to request a correction.</p>
+
+@if (!active)
+{
+    <p class="notice notice-amber" role="status">Your membership is inactive. You can still sign in, review your history and download issued certificates, but you cannot register for new events. Contact an officer to reactivate your membership.</p>
+}
+
+<section class="panel" aria-labelledby="profile-account-heading">
+    <h2 id="profile-account-heading">Account</h2>
     <dl class="profile-details">
         <div>
             <dt>Full name</dt>
@@ -21,6 +43,12 @@
             <dt>Email</dt>
             <dd>@Model.Email</dd>
         </div>
+    </dl>
+</section>
+
+<section class="panel" aria-labelledby="profile-academic-heading">
+    <h2 id="profile-academic-heading">Academic details</h2>
+    <dl class="profile-details">
         <div>
             <dt>Student number</dt>
             <dd>@Model.StudentNumber</dd>
@@ -37,6 +65,12 @@
             <dt>Section</dt>
             <dd>@Model.Section</dd>
         </div>
+    </dl>
+</section>
+
+<section class="panel" aria-labelledby="profile-membership-heading">
+    <h2 id="profile-membership-heading">Membership</h2>
+    <dl class="profile-details">
         <div>
             <dt>Mobile number</dt>
             <dd>@Model.MobileNumber</dd>
@@ -47,7 +81,7 @@
         </div>
         <div>
             <dt>Membership status</dt>
-            <dd>@Model.Status</dd>
+            <dd>@(active ? "Active" : "Inactive")</dd>
         </div>
     </dl>
 </section>

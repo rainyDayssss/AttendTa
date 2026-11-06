@@ -164,7 +164,9 @@ public sealed class VenuePhotoFlowTests(SqlServerDatabaseFixture fixture) : ICla
             {
                 var editPage = await adminClient.GetAsync($"/Venue/Edit?id={venueId}", ct);
                 Assert.Equal(HttpStatusCode.OK, editPage.StatusCode);
-                var tokenMatch = Regex.Match(await editPage.Content.ReadAsStringAsync(ct), "__RequestVerificationToken[^>]*value=\"([^\"]+)\"", RegexOptions.IgnoreCase);
+                var editHtml = await editPage.Content.ReadAsStringAsync(ct);
+                Assert.Contains($"/Venue/Photo?id={venueId}", editHtml, StringComparison.Ordinal);
+                var tokenMatch = Regex.Match(editHtml, "__RequestVerificationToken[^>]*value=\"([^\"]+)\"", RegexOptions.IgnoreCase);
                 Assert.True(tokenMatch.Success, "No antiforgery token was rendered on the venue edit form.");
 
                 using var form = new MultipartFormDataContent();

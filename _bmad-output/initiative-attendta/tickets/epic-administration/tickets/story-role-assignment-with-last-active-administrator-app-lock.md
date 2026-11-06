@@ -9,7 +9,8 @@ hitl: false
 risk: high
 tracker_id: "53"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/53"
-tracker_status: backlog
+tracker_status: done
+assignee: "Wynnwrath"
 ---
 
 # Role assignment with last-active-Administrator app lock

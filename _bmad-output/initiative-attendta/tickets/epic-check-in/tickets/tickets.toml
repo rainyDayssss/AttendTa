@@ -1,13 +1,82 @@
 [[entry]]
+id = 11
+type = "story"
+title = "Frontend door scanner manual lookup and attendance dialogs"
+description = "Build DESIGN screen 14 on the 1.13 shell: event selection, open/closed check-in control, live camera decoding with a locally served browser QR decoder (no CDN), persistent success, repeat, invalid, closed and camera-unavailable outcomes, manual name/student-number lookup with an explicit Check in, and attendance invalidation with reason and confirmation. The camera and manual adapters are separate files that post to the check-in contract; until 4.2, 4.3, 4.5 and 4.6 exist that contract is served by demo data (M-05, M-06, M-07; the open/close control is 1.14's shared partial for M-04), and a pass from 4.10 is matched against register rule 10 tokens. Each demo check-in reloads the real registration status and applies register rule 8, so a registration cancelled through the real service is refused; invalidation changes the review through the 1.14 store rule and is refused when the certificate is issued. 4.3 and 4.5 later replace the demo providers behind the same contract, and 4.4 verifies the camera against the real engine. Searching or viewing never records attendance. Serve all assets locally. The 4.12 attendance history and 7.4 report read the check-ins this scanner writes to the demo store. The event selector is 1.13's shared partial and the open/close check-in control is 1.14's."
+verify = "On localhost an Officer opens the scanner for a published event with check-in open, scans a seeded member's pass from 4.10 with the laptop camera and sees the member's name and student number; a second scan shows the original check-in time; an unknown code, a closed window and a denied camera each show their outcome, a pass whose registration was cancelled through the real service shows the invalid outcome; manual lookup finds a confirmed participant and checks them in; invalidation needs a reason and is refused for an issued certificate; nothing on screen says the data is demo data; the page works by keyboard at desktop and 390px width."
+covers = ["R3", "R4", "R5", "R6", "R8", "R9"]
+after = ["1.13", "1.14", 10]
+hitl = false
+risk = "medium"
+phase = "frontend"
+area = "frontend"
+queue = 70
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Demo phase (2026-11-06 demo rescope): frontend only. Use the real backend where a service method exists and demo data per `demo-mock-register.md` (adds rows M-05, M-06, M-07; uses M-04 from 1.14) where it does not; nothing on screen may show that data is demo data. Add or fill this ticket's register rows in the same pull request.", "Done check: `dotnet build`, `npm run css:build` when views or styles change, and one look at the changed screen with `DemoData__Enabled=true`. No new automated tests, no per-ticket Impeccable critique or polish and no separate code-review pass; the pull request keeps green existing CI and one peer approval. Critique, polish and the full Verify line run once in 8.15."]
+
+[[entry]]
+id = 10
+type = "story"
+title = "Frontend member pass cards and QR download states"
+description = "Fill the _PassPartial slot that 1.13 placed on each My Events registration card with the DESIGN screen 13 pass cards: active and past sections, event and holder identity, a QR with an intact quiet zone, and a PNG download. Until 4.1 exists the QR encodes the register rule 10 token (M-03) and is drawn by a locally served browser library, and the download saves that image. Pending, waitlisted, cancelled or unavailable registrations show no usable pass. Own the pass partial and its scoped assets, not MyEventsController or the host card. The 4.11 scanner matches these tokens."
+verify = "A Member opens their passes in My Events, sees a card per confirmed registration with a QR that encodes that registration's token, downloads it as PNG, and sees no usable pass for a pending, waitlisted or cancelled registration; cards read well in one and two columns on phone and desktop; nothing on screen says the data is demo data."
+covers = ["R1", "R2"]
+after = ["1.13", "1.14"]
+hitl = false
+risk = "low"
+phase = "frontend"
+area = "frontend"
+queue = 40
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Demo phase (2026-11-06 demo rescope): frontend only. Use the real backend where a service method exists and demo data per `demo-mock-register.md` (rows M-03) where it does not; nothing on screen may show that data is demo data. Add or fill this ticket's register rows in the same pull request.", "Done check: `dotnet build`, `npm run css:build` when views or styles change, and one look at the changed screen with `DemoData__Enabled=true`. No new automated tests, no per-ticket Impeccable critique or polish and no separate code-review pass; the pull request keeps green existing CI and one peer approval. Critique, polish and the full Verify line run once in 8.15."]
+
+[[entry]]
+id = 12
+type = "story"
+title = "Frontend member attendance history partial"
+description = "Fill only the attendance-history slot partial that 1.13 placed in the My Events Attendance tab with a dedicated partial and its own page parameter. Show valid and invalidated records, event details and Asia/Manila times, with no member check-in or correction actions. Until 4.7 the records are demo data (M-08) from the same demo store the 4.11 scanner writes, so a check-in made at the door appears here. Do not edit the pass or certificate partials or the host model."
+verify = "A Member with a seeded check-in opens Attendance History and sees that record with its Manila time, sees an invalidated record marked as such, pages independently of registrations at desktop and phone width, finds no self-check-in or correction control, and sees nothing saying the data is demo data."
+covers = ["R1", "R7", "R9"]
+after = ["1.13", "1.14"]
+hitl = false
+risk = "low"
+phase = "frontend"
+area = "frontend"
+queue = 80
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Demo phase (2026-11-06 demo rescope): frontend only. Use the real backend where a service method exists and demo data per `demo-mock-register.md` (rows M-08) where it does not; nothing on screen may show that data is demo data. Add or fill this ticket's register rows in the same pull request.", "Done check: `dotnet build`, `npm run css:build` when views or styles change, and one look at the changed screen with `DemoData__Enabled=true`. No new automated tests, no per-ticket Impeccable critique or polish and no separate code-review pass; the pull request keeps green existing CI and one peer approval. Critique, polish and the full Verify line run once in 8.15."]
+
+[[entry]]
+id = 13
+type = "story"
+title = "Member self profile: bring screen 4 up to DESIGN §6"
+description = "Finish existing GitHub #129 only: #132/#134 already delivered the profile title, grouped read-only panels, badge, dark identity strip, amber notice and inactive-membership explanation. Add the compact bottom action to the usable My Passes route from 4.10, preserving all shipped work and active-account versus membership semantics. This residual passes-link story belongs here as a consumer of the pass screen; it creates no new profile editor."
+verify = "A Member follows the compact profile action to My Passes without a dead link; profile identity/notices remain correct and read-only. Inactive membership does not imply a blocked login or loss of issued-certificate access. Close #129 only after this rendered flow works."
+covers = ["R1"]
+after = [10]
+hitl = false
+risk = "low"
+phase = "frontend"
+area = "frontend"
+queue = 130
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Existing issue #129 is reused and its shipped #132/#134 acceptance is preserved.", "Demo phase (2026-11-06 demo rescope): frontend only, real backend only; this ticket adds no demo data.", "Done check: `dotnet build`, `npm run css:build` when views or styles change, and one look at the changed screen with `DemoData__Enabled=true`. No new automated tests, no per-ticket Impeccable critique or polish and no separate code-review pass; the pull request keeps green existing CI and one peer approval. Critique, polish and the full Verify line run once in 8.15."]
+
+[[entry]]
 id = 1
 type = "story"
 title = "On-demand QR Pass PNG rendering and download"
-description = "Adds server-side QR PNG rendering in ASI.Basecode.WebApp/Rendering with no System.Drawing, chooses and records the server QR library (net10.0-compatible, referenced from WebApp only), and adds a download action that checks ownership in Services and streams the PNG generated in memory, encoding only the 64-character token. The download control renders through e4's _PassPartial inside e3's My Events; e4 adds no action to MyEventsController (delivering R2 and the pass presentation part of R1)."
+description = "Adds server-side QR PNG rendering in ASI.Basecode.WebApp/Rendering with no System.Drawing, chooses and records the server QR library (net10.0-compatible, referenced from WebApp only), and adds a download action that checks ownership in Services and streams the PNG generated in memory, encoding only the 64-character token. The download control renders through e4's _PassPartial inside e3's My Events; e4 adds no action to MyEventsController (delivering R2 and the pass presentation part of R1). It replaces 4.10's browser-drawn demo QR; delete that locally served QR drawing library if nothing else uses it."
 verify = "A logged-in Member opens My Events for a Confirmed Registration, clicks Download PNG, and receives a PNG that decodes to their 64-character lowercase hex token; downloading another Member's pass, an unknown registration id, or a cancelled Registration returns the same 403 Forbidden response and message."
 covers = ["R1", "R2"]
-after = ["3.7", "3.13"]
+after = ["3.7", "3.13", 10]
 hitl = true
 risk = "medium"
+phase = "integration"
+area = "backend"
+queue = 220
+references = ["_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Removes demo data M-03 (2026-11-06 demo rescope): implement the real source behind the contract the demo provider serves, delete the provider classes and their registration, and set the rows to `removed` with the commit in `demo-mock-register.md`. The screen should not change visibly. No per-ticket Impeccable critique or polish; 8.12 covers it."]
 
 [[entry]]
 id = 2
@@ -16,31 +85,46 @@ title = "Check-in window toggle with audit logging"
 description = "Adds SetCheckInWindowAsync to e3's IEventLifecycleService (with e3's review) and a Management command that opens or closes Check-in for a Published Event at any time as a row action on the Management event list from epic-events-registration entry 1 (3.1). The command runs in one IUnitOfWork.ExecuteInTransactionAsync under the Event lock (AD-4), sets is_check_in_open and its actor columns, and appends one audit entry per toggle (event.check_in_opened / event.check_in_closed, AD-7) (delivering R3 and the check-in toggle part of R8)."
 verify = "An Officer opens Check-in on a Published Event and sees it Open with actor and time shown, plus one event.check_in_opened Activity Log entry; closing it records one event.check_in_closed entry; a toggle on an unpublished, cancelled or completed event is refused and leaves the flag and the log unchanged."
 covers = ["R3", "R8"]
-after = ["3.1", "3.12"]
+after = ["3.1", "3.12", "3.16", 11]
 hitl = false
 risk = "low"
+phase = "integration"
+area = "backend"
+queue = 230
+references = ["_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Removes demo data M-04 (2026-11-06 demo rescope): implement the real source behind the contract the demo provider serves, including the shared check-in control partial and the open-flag overlay on event reads, delete the provider classes and their registration, and set the rows to `removed` with the commit in `demo-mock-register.md`. The screen should not change visibly. No per-ticket Impeccable critique or polish; 8.12 covers it."]
 
 [[entry]]
 id = 3
 type = "story"
 title = "Check-in validation engine and attendance recording"
 description = "Adds LockAttendanceAsync to the attendance repository (UPDLOCK, HOLDLOCK, ROWLOCK on primary key seek, AD-4). Implements the shared check-in use case behind the scanner endpoint and the manual lookup (entry 5): a Management-only POST that runs in IUnitOfWork.ExecuteInTransactionAsync, takes the owner's users row then the event through repository Lock…Async methods (AD-4), and rechecks event match, Check-in open, Confirmed status and Eligible Participant through ParticipationFacts. A Valid Attendance returns its original time and inserts nothing; an invalidated attendance is refused. Otherwise it inserts one Attendance Record (method qr_code, recorder from ICurrentActor, UTC time) and appends one attendance.recorded entry whose payload excludes qr_token (AD-7). Responds per AD-9 with an HTTP status and JSON {outcome, message}, plus participant name and student number on success (fields Deferred to e4) (delivering the validation and recording part of R4, the attendance record part of R8, and SM-4 attendance concurrency)."
-verify = "Submitting a valid token for an open Published Event records one Attendance Record (qr_code) and one attendance.recorded entry, and returns name and student number. Resubmitting returns HTTP 200 with the original check-in time and inserts no row. A token whose attendance is invalidated, or that is wrong-event, ineligible, cancelled, unconfirmed, closed, unpublished, or unknown, is refused without an insert. tests/ASI.Basecode.Services.Tests covers each refusal with a fake TimeProvider and ICurrentActor (AD-17). tests/ASI.Basecode.IntegrationTests, against ATTENDTA_TEST_SQL, runs parallel connections for concurrent scans of one Registration and asserts exactly one Attendance Record and one attendance.recorded entry, with competing requests returning the existing record."
+verify = "Focused development check: a valid scan commits one attendance/audit row and a repeat returns its original time without another insert; an invalid/closed request cannot write. Preserve all refusal rules. Finale 8.5 adds the critical refusal matrix and real-SQL duplicate-scan race from finale-test-cases.md; 8.4 runs the complete suite with exactly one Attendance Record and one audit entry under concurrency."
 covers = ["R4", "R8"]
-after = [2, "3.3", "3.7"]
+after = [1, 2, "3.3", "3.7"]
 hitl = false
 risk = "high"
+phase = "integration"
+area = "backend"
+queue = 240
+references = ["_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Waits on 4.1 so passes carry real tokens before the real engine validates them.", "Removes demo data M-05 (2026-11-06 demo rescope): implement the real source behind the contract the demo provider serves, delete the provider classes and their registration, and set the rows to `removed` with the commit in `demo-mock-register.md`. From this commit the M-10a demo reviews read real attendance (register rule 12). The screen should not change visibly. No per-ticket Impeccable critique or polish; 8.12 covers it."]
 
 [[entry]]
 id = 4
 type = "story"
 title = "In-browser camera QR scanner on localhost"
-description = "Adds the Management door scanner page where an Officer points the laptop camera at a Confirmed Member's Pass; the scanner page also runs on the hotspot HTTPS origin in epic-release-acceptance entry 2 (no hard-coded localhost), while this entry verifies it on localhost. A browser QR decoder library chosen in this entry is served from wwwroot, with no runtime CDN (AD-14). The page reads the laptop camera and posts each decoded token to the entry 3 endpoint with the RequestVerificationToken header read from the layout meta tag (AD-8), then shows the JSON outcome and message (AD-9). Scan payloads are not logged (Consistency: Diagnostics) (delivering the camera scan interaction of R4)."
+description = "Points the camera adapter and decoder that 4.11 built at the 4.3 check-in endpoint, posting each decoded token with the RequestVerificationToken header from the layout meta tag (AD-8) and showing the JSON outcome and message (AD-9). The page also runs on the hotspot HTTPS origin in 8.2 (no hard-coded localhost); this entry verifies it on localhost with a laptop camera. The decoder stays served from wwwroot with no runtime CDN (AD-14). Scan payloads are not logged (delivering the camera scan interaction of R4)."
 verify = "An Officer opens the scanner on localhost on a laptop webcam, points it at a Confirmed Member's QR Pass, and sees name and student number on success; presenting the same pass again shows the original check-in time; the browser network log shows no request to any host other than localhost."
 covers = ["R4"]
-after = [2, 3]
+after = [2, 3, 11]
 hitl = true
 risk = "high"
+phase = "integration"
+area = "frontend"
+queue = 300
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Wire 4.11's camera adapter and decoder; do not rebuild the screen or choose another decoder. Keep development testing to one real scan, a repeat and camera-denied fallback; the full matrix and phone test run at the finale.", "Removes no register row (2026-11-06 review): 4.3 removes M-05; this ticket verifies 4.11's camera adapter against the real engine."]
 
 [[entry]]
 id = 5
@@ -49,9 +133,14 @@ title = "Manual check-in fallback by name and student number"
 description = "Allows Management to search Confirmed participants by name or student number with 25-row pagination (AD-13) in the scanner window (EXPERIENCE.md: manual lookup lives in the Scanner window) and execute check-in recording manual_search or student_number under the entry 3 validation and lock rules (AD-4), appending an attendance.recorded Activity Log entry (delivering R5, the manual audit part of R8, and the search paging part of R9)."
 verify = "An Officer searches confirmed participants by student number or name on an open event, sees a 25-row paged list, selects an attendee and clicks Check in, creating an Attendance Record with check_in_method manual_search or student_number; searching or viewing alone never inserts an attendance row."
 covers = ["R5", "R8", "R9"]
-after = [3, 4]
+after = [3, 11]
 hitl = false
 risk = "medium"
+phase = "integration"
+area = "frontend"
+queue = 310
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Wire the separate manual adapter that 4.11 built; it does not depend on 4.4. Verify one lookup and explicit check-in; searching never writes. Broad cases belong to the finale.", "Removes demo data M-06 (2026-11-06 demo rescope): implement the real source behind the contract the demo provider serves, delete the provider classes and their registration, and set the rows to `removed` with the commit in `demo-mock-register.md`. The screen should not change visibly. No per-ticket Impeccable critique or polish; 8.12 covers it."]
 
 [[entry]]
 id = 6
@@ -63,25 +152,39 @@ covers = ["R6", "R8"]
 after = [3, 5]
 hitl = false
 risk = "medium"
+phase = "integration"
+area = "backend"
+queue = 320
+references = ["_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Removes demo data M-07 (2026-11-06 demo rescope): implement the real source behind the contract the demo provider serves, delete the provider classes and their registration, and set the rows to `removed` with the commit in `demo-mock-register.md`. From this commit invalidation is real; 6.5's handler later replaces the store's invalidation-to-review rule (register rule 12). The screen should not change visibly. No per-ticket Impeccable critique or polish; 8.12 covers it."]
 
 [[entry]]
 id = 7
 type = "story"
 title = "Member attendance view on My Events"
-description = "Adds an attendance query service and attendance view-model fields to e3's My Events card, rendered inside _PassPartial, showing each Registration's Attendance state with invalidated records marked. The attendance history pages at 25 rows with its own page parameter beside e3's registrations list (AD-13, AD-14). This entry adds no check-in or correction action (delivering R7, the attendance state part of R1, and the history paging part of R9)."
+description = "Replace 4.12's demo attendance source with a real owner-scoped query and fill the agreed attendance fields/partial contract of the existing My Events host. Show valid/invalidated states and Asia/Manila times with independent 25-row history paging. Do not create another card or host, add self-check-in/correction actions or rewrite presentation (R7, attendance part of R1, history paging part of R9)."
 verify = "A Member opens My Events and sees their valid attendance records with Asia/Manila check-in timestamps; an invalidated record is badged Invalidated with no check-in or correction actions; the attendance history pages at 25 rows with its own page control, independent of the registrations list."
 covers = ["R1", "R7", "R9"]
-after = [1, 6]
+after = [1, 6, 12, "3.13"]
 hitl = false
 risk = "low"
+phase = "integration"
+area = "backend"
+queue = 330
+references = ["_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Removes demo data M-08 (2026-11-06 demo rescope): implement the real source behind the contract the demo provider serves, delete the provider classes and their registration, and set the rows to `removed` with the commit in `demo-mock-register.md`. The screen should not change visibly. No per-ticket Impeccable critique or polish; 8.12 covers it."]
 
 [[entry]]
 id = 9
 type = "story"
 title = "Refactor sweep"
-description = "Cleanup only, scope set at its start from plans and review findings the epic deferred."
-verify = "A non-builder reviews the git diff against dev, verifying no dead code, unused using directives, temporary logging, or schema drift remains and all existing automated check-in and attendance tests continue to pass."
+description = "Finale backend-only cleanup of concrete deferred QR/check-in service, query and endpoint findings, without new scope or a second frontend audit. Shared scanner/history visuals are polished once in 8.12."
+verify = "A non-builder checks the affected diff: no temporary scan/token logging, dead backend code or schema drift remains; build and a focused affected check pass. 8.4 records the full regression once."
 covers = []
-after = [1, 2, 3, 4, 5, 6, 7]
+after = [1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13]
 hitl = false
 risk = "low"
+phase = "finale"
+area = "backend"
+queue = 460
+references = ["_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md"]

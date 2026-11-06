@@ -1,0 +1,47 @@
+@model CheckInScreenViewModel
+@{
+    ViewData["Title"] = "Check-in";
+    ViewData["Feature"] = "scanner";
+}
+
+<div class="page-heading">
+    <div>
+        <h1>Check-in</h1>
+        <p class="muted">Scan a pass or look up a participant to record attendance.</p>
+    </div>
+</div>
+
+<partial name="_EventSelector" model="Model.Selector" />
+
+<section class="scanner-window" aria-labelledby="scanner-heading">
+    <h2 id="scanner-heading">Scanner</h2>
+    <div class="scanner-viewport" aria-live="polite"></div>
+    <div class="scanner-result" aria-live="polite"></div>
+</section>
+
+<section class="panel" aria-labelledby="scanner-log-heading">
+    <h2 id="scanner-log-heading">Recorded check-ins</h2>
+    <div class="table-scroll" role="region" aria-label="Recorded check-ins" tabindex="0">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th scope="col">Participant</th>
+                    <th scope="col">Student number</th>
+                    <th scope="col">Recorded</th>
+                    <th scope="col">Outcome</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var result in Model.RecentResults)
+                {
+                    <tr>
+                        <td>@result.MemberName</td>
+                        <td class="numeric">@result.StudentNumber</td>
+                        <td class="numeric">@(result.RecordedAt is null ? string.Empty : ManilaTimeFormatter.Format(result.RecordedAt.Value))</td>
+                        <td>@result.Outcome</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>

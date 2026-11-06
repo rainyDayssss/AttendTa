@@ -9,7 +9,8 @@ hitl: false
 risk: high
 tracker_id: "36"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/36"
-tracker_status: backlog
+tracker_status: done
+assignee: "wigglebop25"
 ---
 
 # Registration review and transactional seat allocation with SQL Server concurrency test

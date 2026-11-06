@@ -6,6 +6,7 @@ using ASI.Basecode.Services.Security;
 using ASI.Basecode.Services.Services;
 using ASI.Basecode.WebApp.Certificates;
 using ASI.Basecode.WebApp.Authentication;
+using ASI.Basecode.WebApp.DemoData;
 using ASI.Basecode.WebApp.Rendering;
 using ASI.Basecode.WebApp.Storage;
 using Microsoft.AspNetCore.Http;
@@ -43,6 +44,9 @@ namespace ASI.Basecode.WebApp
             this._services.AddScoped<IEventTypeService, EventTypeService>();
             this._services.AddScoped<IVenueService, VenueService>();
             this._services.AddScoped<IEventLifecycleService, EventLifecycleService>();
+            this._services.AddScoped<IMemberEventService, MemberEventService>();
+            this._services.AddScoped<IRegistrationCancellationService, RegistrationCancellationService>();
+            this._services.AddScoped<IRegistrationReviewService, RegistrationReviewService>();
             this._services.AddScoped<ICertificateTracerService, CertificateTracerService>();
 
             // Repositories
@@ -74,6 +78,10 @@ namespace ASI.Basecode.WebApp
 
             // Current request actor for service-layer authorization and audit.
             this._services.AddScoped<ICurrentActor, HttpCurrentActor>();
+
+            // Demo data seam. The switch is off in committed settings; the startup guard has already
+            // refused a wrong database before this runs.
+            this._services.AddDemoData(this.Configuration);
 
             this._services.AddHttpClient();
         }

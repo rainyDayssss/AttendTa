@@ -9,7 +9,8 @@ hitl: false
 risk: medium
 tracker_id: "33"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/33"
-tracker_status: backlog
+tracker_status: done
+assignee: "Wynnwrath"
 ---
 
 # Member event browsing and registration submission with academic snapshot

@@ -6,7 +6,7 @@ namespace ASI.Basecode.Services.Interfaces
 {
     public interface IEventTypeService
     {
-        Task<PagedResult<EventTypeViewModel>> GetPageAsync(int? page, CancellationToken cancellationToken = default);
+        Task<PagedResult<EventTypeViewModel>> GetPageAsync(string status, int? page, CancellationToken cancellationToken = default);
         EventTypeViewModel GetEventType(int id);
         Task AddEventTypeAsync(EventTypeViewModel model, CancellationToken cancellationToken = default);
         Task UpdateEventTypeAsync(EventTypeViewModel model, CancellationToken cancellationToken = default);

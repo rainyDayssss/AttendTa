@@ -9,7 +9,8 @@ hitl: false
 risk: medium
 tracker_id: "21"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/21"
-tracker_status: backlog
+tracker_status: done
+assignee: "LucielCienAmir"
 ---
 
 # Shared IPrivateFileStore with venue, event, certificate and temporary areas and authorized photo route

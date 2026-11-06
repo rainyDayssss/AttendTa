@@ -9,7 +9,8 @@ hitl: false
 risk: medium
 tracker_id: "17"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/17"
-tracker_status: backlog
+tracker_status: done
+assignee: "LucielCienAmir"
 ---
 
 # Shared 25-row pager helper and Management Account Request queue

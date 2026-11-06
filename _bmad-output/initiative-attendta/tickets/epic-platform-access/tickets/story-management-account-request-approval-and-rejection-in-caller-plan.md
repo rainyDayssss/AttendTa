@@ -76,6 +76,8 @@ context:
 
 Implemented approval/rejection orchestration, Management-only POST endpoints, and transactional audit support. Verified on the .NET 10 SDK: Release build succeeded with 0 warnings/errors; Services tests passed 51/51; AccountRequestDecisionTests passed 7/7, including two concurrent approvals. The full IntegrationTests run passed 120/121; `CertificateTracerFlowTests.TracerRequiresConfirmedRegistrationAndManagementInDevelopmentAndDeletesStreamedPdf` returned HTTP 500. The same isolated failure was reproduced at baseline revision `08480597817960bcbbedd0d7a9c116f0b1206718`, so it predates this change. Quick review required no code patches; its findings and triage are recorded below. Queue display and form integration remain with issue #17.
 
+Follow-up (2026-11-06): queue integration landed. The queue posts to the browser decision endpoints on `AccountRequestController`, which preserve the active status filter and re-render the queue with the failure. Approve and Decline use centered dialogs; Approve states the account-creation consequence and both disable their submit button while posting. The decline dialog preserves the typed reason and associates its error with the textarea through `aria-describedby` and `aria-invalid`. `ManagementAccountRequestController` remains the JSON/API command endpoint.
+
 ## Plan Change Log
 
 ## Review Triage Log

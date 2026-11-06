@@ -9,7 +9,8 @@ hitl: false
 risk: medium
 tracker_id: "22"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/22"
-tracker_status: backlog
+tracker_status: done
+assignee: "wigglebop25"
 ---
 
 # Venue create and edit with required photo, replacement-on-commit, and capacity guard

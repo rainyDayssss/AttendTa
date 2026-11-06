@@ -9,7 +9,8 @@ hitl: true
 risk: medium
 tracker_id: "74"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/74"
-tracker_status: backlog
+tracker_status: done
+assignee: "wigglebop25"
 ---
 
 # Demo host runtime environment provisioning

@@ -28,8 +28,12 @@ public class PagingTests
         Assert.Equal(2, firstPage.TotalPages);
         Assert.True(firstPage.HasNextPage);
         Assert.False(firstPage.HasPreviousPage);
+        Assert.Equal(1, firstPage.FirstItemNumber);
+        Assert.Equal(25, firstPage.LastItemNumber);
         Assert.True(lastPage.HasPreviousPage);
         Assert.False(lastPage.HasNextPage);
+        Assert.Equal(26, lastPage.FirstItemNumber);
+        Assert.Equal(26, lastPage.LastItemNumber);
     }
 
     [Fact]
@@ -41,6 +45,8 @@ public class PagingTests
         Assert.Equal(0, empty.TotalPages);
         Assert.False(empty.HasPreviousPage);
         Assert.False(empty.HasNextPage);
+        Assert.Equal(0, empty.FirstItemNumber);
+        Assert.Equal(0, empty.LastItemNumber);
     }
 
     [Fact]

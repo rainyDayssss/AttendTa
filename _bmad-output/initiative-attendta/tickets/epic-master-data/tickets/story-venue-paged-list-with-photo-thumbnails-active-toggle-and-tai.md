@@ -9,7 +9,8 @@ hitl: false
 risk: low
 tracker_id: "23"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/23"
-tracker_status: backlog
+tracker_status: done
+assignee: "FivePesos"
 ---
 
 # Venue paged list with photo thumbnails, active toggle, and Tailwind views

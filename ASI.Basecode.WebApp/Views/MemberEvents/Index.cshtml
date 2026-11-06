@@ -1,0 +1,74 @@
+@model PagedResult<MemberEventListItemViewModel>
+@using ASI.Basecode.Data.Models.Lookups
+@{
+    ViewData["Title"] = "Events";
+}
+
+<div class="page-heading">
+    <div>
+        <h1>Events</h1>
+        <p class="muted">Browse published events and submit a registration before the signup deadline.</p>
+    </div>
+</div>
+
+@if (Model.Items.Count == 0)
+{
+    <p class="empty-state">No published events are available yet.</p>
+}
+else
+{
+    <div class="event-grid">
+        @foreach (var eventItem in Model.Items)
+        {
+            <article class="event-card" data-event-id="@eventItem.EventId">
+                @if (eventItem.HasCover)
+                {
+                    <img class="event-cover" src="@Url.Action("Image", "EventCover", new { id = eventItem.EventId })" alt="Cover for @eventItem.Title" loading="lazy" />
+                }
+                else
+                {
+                    <div class="event-cover event-cover-placeholder" aria-hidden="true">AttendTa</div>
+                }
+                <div class="event-card-body">
+                    <div class="event-badges">
+                        <span class="badge badge-member">@eventItem.TypeName</span>
+                        @if (eventItem.EventStatusId != EventStatusCode.Published)
+                        {
+                            <span class="badge @EventStatusDisplay.BadgeClass(eventItem.EventStatusId)">@eventItem.StatusLabel</span>
+                        }
+                        @if (eventItem.IsCheckInOpen)
+                        {
+                            <span class="badge badge-checkin-open">Check-in open</span>
+                        }
+                        @if (!eventItem.IsSignupOpen)
+                        {
+                            <span class="badge badge-closed">Signup closed</span>
+                        }
+                        else if (eventItem.IsFull)
+                        {
+                            <span class="badge badge-full">Full</span>
+                        }
+                        else
+                        {
+                            <span class="badge badge-open">Signup open</span>
+                        }
+                    </div>
+                    <h2 class="event-card-title">
+                        <a asp-action="Details" asp-route-id="@eventItem.EventId">@eventItem.Title</a>
+                    </h2>
+                    <ul class="event-meta">
+                        <li><span class="event-meta-label">Starts</span>@ManilaTimeFormatter.Format(eventItem.StartsAt)</li>
+                        <li><span class="event-meta-label">Signup deadline</span>@ManilaTimeFormatter.Format(eventItem.RegistrationDeadline)</li>
+                        <li><span class="event-meta-label">Venue</span>@eventItem.VenueName</li>
+                        <li><span class="event-meta-label">Confirmed</span>@eventItem.ConfirmedCount of @eventItem.ParticipantLimit</li>
+                    </ul>
+                </div>
+                <div class="event-card-actions">
+                    <a asp-action="Details" asp-route-id="@eventItem.EventId" class="button button-secondary">View details</a>
+                </div>
+            </article>
+        }
+    </div>
+
+    <partial name="_Pager" model="Model" />
+}

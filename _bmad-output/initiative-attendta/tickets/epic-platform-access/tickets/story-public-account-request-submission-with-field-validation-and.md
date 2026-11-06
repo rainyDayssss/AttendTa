@@ -9,8 +9,8 @@ hitl: false
 risk: medium
 tracker_id: "16"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/16"
-tracker_status: backlog
-assignee: "LucielCienAmir"
+tracker_status: done
+assignee: "FivePesos"
 ---
 
 # Public Account Request submission with field validation and Argon2id hash

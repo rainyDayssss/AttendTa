@@ -136,6 +136,28 @@ Reference by path only. The SPEC is the source of truth for planned features not
 - `bruno/` — Bruno API collection for manual CRUD testing (no browser needed).
 - `docs/database-setup.md` — MVP LocalDB setup/reset, schema, admin provisioning, and event-type seed instructions.
 
+## UI review
+The impeccable design skill is installed at `.opencode/skills/impeccable`, with `/impeccable` in `.opencode/commands`. For any UI-facing ticket — a new screen, form, table, dialog, navigation change, or a refactor sweep that touches Razor or CSS — run `/impeccable critique` on the changed surface and `/impeccable polish` before review. Keep `PRODUCT.md` current; `docs/DESIGN.md` remains the visual authority.
+
+Exception (2026-11-06 demo rescope, project owner): tickets in the demo and integration phases of `_bmad-output/initiative-attendta/delivery-queue.md` do not run per-ticket critique or polish. The demo rehearsal (8.15) runs critique and polish once for the demo surface, and 8.12 and 2.11 run them for the integrated app. Each pull request still keeps green CI and one peer approval.
+
+## Subagents
+Subagents (`general`, `explore`) run on `mistral/deepseek-v4-1-flash-1017`, set in `opencode.jsonc`
+with no pinned variant. The orchestrator chooses the reasoning effort for each task by passing
+`model` to the `subagent` tool:
+- `#low` — mechanical lookups, pattern searches, formatting, small single-file edits.
+- `#high` — normal research, implementation, and review work.
+- `#max` — deep debugging, cross-module analysis, or adversarial review.
+- `#none` — deterministic, trivial tasks where reasoning adds nothing.
+
+Start at the cheapest effort that will reliably finish the task and escalate only when the result
+is insufficient; do not default to `#max`.
+
+The same model is also pinned in the global `~/.config/opencode/opencode.json` as a machine-wide
+fallback. Project config outranks global config, so any repository can override it, while sessions
+that fall outside this tree — notably the worktrees under `~/.local/share/opencode/worktree/` — still
+get the intended subagent model instead of inheriting the parent session's.
+
 ## Current assignment scope
 Master Data only — Member Management, Event Type Management, Venue Management (Admin & Officer).
 Auth, Transactions, Reports, Administration are owned by other members.

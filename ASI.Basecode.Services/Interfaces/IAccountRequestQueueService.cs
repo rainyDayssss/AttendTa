@@ -6,5 +6,5 @@ namespace ASI.Basecode.Services.Interfaces;
 
 public interface IAccountRequestQueueService
 {
-    Task<PagedResult<AccountRequestQueueItemViewModel>> GetPageAsync(string status, int? pageNumber, CancellationToken cancellationToken = default);
+    Task<AccountRequestQueueViewModel> GetPageAsync(string status, int? pageNumber, string search = null, string sort = null, CancellationToken cancellationToken = default);
 }

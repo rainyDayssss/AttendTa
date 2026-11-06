@@ -1,0 +1,4 @@
+/* Officer event dossier. */
+@layer components {
+  .dossier-roster { margin-top: 1rem; }
+}

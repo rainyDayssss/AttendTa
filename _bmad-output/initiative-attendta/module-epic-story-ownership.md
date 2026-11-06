@@ -1,5 +1,27 @@
 # AttendTa module, epic, and story ownership
 
+## Current delivery rule — 6 November 2026
+
+**The project owner superseded fixed future assignments with five interchangeable builders
+using one prioritized shared queue.** Whoever is available claims the next unblocked ticket,
+updates its status before editing and hands it to review. No named person below owns all future
+work in a module. Human approval/environment contacts remain contacts, not implementation lanes.
+
+Use [delivery-queue.md](delivery-queue.md) for the current demo-first order, claim protocol,
+demo data removal responsibilities ([demo-mock-register.md](demo-mock-register.md)) and finale.
+The numeric `queue` and `phase` in each `tickets.toml` order open work; the GitHub issue is the
+live claim/status source once it is synced with the 2026-11-06 demo rescope.
+
+The architecture's code/table writers and shared service boundaries still apply. Since the
+2026-11-06 demo rescope, Impeccable critique and polish run only in 8.15 (demo rehearsal),
+2.11 and 8.12 (finale), not on each frontend ticket.
+Historical assignees and the WBS mapping below are preserved for attribution, **not dispatch**.
+
+## Historical WBS mapping and original baseline waves
+
+The rest of this document records the earlier module assignment and original planning snapshot.
+Its old waves and ownership language are not the active queue and do not override the rule above.
+
 This is a mapping of the existing BMAD epics and stories to the module owners in the [WBS](../../docs/WBS_J4S_ATTENDTA_20261103.pdf), pages 9–11. Story IDs are written as `epic.story` (for example, `3.15`); the linked `tickets.toml` files contain the full descriptions, verification criteria, and dependencies. This document is an ownership reference, not a separate set of BMAD tickets or a record of completed work.
 
 | WBS member | Owner | WBS modules | BMAD epics |
@@ -16,7 +38,7 @@ The WBS spells Member 3 **Sinco**; the [BMAD ownership addendum](prd-attendta/ad
 
 The planned epic order is **1 → 2 → 3 → 4 → 5 → 6 → 7 → 8**. This is a planning order, not a rule that every epic must wait for the preceding one: the dependency graph notes, for example, that Epic 5 does not wait for Epic 4. The owner tables below group stories by module and are not a story execution order.
 
-The existing [BMAD dependency graphs](dependency-graphs.md) contain the per-epic diagrams, cross-epic dependencies and critical path. They describe the ticket tree at commit `420f72c`; check each story's `after` field and the current BMAD ticket status before starting work. The graph's earliest-start waves are reproduced here for convenience. Stories in a wave can start in parallel only when their prerequisites and applicable epic gates are met; the waves do not indicate completion or assignment.
+The current dependency graphs are [dependency-graphs-demo-first.md](dependency-graphs-demo-first.md) (2026-11-06 demo rescope). The original [BMAD dependency graphs](dependency-graphs.md) below describe the ticket tree at commit `420f72c` and are history; check each story's `after` field and the current BMAD ticket status before starting work. The graph's earliest-start waves are reproduced here for convenience. Stories in a wave can start in parallel only when their prerequisites and applicable epic gates are met; the waves do not indicate completion or assignment.
 
 | Wave | Stories |
 |---|---|

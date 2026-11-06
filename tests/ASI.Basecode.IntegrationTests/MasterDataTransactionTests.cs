@@ -439,7 +439,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
 
     private sealed class RefusingVenueService : IVenueService
     {
-        public Task<PagedResult<VenueViewModel>> GetPageAsync(int? pageNumber, CancellationToken cancellationToken = default) =>
+        public Task<PagedResult<VenueViewModel>> GetPageAsync(string status, int? pageNumber, CancellationToken cancellationToken = default) =>
             Task.FromResult(new PagedResult<VenueViewModel>(Array.Empty<VenueViewModel>(), 1, 0));
 
         public VenueViewModel GetVenue(int id) => null!;
@@ -472,8 +472,8 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
     private sealed class EventTypeRepositoryThatSavesThenFails(IEventTypeRepository inner, IUnitOfWork unitOfWork) : IEventTypeRepository
     {
         public Task<IReadOnlyList<EventType>> GetActiveEventTypesAsync(CancellationToken cancellationToken = default) => inner.GetActiveEventTypesAsync(cancellationToken);
-        public Task<int> CountEventTypesAsync(CancellationToken cancellationToken = default) => inner.CountEventTypesAsync(cancellationToken);
-        public Task<IReadOnlyList<EventType>> GetEventTypesPageAsync(int offset, int pageSize, CancellationToken cancellationToken = default) => inner.GetEventTypesPageAsync(offset, pageSize, cancellationToken);
+        public Task<int> CountEventTypesAsync(string status, CancellationToken cancellationToken = default) => inner.CountEventTypesAsync(status, cancellationToken);
+        public Task<IReadOnlyList<EventType>> GetEventTypesPageAsync(string status, int offset, int pageSize, CancellationToken cancellationToken = default) => inner.GetEventTypesPageAsync(status, offset, pageSize, cancellationToken);
         public EventType GetEventType(int typeId) => inner.GetEventType(typeId);
         public Task<EventType> LockEventTypeAsync(int typeId, CancellationToken cancellationToken = default) => inner.LockEventTypeAsync(typeId, cancellationToken);
         public Task<int> CountLinkedEventsAsync(int typeId, CancellationToken cancellationToken = default) => inner.CountLinkedEventsAsync(typeId, cancellationToken);
@@ -492,8 +492,8 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
     private sealed class VenueRepositoryThatSavesThenFails(IVenueRepository inner, IUnitOfWork unitOfWork) : IVenueRepository
     {
         public Task<IReadOnlyList<Venue>> GetActiveVenuesAsync(CancellationToken cancellationToken = default) => inner.GetActiveVenuesAsync(cancellationToken);
-        public Task<int> CountAsync(CancellationToken cancellationToken = default) => inner.CountAsync(cancellationToken);
-        public Task<IReadOnlyList<Venue>> GetPageAsync(int skip, int take, CancellationToken cancellationToken = default) => inner.GetPageAsync(skip, take, cancellationToken);
+        public Task<int> CountAsync(string status, CancellationToken cancellationToken = default) => inner.CountAsync(status, cancellationToken);
+        public Task<IReadOnlyList<Venue>> GetPageAsync(string status, int skip, int take, CancellationToken cancellationToken = default) => inner.GetPageAsync(status, skip, take, cancellationToken);
         public Venue GetVenue(int venueId) => inner.GetVenue(venueId);
         public Task<Venue> LockVenueAsync(int venueId, CancellationToken cancellationToken = default) => inner.LockVenueAsync(venueId, cancellationToken);
         public Task<int> CountLinkedEventsAsync(int venueId, CancellationToken cancellationToken = default) => inner.CountLinkedEventsAsync(venueId, cancellationToken);
@@ -512,10 +512,11 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
     private sealed class MemberRepositoryThatSavesThenFails(IMemberRepository inner, IUnitOfWork unitOfWork) : IMemberRepository
     {
         public IQueryable<MemberRecord> GetMemberRecords() => inner.GetMemberRecords();
-        public Task<int> CountAsync(string search, CancellationToken cancellationToken = default) => inner.CountAsync(search, cancellationToken);
-        public Task<IReadOnlyList<MemberRecord>> GetPageAsync(string search, int skip, int take, CancellationToken cancellationToken = default) => inner.GetPageAsync(search, skip, take, cancellationToken);
+        public Task<int> CountAsync(string search, string status, CancellationToken cancellationToken = default) => inner.CountAsync(search, status, cancellationToken);
+        public Task<IReadOnlyList<MemberRecord>> GetPageAsync(string search, string status, int skip, int take, CancellationToken cancellationToken = default) => inner.GetPageAsync(search, status, skip, take, cancellationToken);
         public MemberRecord GetMemberRecord(int memberId) => inner.GetMemberRecord(memberId);
         public Task<MemberRecord> GetMemberRecordByUserIdAsync(int userId, CancellationToken cancellationToken = default) => inner.GetMemberRecordByUserIdAsync(userId, cancellationToken);
+        public Task<Member> GetMemberByUserIdAsync(int userId, CancellationToken cancellationToken = default) => inner.GetMemberByUserIdAsync(userId, cancellationToken);
         public Member GetMember(int memberId) => inner.GetMember(memberId);
         public bool UserHasMemberProfile(int userId) => inner.UserHasMemberProfile(userId);
         public bool StudentNumberExists(string studentNumber, int? excludeId = null) => inner.StudentNumberExists(studentNumber, excludeId);

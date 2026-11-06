@@ -1,0 +1,11 @@
+/* Participation History host and My Registrations tab. */
+@layer components {
+  .registration-list { display: grid; gap: 1rem; }
+  .registration-card { display: flex; flex-direction: column; overflow: hidden; background: white; border: 1px solid #e2e8f0; border-radius: 10px; }
+  .registration-card-body { flex: 1; padding: 1rem; }
+  /* Tab content, empty state and pager sit inside the panel, so the panel owns their spacing. */
+  .my-events-panel > .filter-tabs { margin-bottom: 1.25rem; }
+  .my-events-panel .empty-state { margin: 0; padding: 1.5rem 1rem; text-align: center; }
+  .my-events-panel .result-count { margin-top: 1rem; }
+  .my-events-panel .page-heading { margin: 1rem 0 0; }
+}

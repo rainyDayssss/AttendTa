@@ -1,61 +1,114 @@
 @model PagedResult<MemberViewModel>
 @{
-    ViewData["Title"] = "Members";
+    ViewData["Title"] = "Organization Members";
+    var statusFilter = ViewBag.Status as string;
+    var searchTerm = ViewBag.Search as string;
 }
 
 <div class="page-heading">
-    <h2>Member Management</h2>
-    <span class="muted">Member profiles are linked to approved user accounts.</span>
+    <div>
+        <h1>Organization Members</h1>
+        <p class="muted">Member profiles are linked to approved user accounts.</p>
+    </div>
 </div>
 
 <form asp-action="Index" method="get" class="spacing-bottom">
     <div class="search-group">
         <input type="text" name="search" aria-label="Search members" value="@ViewBag.Search" class="field-control" placeholder="Search by name or student number" />
+        <input type="hidden" name="status" value="@statusFilter" />
         <button type="submit" class="button button-secondary">Search</button>
     </div>
 </form>
 
-<div class="table-scroll" role="region" aria-label="Member table" tabindex="0">
-<table class="data-table">
-    <thead>
-        <tr>
-            <th scope="col">Student Number</th>
-            <th scope="col">Full Name</th>
-            <th scope="col">Course</th>
-            <th scope="col">Year</th>
-            <th scope="col">Section</th>
-            <th scope="col">Mobile</th>
-            <th scope="col">Membership Type</th>
-            <th scope="col">Status</th>
-            <th scope="col">Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var member in Model.Items)
-        {
-            <tr data-member-id="@member.MemberId">
-                <td>@member.StudentNumber</td>
-                <td>@member.FullName</td>
-                <td>@member.Course</td>
-                <td>@member.YearLevel</td>
-                <td>@member.Section</td>
-                <td>@member.MobileNumber</td>
-                <td>@member.MembershipType</td>
-                <td>@member.Status</td>
-                <td class="actions">
-                    <a asp-action="Edit" asp-route-id="@member.MemberId" class="button button-secondary">Edit</a>
-                </td>
-            </tr>
-        }
-    </tbody>
-</table>
-</div>
+<nav class="filter-tabs" aria-label="Membership status">
+    <a class="filter-tab" asp-action="Index" asp-route-search="@searchTerm" aria-current="@(string.IsNullOrEmpty(statusFilter) ? "page" : null)">All</a>
+    <a class="filter-tab" asp-action="Index" asp-route-search="@searchTerm" asp-route-status="active" aria-current="@(statusFilter == "active" ? "page" : null)">Active</a>
+    <a class="filter-tab" asp-action="Index" asp-route-search="@searchTerm" asp-route-status="inactive" aria-current="@(statusFilter == "inactive" ? "page" : null)">Inactive</a>
+</nav>
 
 @if (Model.Items.Count == 0)
 {
-    <p class="empty-state">@(string.IsNullOrWhiteSpace(ViewBag.Search as string) ? "No members found." : "No members match your search.")</p>
+    <div class="table-scroll" role="region" aria-label="Member table" tabindex="0">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th scope="col">Student Number</th>
+                    <th scope="col">Full Name</th>
+                    <th scope="col">Email</th>
+                    <th scope="col">Course</th>
+                    <th scope="col">Year</th>
+                    <th scope="col">Section</th>
+                    <th scope="col">Mobile</th>
+                    <th scope="col">Membership Type</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" class="actions">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="10" class="empty-state">
+                        @if (!string.IsNullOrWhiteSpace(searchTerm))
+                        {
+                            <text>No members match your search. Try a different name or student number.</text>
+                        }
+                        else if (!string.IsNullOrEmpty(statusFilter))
+                        {
+                            <text>No @statusFilter members.</text>
+                        }
+                        else
+                        {
+                            <text>No members yet. Members are created when an account request is approved.</text>
+                        }
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
 }
 else
 {
+    <div class="table-scroll" role="region" aria-label="Member table" tabindex="0">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th scope="col">Student Number</th>
+                    <th scope="col">Full Name</th>
+                    <th scope="col">Email</th>
+                    <th scope="col">Course</th>
+                    <th scope="col">Year</th>
+                    <th scope="col">Section</th>
+                    <th scope="col">Mobile</th>
+                    <th scope="col">Membership Type</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" class="actions">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var member in Model.Items)
+                {
+                    <tr data-member-id="@member.MemberId">
+                        <td class="numeric">@member.StudentNumber</td>
+                        <td>@member.FullName</td>
+                        <td>@member.Email</td>
+                        <td>@member.Course</td>
+                        <td class="numeric">@member.YearLevel</td>
+                        <td>@member.Section</td>
+                        <td class="numeric">@member.MobileNumber</td>
+                        <td>@member.MembershipType</td>
+                        <td><span class="badge @(member.Status == "active" ? "badge-active" : "badge-inactive")">@(member.Status == "active" ? "Active" : "Inactive")</span></td>
+                        <td class="actions">
+                            <div class="row-actions">
+                                <a asp-action="Edit" asp-route-id="@member.MemberId" class="button button-small button-secondary">Edit</a>
+                                <partial name="_AccessActions" model="MembershipAccessViewModel.For(member)" />
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
     <partial name="_Pager" model="Model" />
 }
+
+<partial name="_ResultCount" model="Model" />

@@ -4,7 +4,7 @@ title: "Officers publish events and fill seats fairly"
 parent: initiative-attendta
 covers: [R8, R9, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20, R33, R36]
 sources: [_bmad-output/initiative-attendta/initiative-attendta.md]
-companions: [_bmad-output/initiative-attendta/architecture-attendta/architecture-attendta.md, docsss/architecture.md, docsss/design.md, _bmad-output/initiative-attendta/ux-attendta/DESIGN.md, _bmad-output/initiative-attendta/ux-attendta/EXPERIENCE.md, docsss/AttendTa-System-Specification.md]
+companions: [_bmad-output/initiative-attendta/architecture-attendta/architecture-attendta.md, docsss/architecture.md, docsss/design.md, docs/DESIGN.md, _bmad-output/initiative-attendta/ux-attendta/DESIGN.md, _bmad-output/initiative-attendta/ux-attendta/EXPERIENCE.md, _bmad-output/initiative-attendta/delivery-queue.md, _bmad-output/initiative-attendta/finale-test-cases.md, docsss/AttendTa-System-Specification.md]
 after: []
 refined: true
 risk: high
@@ -14,11 +14,26 @@ risk: high
 
 ## Description
 
-The highest-risk lifecycle and concurrency work: Management runs an Event from draft to publish, edit, cancel and complete, and Eligible Participants register before the deadline. Reviews, Promotion and cancellations allocate Seats without overbooking and respect the start cutoff through one Registration-owned participation cancellation service, which epic-administration later calls. Members follow their Registrations in My Events.
+The highest-risk lifecycle and concurrency work: Management runs an Event from draft to publish, edit, cancel and complete, and Eligible Participants register before the deadline. Reviews, Promotion and cancellations allocate Seats without overbooking and respect the start cutoff through one Registration-owned participation cancellation service, which epic-administration later calls. Members follow their Registrations in My Events. On 2026-11-06 the lifecycle and registration backend through the start cutoff is built on `dev` (3.1–3.11 and 3.15); completion, My Events and the backend sweep remain, and the epic now also hosts the frontend slices 3.16–3.18.
 
 ## Outcome
 
 For Officers and Members, seats are allocated by explicit, fair review instead of manual headcounts, shown by UJ-2 including the concurrent last-seat case.
+
+## Delivery (2026-11-06, demo rescope)
+
+- 3.16 (queue 20) and 3.17 (queue 30) are demo-critical: 3.16 builds the officer dossier and controls (using demo commands M-04 and M-09 provided by 1.14); 3.17 builds the My Events host and extension slots with demo registrations (adds row M-02). 3.18 (queue 120) is demo-polish against the real backend with no demo data.
+- 3.12 (queue 210) and 3.13 (queue 200) are integration tickets that replace demo data: 3.12 implements the real completion transaction and hook (removes M-09); 3.13 implements the real owner-scoped registrations query (removes M-02).
+- This replaces the bullets below on Development-only, conspicuous mocks and per-ticket Impeccable critique and polish; critique and polish run in 8.15 and 8.12.
+
+## Delivery (2026-11-06)
+
+- 3.16 is the officer dossier/roster/lifecycle dialogs, 3.17 is the My Events history host and extension slots, and 3.18 is the member feed/detail visual alignment. These parent-owned entries define frontend scope; builders claim them from the prioritized shared queue rather than following fixed human or module lanes. Reason: the lifecycle and registration backend already exists, so the officer and member surfaces can be built and reviewed before completion and My Events land.
+- Real event, registration, review, promotion and cancellation endpoints are reused. 3.16 and 3.17 wait only on 1.13; 3.18 waits on 1.13 and 3.10. 3.12 completion follows the 3.16 surface; 3.13 My Events replaces the 3.17 fixture registrations with the real owner-scoped query. The independent 3.11 cancellation backend keeps its declared backend dependencies and does not wait on a frontend ticket. Until the completion/My Events contracts exist, 3.16 and 3.17 use demo data per `demo-mock-register.md` with no visible sign in the UI and no real writes; they must not hide a broken real endpoint. 3.18 uses the real 3.5 browse/detail data.
+- Critique and polish run in 8.15 and 8.12; per-ticket Impeccable critique and polish do not run on individual slices.
+- Development checks are a clean build, a reproducible CSS build when views/styles change, and a manual smoke of the changed surface. Keep focused guard regressions for the live high-risk seat-allocation and cancellation mutations. Finale 8.5 (#78) authors/maps important cases, including SM-4, before 8.4 (#77) runs the combined suite; 8.6–8.8 record acceptance.
+- 3.14 remains a focused backend cleanup at the finale; it is not a repeated whole-app or UI audit. Frontend review belongs to 8.12; backend hardening to 8.13.
+- Dependency note: 3.16/3.17 wait on 1.13 and 3.18 on 1.13/3.10; these are contract-level waits, not whole-backend epic gates. The epic-level waits in Notes gate backend completion only.
 
 ## Requirements
 
@@ -77,10 +92,18 @@ For Officers and Members, seats are allocated by explicit, fair review instead o
 
 ## Notes
 
-- Owner: Member 3 (addendum C).
+- Historical delivery attribution: Member 3 (addendum C). This is history only; future work is claimed per ticket from the shared queue and no fixed human owner is assigned (2026-11-06 decision).
 - Decision: 2026-11-04 — refined from the initiative's lines alone; kept as one epic (split declined, parent Notes).
 - Waits on epic-master-data because: active Event Types and Venues and the shared image storage (IPrivateFileStore, AD-12). Member eligibility is the ParticipationFacts fact this epic creates (AD-5).
 - Waits on epic-platform-access because: login, ICurrentActor and policies (1.1), canonical EF mappings (1.2), audit writer (1.3), local-time display helper (1.4), pager (1.6), approval-created members (1.7), role shell (1.9), and test projects (1.10).
 - Decision: 2026-11-04 — tracer bullet: entry 1, Draft event creation, edit, and management event list (architectural slice through EF mapping, service validation, controller, Tailwind views, and pager); least-certain story entry 7 (seat allocation and SM-4 concurrency) cannot follow entry 1 directly because reviewing registrations functionally requires published events with covers (entries 2, 3) and member registration submission (entry 5).
 - Decision: 2026-11-04 — no closing end-to-end suite in this epic; epic-release-acceptance runs SPEC §20 across the build.
 - Decision: 2026-11-04 — re-sliced against the architecture spine (AD-2, AD-4, AD-5, AD-6, AD-11, AD-14, AD-18): added entry 15 for IRegistrationCancellationService (AD-6), created all AD-5 facts in ParticipationFacts in entry 3, named IEventLifecycleService in entry 1, declared IEventCompletionHandler in entry 12, moved cutoff guards into the actions they guard, established My Events ownership in entry 13, specified 64-hex QR tokens, and retargeted net10.0.
+- Historical coordination (resolved 2026-11-06): PR #122 implemented entry 7 (registration review and transactional seat allocation) and has since merged. Local merge-tree checks showed no textual conflict with `dev` or the platform-access branch.
+- Decision: 2026-11-06 — final frontend handoff: 3.16 is the officer dossier/roster/lifecycle-dialog surface, 3.17 the My Events host/extension slots, and 3.18 member feed/detail visual alignment. They wait only on 1.13 (3.18 also on 3.10). Only missing completion/My Events contracts may use tracked, conspicuous Development-only mocks. Backend 3.12 follows the 3.16 surface and 3.13 replaces 3.17's fixture registrations with the real query; 3.11 retains its own declared backend dependencies and does not wait on 3.16. The parent owns these frontend entries.
+- Decision: 2026-11-06 — no fixed future human owner. Historical attribution above is preserved as history; claims from `delivery-queue.md` win over the addendum assignment.
+- Decision: 2026-11-06 — development checks are minimal (build, reproducible CSS, manual smoke); seat allocation and cancellation keep focused guards because they are live high-risk mutations. Finale 8.5 (#78) authors/maps important cases including SM-4 before 8.4 (#77) runs the combined suite, then 8.6–8.8 acceptance.
+- Decision: 2026-11-06 — 3.14 stays a focused backend cleanup at the finale, not a repeated whole-app/UI audit. Frontend review is 8.12; backend hardening is 8.13.
+- Historical coordination at container read (2026-11-06): PR #133 (event start cutoff, 3.10) was merged at `997f290`; issue #39 was then pending closure. The parent has since closed #39 with the merge evidence. No container status change and no implementation starts from this planning edit.
+- Decision: 2026-11-06 — demo rescope: the client demo is close, so frontend-only demo work comes first against the real backend or demo data recorded in `demo-mock-register.md` with no visible sign in the UI. 3.16 (queue 20) and 3.17 (queue 30) are demo-critical (using M-04/M-09 and adding M-02), 3.18 (queue 120) is demo-polish with no demo data, and 3.12/3.13 are integration tickets removing M-09 and M-02. Per-ticket Impeccable critique and polish are replaced by 8.15 demo rehearsal and 8.12.
+- Decision: 2026-11-06 — review of the demo rescope: 3.16 and 3.17 wait on 1.13 and 1.14, 3.16 uses M-04/M-09 from 1.14 and checks completion refusal rules, 3.17 fills the 1.13 host while keeping extension slots, and 3.12 notes the Completed status overlay.

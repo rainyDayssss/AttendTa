@@ -1,0 +1,23 @@
+@model PassViewModel
+@if (Model.HasPass)
+{
+    <section class="pass-card" aria-label="Door pass">
+        <div class="pass-card-body">
+            <p class="muted">@Model.EventTitle</p>
+            <p class="identity-name">@Model.HolderName</p>
+            <p class="numeric">@Model.StudentNumber</p>
+            @if (!string.IsNullOrWhiteSpace(Model.GateCode))
+            {
+                <p class="numeric">@Model.GateCode</p>
+            }
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Model.QrImageUrl))
+        {
+            <img class="pass-qr" src="@Model.QrImageUrl" alt="Pass code for @Model.EventTitle" />
+        }
+        @if (!string.IsNullOrWhiteSpace(Model.DownloadUrl))
+        {
+            <a class="button button-secondary" href="@Model.DownloadUrl">Download pass</a>
+        }
+    </section>
+}

@@ -170,12 +170,46 @@ public sealed class EventCoverFlowTests(SqlServerDatabaseFixture fixture) : ICla
             Assert.True(File.Exists(Resolve(factory.SetupRoot, reuploadedDraftPath)));
             Assert.Equal(3, await context.ActivityLogs.CountAsync(
                 row => row.EntityType == "events" && row.EntityId == draftId && row.Action == AuditActions.EventUpdated, ct));
-            Assert.Equal(1, await context.ActivityLogs.CountAsync(
-                row => row.EntityType == "events" && row.EntityId == publishedId && row.Action == AuditActions.EventUpdated, ct));
+            var publishedAudit = await context.ActivityLogs.AsNoTracking().SingleAsync(
+                row => row.EntityType == "events" && row.EntityId == publishedId && row.Action == AuditActions.EventUpdated, ct);
+            Assert.Contains("\"CoverChanged\":true", publishedAudit.NewValues, StringComparison.Ordinal);
+            Assert.DoesNotContain("uploads/", publishedAudit.OldValues, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("uploads/", publishedAudit.NewValues, StringComparison.OrdinalIgnoreCase);
         }
 
         Assert.Equal(HttpStatusCode.OK, (await officerClient.GetAsync($"/EventCover/Image?id={draftId}", ct)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await officerClient.GetAsync("/EventCover/Image?id=2147483647", ct)).StatusCode);
+    }
+
+    [Theory]
+    [InlineData(EventStatusCode.Completed)]
+    [InlineData(EventStatusCode.Cancelled)]
+    public async Task TerminalCoverMutationsLeaveDatabaseAuditAndPrivateFileUnchanged(EventStatusCode status)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var suffix = Guid.NewGuid().ToString("N");
+        var email = $"cover-terminal-{suffix}@attendta.test";
+        var password = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)) + "aA1!";
+        var actor = await EventDraftTestSupport.SeedUsersAsync(fixture.ConnectionString, email, $"member-{suffix}@attendta.test", password, ct);
+        var (typeId, venueId) = await SeedReferencesAsync(fixture.ConnectionString, actor, 30, ct);
+        await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        var original = JpegBytes(64, 0x42);
+        var path = await SaveImageAsync(factory, original, ".jpg", ct);
+        var id = await SeedEventAsync(fixture.ConnectionString, actor, typeId, venueId, status, path, ct);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await EventDraftTestSupport.SignInAsync(client, email, password, ct);
+        var token = await EventDraftTestSupport.AntiforgeryTokenAsync(client, $"/Event/Cover?id={id}", ct);
+        var upload = await UploadAsync(client, id, "new.jpg", JpegBytes(64, 0x53), token, ct);
+        Assert.Equal(HttpStatusCode.OK, upload.StatusCode);
+        var remove = await PostAsync(client, "/Event/RemoveCover", id, token, ct);
+        Assert.Equal(HttpStatusCode.OK, remove.StatusCode);
+        await using var observer = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var row = await observer.Events.AsNoTracking().SingleAsync(item => item.EventId == id, ct);
+        Assert.Equal(status, row.EventStatusId);
+        Assert.Equal(path, row.ImagePath);
+        Assert.Equal(0, await observer.ActivityLogs.CountAsync(log => log.EntityType == "events" && log.EntityId == id, ct));
+        Assert.Equal(original, await File.ReadAllBytesAsync(Resolve(factory.SetupRoot, path), ct));
+        Assert.Single(Directory.GetFiles(Path.Combine(factory.SetupRoot, "uploads", "events")));
     }
 
     [Fact]

@@ -14,7 +14,8 @@ using Microsoft.Extensions.Logging;
 namespace ASI.Basecode.WebApp.Controllers;
 
 /// <summary>
-/// Management-only decisions for pending account requests. Queue presentation is owned by its caller.
+/// Management-only decisions for pending account requests. The queue page posts here and
+/// returns to the same status filter; JSON callers keep the outcome envelope.
 /// </summary>
 [Authorize(Policy = Policies.Management)]
 [AutoValidateAntiforgeryToken]
@@ -33,54 +34,66 @@ public sealed class ManagementAccountRequestController : ControllerBase<Manageme
         _accountRequestService = accountRequestService;
     }
 
-    /// <summary>Approves a pending request and returns its decision outcome.</summary>
+    /// <summary>Approves a pending request and returns to the queue.</summary>
     [HttpPost]
-    public async Task<IActionResult> Approve(int id)
+    public async Task<IActionResult> Approve(int id, string status = "pending")
     {
         try
         {
             await _accountRequestService.ApproveAsync(id, GetActorUserId(), HttpContext.RequestAborted);
-            return Ok(new { outcome = "Approved", message = "Account request approved." });
+            return Succeeded("Approved", "Account request approved.", status);
         }
         catch (DomainException exception)
         {
-            return HandleDecisionException(exception);
+            return HandleDecisionException(exception, status);
         }
     }
 
-    /// <summary>Rejects a pending request with a required reason.</summary>
+    /// <summary>Rejects a pending request with a required reason and returns to the queue.</summary>
     [HttpPost]
-    public async Task<IActionResult> Reject(int id, string reason)
+    public async Task<IActionResult> Reject(int id, string reason, string status = "pending")
     {
         try
         {
             await _accountRequestService.RejectAsync(id, reason, GetActorUserId(), HttpContext.RequestAborted);
-            return Ok(new { outcome = "Rejected", message = "Account request rejected." });
+            return Succeeded("Rejected", "Account request rejected.", status);
         }
         catch (DomainException exception)
         {
-            return HandleDecisionException(exception);
+            return HandleDecisionException(exception, status);
         }
     }
 
-    private IActionResult HandleDecisionException(DomainException exception)
+    private IActionResult Succeeded(string outcome, string message, string status)
+    {
+        if (IsAjaxRequest)
+        {
+            return Ok(new { outcome, message });
+        }
+
+        TempData["SuccessMessage"] = message;
+        return RedirectToQueue(status);
+    }
+
+    private IActionResult HandleDecisionException(DomainException exception, string status)
     {
         if (IsAjaxRequest)
         {
             return HandleDomainException(exception, model: null);
         }
 
-        // These command endpoints have no page of their own; return the same outcome envelope
-        // used by ControllerBase for AJAX callers when invoked by a form/API client.
-        var statusCode = exception.Outcome switch
-        {
-            OutcomeCode.Invalid => StatusCodes.Status400BadRequest,
-            OutcomeCode.Forbidden => StatusCodes.Status403Forbidden,
-            OutcomeCode.NotFound => StatusCodes.Status404NotFound,
-            OutcomeCode.FileFailure => StatusCodes.Status500InternalServerError,
-            _ => StatusCodes.Status409Conflict
-        };
-
-        return StatusCode(statusCode, new { outcome = exception.Outcome.ToString(), message = exception.Message });
+        TempData["ErrorMessage"] = exception.Message;
+        return RedirectToQueue(status);
     }
+
+    private IActionResult RedirectToQueue(string status) =>
+        RedirectToAction("Index", "AccountRequest", new { status = NormalizeStatus(status) });
+
+    private static string NormalizeStatus(string status) => status?.Trim().ToLowerInvariant() switch
+    {
+        "approved" => "approved",
+        "rejected" => "rejected",
+        "all" => "all",
+        _ => "pending"
+    };
 }

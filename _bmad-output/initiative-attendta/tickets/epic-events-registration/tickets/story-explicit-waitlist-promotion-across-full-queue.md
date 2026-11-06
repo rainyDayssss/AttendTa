@@ -9,7 +9,8 @@ hitl: false
 risk: medium
 tracker_id: "37"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/37"
-tracker_status: backlog
+tracker_status: done
+assignee: "FivePesos"
 ---
 
 # Explicit waitlist promotion across full queue

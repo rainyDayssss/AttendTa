@@ -161,9 +161,9 @@ public class EventTypeTimestampTests
         public Task<IReadOnlyList<EventType>> GetActiveEventTypesAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<EventType>>(Item is { IsActive: true } ? [Item] : []);
 
-        public Task<int> CountEventTypesAsync(CancellationToken cancellationToken = default) => Task.FromResult(Item is null ? 0 : 1);
+        public Task<int> CountEventTypesAsync(string status, CancellationToken cancellationToken = default) => Task.FromResult(Item is null ? 0 : 1);
 
-        public Task<IReadOnlyList<EventType>> GetEventTypesPageAsync(int offset, int pageSize, CancellationToken cancellationToken = default) =>
+        public Task<IReadOnlyList<EventType>> GetEventTypesPageAsync(string status, int offset, int pageSize, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<EventType>>(Item is null ? [] : [Item]);
 
         public EventType GetEventType(int typeId) => Item!;

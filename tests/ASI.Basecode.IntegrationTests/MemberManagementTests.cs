@@ -524,10 +524,11 @@ public sealed class MemberManagementTests(SqlServerDatabaseFixture fixture) : IC
         private int inserted;
         public string StudentNumberForRace { get; set; } = string.Empty;
         public IQueryable<MemberRecord> GetMemberRecords() => inner.GetMemberRecords();
-        public Task<int> CountAsync(string search, CancellationToken cancellationToken = default) => inner.CountAsync(search, cancellationToken);
-        public Task<IReadOnlyList<MemberRecord>> GetPageAsync(string search, int skip, int take, CancellationToken cancellationToken = default) => inner.GetPageAsync(search, skip, take, cancellationToken);
+        public Task<int> CountAsync(string search, string status, CancellationToken cancellationToken = default) => inner.CountAsync(search, status, cancellationToken);
+        public Task<IReadOnlyList<MemberRecord>> GetPageAsync(string search, string status, int skip, int take, CancellationToken cancellationToken = default) => inner.GetPageAsync(search, status, skip, take, cancellationToken);
         public MemberRecord GetMemberRecord(int memberId) => inner.GetMemberRecord(memberId);
         public Task<MemberRecord> GetMemberRecordByUserIdAsync(int userId, CancellationToken cancellationToken = default) => inner.GetMemberRecordByUserIdAsync(userId, cancellationToken);
+        public Task<Member> GetMemberByUserIdAsync(int userId, CancellationToken cancellationToken = default) => inner.GetMemberByUserIdAsync(userId, cancellationToken);
         public Member GetMember(int memberId) => inner.GetMember(memberId);
         public bool UserHasMemberProfile(int userId) => inner.UserHasMemberProfile(userId);
         public bool StudentNumberExists(string studentNumber, int? excludeId = null) => inner.StudentNumberExists(studentNumber, excludeId);

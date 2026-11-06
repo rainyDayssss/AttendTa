@@ -4,7 +4,7 @@ type: story
 title: "Hotspot network binding and trusted HTTPS mobile camera scanning"
 parent: epic-release-acceptance
 covers: [R4]
-after: [1, 4.4, 4.5]
+after: [1, 14, 4.4, 4.5]
 hitl: true
 risk: high
 tracker_id: "75"
@@ -25,3 +25,14 @@ Verify: With the host disconnected from the internet, an officer opens the hotsp
 ## References
 
 - parent — _bmad-output/initiative-attendta/tickets/epic-release-acceptance/epic-release-acceptance.md
+- _bmad-output/initiative-attendta/delivery-queue.md
+- _bmad-output/initiative-attendta/finale-test-cases.md
+
+## Delivery (2026-11-06)
+
+- Operations verification of the real phone scan over trusted HTTPS; it can run in parallel with 8.3 once the host is ready, and human inputs (host address, certificate, officer phones) remain required.
+- 8.14 is the new real-host follow-up to closed #74; this entry consumes its host/HTTPS evidence rather than treating tooling delivery as acceptance.
+- This is real host acceptance, not a UI build; prototype or localhost-only results do not close the issue.
+- Development check: host checklist plus a focused scan/manual-lookup smoke; existing CI unchanged. Missing important test authoring is 8.5 (#78), combined final execution 8.4 (#77), manual 8.6–8.8.
+- Operations: no Impeccable requirement; frontend design lives only in the separate slices 6.12/6.13/7.4 and finale 8.12.
+- Q2 stays open until the recorded host/HTTPS/phone evidence exists; trust from the certificate chain on a second phone stays final acceptance.

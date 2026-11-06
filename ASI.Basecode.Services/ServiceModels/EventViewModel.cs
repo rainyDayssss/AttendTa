@@ -30,6 +30,9 @@ namespace ASI.Basecode.Services.ServiceModels
 
         public EventStatusCode EventStatusId { get; set; }
 
+        /// <summary>True when the event's check-in window is open.</summary>
+        public bool IsCheckInOpen { get; set; }
+
         public string TypeName { get; set; }
 
         public string VenueName { get; set; }
@@ -37,13 +40,6 @@ namespace ASI.Basecode.Services.ServiceModels
         /// <summary>Active Event Types and Venues offered by the form. Populated by the controller.</summary>
         public EventFormOptions FormOptions { get; set; } = new();
 
-        public string StatusLabel => EventStatusId switch
-        {
-            EventStatusCode.Draft => "Draft",
-            EventStatusCode.Published => "Published",
-            EventStatusCode.Cancelled => "Cancelled",
-            EventStatusCode.Completed => "Completed",
-            _ => EventStatusId.ToString()
-        };
+        public string StatusLabel => EventStatusDisplay.Label(EventStatusId);
     }
 }

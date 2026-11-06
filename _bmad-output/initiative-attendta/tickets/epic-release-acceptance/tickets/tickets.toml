@@ -10,15 +10,34 @@ hitl = true
 risk = "medium"
 
 [[entry]]
+id = 15
+type = "story"
+title = "Demo rehearsal with Impeccable critique and polish"
+description = "A person runs the demo script end to end on the demo build with DemoData__Enabled=true, in the Administrator, Officer and Member roles at desktop and 390px width: account request and approval, master data, event create and publish, signup and review, My Events and the pass, the door scan, completion, certificate review, issue and download, the report, access changes and the Activity Log. Run Impeccable critique on the demo-critical screens, then fix dead ends, broken links, misleading copy, any visible sign of demo data and the highest-value findings with Impeccable polish. Findings not fixed go to 8.12. This is the one critique-and-polish pass of the demo phase; it adds no new screens or backend. The demo script and its starting state are written to _bmad-output/initiative-attendta/demo-script.md for the presenter. Confirm that unlinked development-only pages, such as the certificate tracer and its watermarked sample, are not reachable on the demo machine. It also checks each demo-phase ticket's full Verify line once; a failing line goes back to its ticket before the demo. The script leaves out signing in as a deactivated account, because the demo does not block that login until 5.4 (see the register's Known limits)."
+verify = "The demo script runs start to finish in each role without a dead end, an error page or a visible sign of demo data, on desktop and at 390px width; each critique finding is fixed or listed for 8.12; demo-script.md holds the steps and the starting state. Every demo-phase ticket's Verify line passes or is recorded against its ticket."
+covers = []
+after = ["1.13", "1.14", "3.16", "3.17", "4.10", "4.11", "4.12", "5.11", "6.12", "6.13", "7.4"]
+hitl = true
+risk = "medium"
+phase = "frontend"
+area = "frontend"
+queue = 110
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Decision: 2026-11-06 — demo rescope: the old 1.12 opening walkthrough spike became this closing demo rehearsal and moved here from epic-platform-access because it waits on demo screens in later epics; 1.13 no longer waits on it. Existing issue #135 is reused.", "A person walks the script and judges the result with the project owner; the builder fixes what the walkthrough finds.", "Done check: dotnet build, npm run css:build when views or styles change, and the walkthrough itself. No new automated tests."]
+
+[[entry]]
 id = 2
 type = "story"
 title = "Hotspot network binding and trusted HTTPS mobile camera scanning"
 description = "Decides the HTTPS mechanism and host address for the hotspot with Technical Manager Gabutan (Q2) and records the decision in this epic's Notes; then configures Kestrel to serve HTTPS directly on the hotspot LAN interface, with a certificate the officers' phones trust and no IIS or reverse proxy (AD-16); then verifies phone Chrome camera QR scanning where the 4.4 scanner page is served over the hotspot HTTPS origin here, not only localhost, filing scanner defects as bugs back to feature epics."
 verify = "With the host disconnected from the internet, an officer opens the hotspot HTTPS URL in mobile Chrome with no certificate warning, grants camera access, scans a valid attendee QR Pass and sees the attendee's name and student number, and finds the same attendee through manual lookup on that phone."
 covers = ["R4"]
-after = [1, "4.4", "4.5"]
+after = [1, 14, "4.4", "4.5"]
 hitl = true
 risk = "high"
+phase = "finale"
+area = "operations"
+queue = 560
 
 [[entry]]
 id = 3
@@ -27,64 +46,82 @@ title = "Database and persistent file storage backup, restore, and redeploy surv
 description = "An operator captures the SQL database and the SetupRoot tree (uploads, certificates, keys) in one backup bundle, verifies the data survives an application restart and redeploy, and restores the bundle into a disposable location; persistence failures are filed as bugs back to feature epics."
 verify = "An operator takes one backup bundle holding the SQL backup and SetupRoot (uploads, certificates, keys); restarts and redeploys the app with SetupRoot intact; restores the bundle into a disposable location; and verifies database rows, file checksums and the presence of the Data Protection keys."
 covers = ["R5"]
-after = [1, "6.7"]
+after = [1, 14, "6.7"]
 hitl = true
 risk = "medium"
+phase = "finale"
+area = "operations"
+queue = 570
 
 [[entry]]
 id = 4
 type = "story"
 title = "Whole IntegrationTests suite execution on SQL Server"
-description = "Runs the whole concurrency test suite in tests/ASI.Basecode.IntegrationTests together against the SQL Server named by ATTENDTA_TEST_SQL (AD-17), covering seat allocation, attendance recording, certificate issuance, user approval uniqueness, and last-administrator concurrency from epic-platform-access, epic-events-registration, epic-check-in, epic-administration, and epic-certificates, asserting zero overbooking and zero duplicate records; race conditions are filed as bugs back to feature epics."
-verify = "With ATTENDTA_TEST_SQL set to the test SQL Server and not AttendTa_Demo, the whole IntegrationTests suite runs, each test class on its own AttendTa_IT_<guid> database, and all pass with zero overbooking, duplicate attendance, duplicate approval, or duplicate last-admin violations."
+description = "Run the existing service and SQL integration suites plus the important cases authored/reused by 8.5 against the integrated real-data build. Use ATTENDTA_TEST_SQL pointing at local SQL master; each class owns AttendTa_IT_<guid>, never the demo/shared database. Include the existing JavaScript test:js and CSS build checks. Confirm Chromium and Poppler are installed on the local test host (CI already provisions both); environment failures are blockers, not passes. Record one execution manifest with commit, environment, commands and results; reuse it for 8.6–8.8 instead of repeating full runs without code changes. Existing PR CI remains enabled throughout development."
+verify = "On the tested commit all existing and important new suites pass, with zero overbooking or duplicate approval/attendance/certificate and last-admin races safe. Environment failures and skipped critical cases are explicit blockers, not green results; commands and evidence are attached to #77."
 covers = ["R3"]
-after = ["1.1", "1.7", "3.7", "4.3", "5.2", "6.7"]
+after = [5, 10, "1.1", "1.7", "3.7", "4.3", "5.2", "6.7"]
 hitl = false
 risk = "medium"
+phase = "finale"
+area = "testing"
+queue = 550
 
 [[entry]]
 id = 5
 type = "story"
-title = "Automated SPEC §20 acceptance test suite execution"
-description = "Executes the automated SPEC §20 acceptance suite against the integrated dev build, kept in tests/ASI.Basecode.IntegrationTests or tests/ASI.Basecode.Services.Tests (AD-1: no new project), covering account lifecycles from epic-administration, certificate rules from epic-certificates, and report calculations from epic-participation-reports, logging test failures as bugs back to feature epics."
-verify = "A runner executes the automated SPEC §20 integration and acceptance test suite against the integrated dev build and all automated test cases pass with green output."
+title = "Important automated acceptance cases and SPEC coverage mapping"
+description = "Author only the missing important automated acceptance cases in the two existing test projects, reusing current auth, seat/cutoff, cancellation, audit and PDF coverage. Use finale-test-cases.md for ownership/antiforgery, duplicate/refused attendance, completion rollback, access cascades/last admin, duplicate issuance and invalidation races, retained/authorized files and report formulas. Do not automate every cosmetic state or duplicate an existing passing case. Map every remaining SPEC §20 scenario to an existing automated case or a concrete manual case in 8.6; no scenario is silently removed. 8.4 owns the final combined full-suite execution."
+verify = "The acceptance matrix identifies an existing or added automated test for each high-risk case and a manual case for every remaining SPEC §20 scenario; targeted new cases pass and real-SQL race checks prove SM-4. No new test project or large prototype-only suite is introduced."
 covers = ["R1"]
-after = ["1.8", "2.9", "3.14", "4.9", "5.10", "6.11", "7.3"]
+after = [10, "1.8", "2.9", "3.14", "4.9", "5.10", "6.11", "7.3"]
 hitl = false
 risk = "medium"
+phase = "finale"
+area = "testing"
+queue = 540
 
 [[entry]]
 id = 6
 type = "story"
 title = "Recorded manual SPEC §20 acceptance checklist verification"
-description = "Conducts and records the manual verification checklist for non-automatable SPEC §20 scenarios including phone camera scans, stale-form submissions, manual student lookup fallbacks, and visual PDF layout inspections, logging any defects as bugs back to feature epics."
+description = "Complete and execute the SPEC §20 manual matrix using finale-test-cases.md and the 8.5 coverage map: every scenario has preconditions, steps, expected outcome and recorded evidence. Cover the non-automated remainder as well as phone camera/denial/manual fallback, stale forms, responsive keyboard/dialogs and retained PDF appearance. Reuse the automated manifest from 8.4 and the UI walkthrough evidence from 8.12; do not run three identical checklists for 8.6/8.7/8.8."
 verify = "An evaluator steps through the recorded manual SPEC §20 checklist on the live integrated build and confirms each acceptance item passes with signed-off evidence."
 covers = ["R1"]
-after = [2, 5]
+after = [2, 4, 5, 12]
 hitl = true
 risk = "medium"
+phase = "finale"
+area = "testing"
+queue = 580
 
 [[entry]]
 id = 7
 type = "story"
 title = "Full functional demo script walkthrough across all 26 feature IDs"
-description = "Walks through the complete client demonstration script covering all 26 functional IDs, initial administrator setup (FR-35), and 25-row pagination (FR-36) end-to-end on the integrated dev build, logging any observed defects as bugs back to feature epics."
+description = "Walk the complete request-to-report/certificate demonstration against real data, mapping all 26 functional IDs plus FR-35/FR-36 to the 8.6 acceptance evidence. Reuse verified steps and record only missing demo continuity/proof; no fixtures, browser storage workaround, direct SQL state editing or fake issued outcome qualifies."
 verify = "An evaluator executes the full 26-feature-ID user journey demonstration script on the integrated dev build and verifies that every functional requirement from FR-1 through FR-36 succeeds without manual workarounds."
 covers = ["R2"]
 after = [6]
 hitl = true
 risk = "low"
+phase = "finale"
+area = "testing"
+queue = 590
 
 [[entry]]
 id = 8
 type = "story"
 title = "Tier 3 manual system integration and regression verification"
-description = "Conducts Tier 3 manual system integration and regression testing on the integrated dev build covering cross-feature workflows, edge cases, and database migration consistency, filing any discovered defects as bugs back to feature epics."
+description = "Give the final human Tier 3 acceptance decision for the exact integrated commit, reusing #77 automated, #79 manual, #80 demo and #75/#76 environment evidence. Run only missing cross-feature regressions and affected retests after fixes, instead of authoring a third duplicate full checklist. Unresolved critical cases, remaining fixtures or unverified environment rows block sign-off."
 verify = "The team lead and testers complete the Tier 3 manual test matrix on the integrated dev build and sign off that all cross-feature test cases and database migration checks pass."
 covers = ["R6"]
 after = [3, 4, 7]
 hitl = true
 risk = "medium"
+phase = "finale"
+area = "testing"
+queue = 600
 
 [[entry]]
 id = 9
@@ -93,17 +130,88 @@ title = "Dev to main release pull request and submission preparation"
 description = "Prepares the release pull request from dev to main with attested Tier 1 local checks, green Tier 2 CI status, and the complete acceptance evidence package for team peer review and human merge."
 verify = "A team member reviews the dev-to-main pull request, confirms that every PR merged to dev shows green CI and at least one peer approval (prd SM-3), verifies all release CI checks are green with required peer approvals recorded, and performs the manual merge to main."
 covers = ["R6"]
-after = [8]
+after = [8, 10, 11, 12, 13]
 hitl = true
 risk = "low"
+phase = "finale"
+area = "release"
+queue = 610
 
 [[entry]]
 id = 10
 type = "story"
 title = "Refactor sweep"
-description = "Cleans up release harnesses, throwaway verification scripts, and temporary demo configurations, with scope set at its start from plans and review findings the epic deferred."
-verify = "The repository builds cleanly with no remaining throwaway test harnesses, stale documentation notes, or temporary demo credentials committed."
+description = "Pre-acceptance release cleanup only: remove enabled throwaway harnesses, confirm no demo data configuration remains in deployment settings, check setup/run documentation and secret hygiene, and retain useful evidence. Backend hardening is 8.13 and rendered frontend critique/polish is 8.12. Finish code/config cleanup BEFORE acceptance runs and the release PR, not after main is released."
+verify = "The solution/CSS build succeeds, no temporary credentials or enabled demo data runtime configuration is committed, setup instructions match the integrated build and the acceptance run can use this exact commit without another planned code-changing sweep."
 covers = []
-after = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+after = [11, 12, 13]
 hitl = false
 risk = "low"
+phase = "finale"
+area = "backend"
+queue = 530
+references = ["_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md"]
+
+[[entry]]
+id = 14
+type = "story"
+title = "Verify real demo-host readiness and close provisioning evidence gaps"
+description = "Follow up closed #74/PR104 without rewriting its history: provisioning/validation tooling merged, but real-host readiness was not proven. On the intended demo host verify/fix server-level runtime SQL privilege rejection, table AND column-level activity_logs UPDATE/DELETE denial, logs and SetupRoot writability, offline Chromium/PDF operation, the Argon2 benchmark and runtime/secrets configuration. Prepare the host/address/certificate decision early with the technical contact; actual phone scanning and restore stay in 8.2/8.3. No destructive database reset or production changes."
+verify = "A dated host checklist records exact host/runtime and evidence for each previously unverified row, including refused audit mutation and writable log/private directories; missing human/environment inputs are named blockers. Closed #74 alone is not used as readiness proof."
+covers = ["R4", "R5"]
+after = [1]
+hitl = true
+risk = "high"
+phase = "integration"
+area = "operations"
+queue = 190
+references = ["_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md"]
+
+[[entry]]
+id = 13
+type = "story"
+title = "Final backend hardening and cross-module integration cleanup"
+description = "Resolve concrete cross-module backend findings after the focused module sweeps: confirm one caller-owned transaction/audit path, lock order, canonical facts, cancellation/hook registration, authorization/ownership, time guards and safe private file failure/cleanup. Include report read coherence and source registration. No feature expansion or frontend presentation work; do not duplicate the module sweeps or author exhaustive tests here. Hand the stable real-provider wiring to 8.11. First delete the demo seam, register row M-01 (the demo data folder, the DemoData switch, the startup guard, the token key and the registration method), once every other register row is removed, and set M-01 removed."
+verify = "Build and the focused request-to-certificate/report smoke succeed on real data; each agreed backend finding is fixed or an explicit release blocker, and there is one implementation of shared cancellation, eligibility and storage rules. 8.5/8.4 own the final important tests."
+covers = []
+after = ["3.14", "4.9", "5.10", "6.11", "7.3"]
+hitl = false
+risk = "high"
+phase = "finale"
+area = "backend"
+queue = 500
+references = ["_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Removes demo data M-01 (2026-11-06 review): the last integration step before 8.11 verifies the register."]
+
+[[entry]]
+id = 11
+type = "story"
+title = "Remove prototype data and prove complete real integrations"
+description = "Verify only; this ticket changes no code. Confirm every row of `demo-mock-register.md`, M-01 included, is `removed` with its commit; an open row sends the finding back to that row's removing ticket instead of being fixed here. Then prove the demo seam is gone with checks that fail if any part remains: start the published build with DemoData__Enabled=true, no DemoData__TokenKey and a database other than AttendTa_Demo, which the startup guard refuses while the seam exists; and search the source and the published output for every register id, the demo data folder and the DemoData configuration keys. Finally verify My Events, passes, attendance, scanner, completion, certificate review, issue and download, access changes and reports against one coherent database. Keep only isolated test fixtures in the test projects. This is a functional integration gate, not a frontend redesign or a claim that the final test suite already passed."
+verify = "Every register row shows `removed` with its commit; the published build starts normally with DemoData__Enabled=true, no token key and a non-demo database; the search finds no register id, demo data folder or DemoData key; a real member goes from approved account through registration, pass, check-in and completion to a retained certificate and matching report and audit, with no manual SQL state workaround."
+covers = ["R1", "R2", "R3"]
+after = [13, "2.10", "2.11"]
+hitl = false
+risk = "high"
+phase = "finale"
+area = "backend"
+queue = 510
+references = ["_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Verify-only (2026-11-06 review): 8.13 removes M-01; findings return to the owning ticket."]
+
+[[entry]]
+id = 12
+type = "story"
+title = "Final frontend walkthrough targeted refactor and Impeccable polish"
+description = "Walk the complete real integrated frontend against docs/DESIGN.md and the 8.15 demo rehearsal findings: all 20 core screens, distinct role navigation, coherent state/copy/actions, centered dialogs, keyboard focus, responsive layouts, long content, error/retry and PDF/QR presentation. Refactor only concrete presentation duplication/usability findings; preserve ready backend behavior. Use the impeccable skill for implementing fixes, rendered critique and polish before review, and run its detector on changed UI targets."
+verify = "Desktop and phone walkthrough evidence shows no dead-end required routes, hidden primary actions or demo data outcomes; important keyboard/dialog and 200%-zoom checks pass, and all critique findings are fixed or recorded as explicit release blockers. Final backend and test-only tickets do not inherit this design-tool requirement."
+covers = ["R2", "R6"]
+after = [11]
+hitl = false
+risk = "medium"
+phase = "finale"
+area = "frontend"
+queue = 520
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md"]
+notes = ["Frontend only: impeccable is required for implementation, rendered critique and final polish; inspect representative desktop/1024/768/390px surfaces and critical keyboard/zoom states. Use manual evidence rather than introducing broad screenshot automation in the timebox."]
+

@@ -9,7 +9,8 @@ hitl: false
 risk: medium
 tracker_id: "40"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/40"
-tracker_status: backlog
+tracker_status: done
+assignee: "FivePesos"
 ---
 
 # Event cancellation with atomic registration cancellation and check-in closure

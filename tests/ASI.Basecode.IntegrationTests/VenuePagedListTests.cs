@@ -67,7 +67,8 @@ public sealed class VenuePagedListTests : IClassFixture<SqlServerDatabaseFixture
 
         await SignInAsync(officerClient, officerEmail);
         var empty = await officerClient.GetStringAsync("/Venue", ct);
-        Assert.Contains("No records found.", empty, StringComparison.Ordinal);
+        Assert.Contains("No venues yet. Use \"New Venue\" to create the first one.", empty, StringComparison.Ordinal);
+        Assert.Contains("data-table", empty, StringComparison.Ordinal);
         Assert.DoesNotContain("data-venue-id=", empty, StringComparison.Ordinal);
         Assert.DoesNotContain("aria-label=\"Pagination\"", empty, StringComparison.Ordinal);
 

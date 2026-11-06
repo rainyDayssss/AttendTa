@@ -328,6 +328,112 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
         Assert.False(await observer.ActivityLogs.AnyAsync(item => item.EntityType == "account_requests" && item.EntityId == requestId, ct));
     }
 
+    [Fact]
+    public async Task BrowserDecisionsShowFeedbackValidateReasonAndRejectStalePosts()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var actor = await SeedUserAsync(RoleCode.Officer, "browser-officer", ActorPassword, ct);
+        var email = UniqueEmail("browser-approval");
+        var (approvedId, _) = await SeedRequestAsync(email, UniqueStudentNumber(), ct);
+        var (rejectedId, _) = await SeedRequestAsync(UniqueEmail("browser-rejection"), UniqueStudentNumber(), ct);
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await SignInAsync(client, actor.Email, ActorPassword, ct);
+        var token = await GetLayoutAntiforgeryTokenAsync(client, ct);
+
+        async Task<HttpResponseMessage> Post(string action, int id, string? reason = null, bool includeToken = true)
+        {
+            var values = new Dictionary<string, string> { ["id"] = id.ToString() };
+            if (includeToken) values["__RequestVerificationToken"] = token;
+            if (reason is not null) values["reason"] = reason;
+            return await client.PostAsync($"/AccountRequest/{action}?status=pending&page=1&keep=value", new FormUrlEncodedContent(values), ct);
+        }
+
+        using (var noToken = await Post("Approve", approvedId, includeToken: false))
+            Assert.Equal(HttpStatusCode.BadRequest, noToken.StatusCode);
+        using (var invalid = await Post("Reject", rejectedId, "   "))
+        {
+            var html = await invalid.Content.ReadAsStringAsync(ct);
+            Assert.Contains("A rejection reason is required.", html, StringComparison.Ordinal);
+            Assert.Contains($"reason-error-{rejectedId}", html, StringComparison.Ordinal);
+        }
+        using (var approve = await Post("Approve", approvedId))
+        {
+            Assert.Equal(HttpStatusCode.Redirect, approve.StatusCode);
+            Assert.Contains("keep=value", approve.Headers.Location!.ToString(), StringComparison.Ordinal);
+            var html = await client.GetStringAsync(approve.Headers.Location, ct);
+            Assert.Contains("Account request approved.", html, StringComparison.Ordinal);
+        }
+        using (var stale = await Post("Approve", approvedId))
+            Assert.Contains("already been decided", await stale.Content.ReadAsStringAsync(ct), StringComparison.OrdinalIgnoreCase);
+        using (var staleRejection = await Post("Reject", approvedId, "Keep this reason <safe>"))
+        {
+            var html = await staleRejection.Content.ReadAsStringAsync(ct);
+            Assert.Contains("saved-rejection-reason", html, StringComparison.Ordinal);
+            Assert.Contains("Keep this reason &lt;safe&gt;", html, StringComparison.Ordinal);
+            Assert.Contains("Refresh the queue", html, StringComparison.Ordinal);
+        }
+        using (var reject = await Post("Reject", rejectedId, "Missing documentation"))
+        {
+            Assert.Equal(HttpStatusCode.Redirect, reject.StatusCode);
+            Assert.Contains("Account request rejected.", await client.GetStringAsync(reject.Headers.Location, ct), StringComparison.Ordinal);
+        }
+
+        await using var observer = Context();
+        var approved = await observer.AccountRequests.AsNoTracking().SingleAsync(item => item.RequestId == approvedId, ct);
+        var rejected = await observer.AccountRequests.AsNoTracking().SingleAsync(item => item.RequestId == rejectedId, ct);
+        Assert.Equal(AccountRequestStatusCode.Approved, approved.AccountRequestStatusId);
+        Assert.Equal(AccountRequestStatusCode.Rejected, rejected.AccountRequestStatusId);
+        Assert.Equal("Missing documentation", rejected.ReviewNotes);
+        Assert.Equal(1, await observer.Members.CountAsync(item => item.UserId == approved.CreatedUserId, ct));
+        Assert.Equal(1, await observer.ActivityLogs.CountAsync(item => item.EntityType == "account_requests" && item.EntityId == approvedId, ct));
+        Assert.Equal(1, await observer.ActivityLogs.CountAsync(item => item.EntityType == "account_requests" && item.EntityId == rejectedId, ct));
+    }
+
+    [Fact]
+    public async Task BrowserApprovalDisplaysIdentityConflictWithoutDecision()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var actor = await SeedUserAsync(RoleCode.Admin, "browser-conflict-admin", ActorPassword, ct);
+        var occupied = await SeedUserAsync(RoleCode.Member, "browser-conflict-user", ActorPassword, ct);
+        var (id, _) = await SeedRequestAsync(occupied.Email, UniqueStudentNumber(), ct);
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await SignInAsync(client, actor.Email, ActorPassword, ct);
+        var token = await GetLayoutAntiforgeryTokenAsync(client, ct);
+        using var response = await client.PostAsync("/AccountRequest/Approve?status=pending", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["id"] = id.ToString(), ["__RequestVerificationToken"] = token
+        }), ct);
+        var html = await response.Content.ReadAsStringAsync(ct);
+        Assert.Contains("This email is already in use.", html, StringComparison.Ordinal);
+        Assert.Contains("Refresh the queue", html, StringComparison.Ordinal);
+        await using var observer = Context();
+        Assert.Equal(AccountRequestStatusCode.Pending, (await observer.AccountRequests.AsNoTracking().SingleAsync(item => item.RequestId == id, ct)).AccountRequestStatusId);
+        Assert.False(await observer.ActivityLogs.AnyAsync(item => item.EntityType == "account_requests" && item.EntityId == id, ct));
+    }
+
+    [Fact]
+    public async Task BrowserDecisionRejectsAnonymousAndMemberRequests()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var member = await SeedUserAsync(RoleCode.Member, "browser-member", ActorPassword, ct);
+        var (id, _) = await SeedRequestAsync(UniqueEmail("browser-forbidden"), UniqueStudentNumber(), ct);
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var anonymous = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        using var response = await anonymous.PostAsync($"/AccountRequest/Approve?id={id}", new FormUrlEncodedContent(new Dictionary<string, string>()), ct);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await SignInAsync(client, member.Email, ActorPassword, ct);
+        var token = await GetLayoutAntiforgeryTokenAsync(client, ct);
+        using var denied = await client.PostAsync($"/AccountRequest/Reject?id={id}", new FormUrlEncodedContent(new Dictionary<string, string> { ["reason"] = "Not allowed", ["__RequestVerificationToken"] = token }), ct);
+        Assert.Equal(HttpStatusCode.Redirect, denied.StatusCode);
+        Assert.Contains("AccessDenied", denied.Headers.Location!.ToString(), StringComparison.Ordinal);
+        await using var observer = Context();
+        Assert.Equal(AccountRequestStatusCode.Pending, (await observer.AccountRequests.AsNoTracking().SingleAsync(item => item.RequestId == id, ct)).AccountRequestStatusId);
+        Assert.False(await observer.ActivityLogs.AnyAsync(item => item.EntityType == "account_requests" && item.EntityId == id, ct));
+    }
+
     private AccountRequestService CreateService(
         AsiBasecodeDBContext context,
         ICurrentActor actor,
@@ -455,10 +561,11 @@ public sealed class AccountRequestDecisionTests(SqlServerDatabaseFixture fixture
     {
         private int inserted;
         public IQueryable<MemberRecord> GetMemberRecords() => inner.GetMemberRecords();
-        public Task<int> CountAsync(string search, CancellationToken cancellationToken = default) => inner.CountAsync(search, cancellationToken);
-        public Task<IReadOnlyList<MemberRecord>> GetPageAsync(string search, int skip, int take, CancellationToken cancellationToken = default) => inner.GetPageAsync(search, skip, take, cancellationToken);
+        public Task<int> CountAsync(string search, string status, CancellationToken cancellationToken = default) => inner.CountAsync(search, status, cancellationToken);
+        public Task<IReadOnlyList<MemberRecord>> GetPageAsync(string search, string status, int skip, int take, CancellationToken cancellationToken = default) => inner.GetPageAsync(search, status, skip, take, cancellationToken);
         public MemberRecord? GetMemberRecord(int memberId) => inner.GetMemberRecord(memberId);
         public Task<MemberRecord?> GetMemberRecordByUserIdAsync(int userId, CancellationToken cancellationToken = default) => inner.GetMemberRecordByUserIdAsync(userId, cancellationToken);
+        public Task<Member?> GetMemberByUserIdAsync(int userId, CancellationToken cancellationToken = default) => inner.GetMemberByUserIdAsync(userId, cancellationToken);
         public Member? GetMember(int memberId) => inner.GetMember(memberId);
         public bool UserHasMemberProfile(int userId) => inner.UserHasMemberProfile(userId);
         public bool StudentNumberExists(string studentNumber, int? excludeId = null) => inner.StudentNumberExists(studentNumber, excludeId);

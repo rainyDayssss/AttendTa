@@ -6,7 +6,7 @@ namespace ASI.Basecode.Services.Interfaces
 {
     public interface IMemberService
     {
-        Task<PagedResult<MemberViewModel>> GetPageAsync(string search, int? pageNumber, CancellationToken cancellationToken = default);
+        Task<PagedResult<MemberViewModel>> GetPageAsync(string search, string status, int? pageNumber, CancellationToken cancellationToken = default);
         MemberViewModel GetMember(int id);
         Task<MemberViewModel> GetSelfProfileAsync(CancellationToken cancellationToken = default);
         Task UpdateMemberAsync(MemberViewModel model, CancellationToken cancellationToken = default);

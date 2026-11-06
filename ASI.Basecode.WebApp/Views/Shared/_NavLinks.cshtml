@@ -1,0 +1,35 @@
+@using ASI.Basecode.Resources.Constants
+@{
+    var management = User.IsInRole(RoleCodes.Admin) || User.IsInRole(RoleCodes.Officer);
+    var administrator = User.IsInRole(RoleCodes.Admin);
+    var member = User.IsInRole(RoleCodes.Member);
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+}
+<a asp-controller="Home" asp-action="Index" aria-current="@(controller == "Home" ? "page" : null)">Home</a>
+@if (management)
+{
+    <a asp-controller="Event" asp-action="Index" aria-current="@(controller == "Event" ? "page" : null)">Events</a>
+    <a asp-controller="CheckIn" asp-action="Index" aria-current="@(controller == "CheckIn" ? "page" : null)">Check-in</a>
+    <a asp-controller="RegistrationReview" asp-action="Index">Registration review</a>
+    <a asp-controller="MemberEvents" asp-action="Index" aria-current="@(controller == "MemberEvents" ? "page" : null)">Browse events</a>
+    <a asp-controller="CertificateLedger" asp-action="Index" aria-current="@(controller == "CertificateLedger" ? "page" : null)">Certificates</a>
+    <a asp-controller="Reports" asp-action="Participation" aria-current="@(controller == "Reports" ? "page" : null)">Reports</a>
+    <a asp-controller="Member" asp-action="Index" aria-current="@(controller == "Member" ? "page" : null)">Members</a>
+    <a asp-controller="AccountRequest" asp-action="Index" aria-current="@(controller == "AccountRequest" ? "page" : null)">Account requests</a>
+    @if (administrator)
+    {
+        <a asp-controller="AdminAccounts" asp-action="Index" aria-current="@(controller == "AdminAccounts" ? "page" : null)">Accounts</a>
+    }
+    <a asp-controller="EventType" asp-action="Index" aria-current="@(controller == "EventType" ? "page" : null)">Event types</a>
+    <a asp-controller="Venue" asp-action="Index" aria-current="@(controller == "Venue" ? "page" : null)">Venues</a>
+}
+@if (User.IsInRole(RoleCodes.Admin))
+{
+    <a asp-controller="ActivityLog" asp-action="Index" aria-current="@(controller == "ActivityLog" ? "page" : null)">Activity log</a>
+}
+@if (member)
+{
+    <a asp-controller="MemberEvents" asp-action="Index" aria-current="@(controller == "MemberEvents" ? "page" : null)">Events</a>
+    <a asp-controller="MyEvents" asp-action="Index" aria-current="@(controller == "MyEvents" ? "page" : null)">My Events</a>
+    <a asp-controller="Profile" asp-action="Index" aria-current="@(controller == "Profile" ? "page" : null)">Profile</a>
+}

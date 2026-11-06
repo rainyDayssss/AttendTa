@@ -39,12 +39,12 @@ namespace ASI.Basecode.Services.Services
             _audit = audit ?? throw new ArgumentNullException(nameof(audit));
         }
 
-        public async Task<PagedResult<MemberViewModel>> GetPageAsync(string search, int? pageNumber, CancellationToken cancellationToken = default)
+        public async Task<PagedResult<MemberViewModel>> GetPageAsync(string search, string status, int? pageNumber, CancellationToken cancellationToken = default)
         {
-            var totalCount = await _repository.CountAsync(search, cancellationToken);
+            var totalCount = await _repository.CountAsync(search, status, cancellationToken);
             var request = new PageRequest(pageNumber);
             var page = request.NormalizePageNumber(totalCount);
-            var records = await _repository.GetPageAsync(search, request.GetOffset(page), PageRequest.FixedPageSize, cancellationToken);
+            var records = await _repository.GetPageAsync(search, status, request.GetOffset(page), PageRequest.FixedPageSize, cancellationToken);
             return new PagedResult<MemberViewModel>(records.Select(ToViewModel).ToList(), page, totalCount);
         }
 
@@ -272,7 +272,6 @@ namespace ASI.Basecode.Services.Services
             return new MemberViewModel
             {
                 MemberId = member.MemberId,
-                UserId = member.UserId,
                 FullName = member.FullName,
                 Email = member.Email,
                 StudentNumber = member.StudentNumber,

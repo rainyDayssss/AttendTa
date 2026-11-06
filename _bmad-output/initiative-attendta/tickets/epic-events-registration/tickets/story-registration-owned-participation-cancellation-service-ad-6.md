@@ -8,7 +8,8 @@ hitl: false
 risk: high
 tracker_id: "35"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/35"
-tracker_status: backlog
+tracker_status: done
+assignee: "wigglebop25"
 ---
 
 # Registration-owned participation cancellation service (AD-6)

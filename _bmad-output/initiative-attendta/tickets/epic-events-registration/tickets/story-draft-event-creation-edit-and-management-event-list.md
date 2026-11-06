@@ -9,7 +9,8 @@ hitl: true
 risk: low
 tracker_id: "29"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/29"
-tracker_status: backlog
+tracker_status: done
+assignee: "FivePesos"
 ---
 
 # Draft event creation, edit, and management event list

@@ -1,13 +1,37 @@
 [[entry]]
+id = 4
+type = "story"
+title = "Frontend per-event report with summary breakdowns and participant table"
+description = "Build DESIGN screen 18 from the 1.13 contracts: event selector, registration status counts, Confirmed and Valid attendee summary, rate (N/A at zero Confirmed; final only for completed events), completed-only no-shows, course/year breakdowns and a 25-row paged detail table. Until 7.1–7.3 the report reads demo data (M-13a, M-13b, M-13c) computed from the real registrations and the demo store's attendance and completion state, so its numbers agree with the dossier and scanner; no invented global metrics or exports. Own the report surface and its scoped assets. Follow docs/DESIGN.md. The event selector is the shared partial from 1.13."
+verify = "An Officer selects a completed event in the demo store and sees counts, rate, no-shows, breakdowns and detail rows that agree with that event's seeded check-ins; a published event shows no final rate, a cancelled one no no-shows, and an event with zero Confirmed shows N/A; summary totals do not change with detail paging; the layout works on desktop, keyboard and phone width; nothing on screen says the data is demo data."
+covers = ["R1", "R2"]
+after = ["1.13", "1.14"]
+hitl = false
+risk = "medium"
+phase = "frontend"
+area = "frontend"
+queue = 60
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Demo phase (2026-11-06 demo rescope): frontend only. Use the real backend where a service method exists and demo data per `demo-mock-register.md` (rows M-13a, M-13b, M-13c) where it does not; nothing on screen may show that data is demo data. Add or fill this ticket's register rows in the same pull request.", "Done check: `dotnet build`, `npm run css:build` when views or styles change, and one look at the changed screen with `DemoData__Enabled=true`. No new automated tests, no per-ticket Impeccable critique or polish and no separate code-review pass; the pull request keeps green existing CI and one peer approval. Critique, polish and the full Verify line run once in 8.15."]
+
+[[entry]]
 id = 1
 type = "story"
 title = "Event selector and participation summary KPIs"
-description = "Delivers the report pipeline from coherent read queries to a Tailwind view authorized by the Management policy (AD-8), displaying an event selector and per-event summary KPIs including registration status counts, Confirmed count, Valid attendee count (Confirmed registrations with Valid Attendance, excluding invalidated attendance), and attendance rate shown as a percentage per FR-30 (Valid attendees ÷ Confirmed, calculated from the ParticipationFacts decimal, N/A when Confirmed is 0, rounded to two decimal places for display only); provides the base report view for no-shows, distributions, and detail rows; needs canonical schema, role claims, and Tailwind shell from epic-platform-access, event and registration entities from epic-events-registration, and attendance records with invalidation from epic-check-in."
-verify = "Sign in as an officer, open /Report, select an event, and verify summary cards display status counts, Confirmed count, Valid attendees (excluding invalidated attendance), and attendance rate formatted as a percentage (e.g. 92.00%, or N/A when zero Confirmed) matching database records."
+description = "Wire 7.4's existing report contract to coherent Management-authorized real read queries: selected-event registration status counts, Confirmed count and Valid attendees excluding invalidated attendance. Calculate the canonical ParticipationFacts rate as Valid attendees divided by Confirmed, null at zero; round only for display. Following the existing authoritative SPEC/docs/DESIGN.md presentation scope, show final attendance rate only for completed non-cancelled events, otherwise N/A/not final. No change to the underlying canonical fact or new PM override; no second report screen."
+verify = "An Officer selects a real completed event and sees status counts, Confirmed/Valid attendee totals and the percentage rate match the full database dataset, with N/A at zero Confirmed. Published/cancelled events do not present a final rate; changing detail pages does not change the totals."
 covers = ["R1"]
-after = ["1.1", "1.9", "3.7", "4.6"]
+after = [4, "1.1", "1.9", "3.7"]
 hitl = false
 risk = "medium"
+phase = "integration"
+area = "backend"
+queue = 390
+references = ["_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = [
+  "Wire the 7.4 presentation contract using canonical mapped attendance and ParticipationFacts; read queries can be built without waiting for the scanner/invalidation UI. Full real-attendance verification remains mandatory in 8.11. Final no-show/rate presentation follows authoritative SPEC/docs/DESIGN.md: completed, non-cancelled events; zero denominator N/A.",
+  "Removes demo data M-13a (2026-11-06 demo rescope): implement the real source behind the contract the demo provider serves, delete the provider classes and their registration, and set the rows to `removed` with the commit in `demo-mock-register.md`. The screen should not change visibly. No per-ticket Impeccable critique or polish; 8.12 covers it.",
+]
 
 [[entry]]
 id = 2
@@ -19,6 +43,11 @@ covers = ["R1"]
 after = [1, "3.11", "3.12"]
 hitl = false
 risk = "medium"
+phase = "integration"
+area = "backend"
+queue = 400
+references = ["_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Removes demo data M-13b (2026-11-06 demo rescope): implement the real source behind the contract the demo provider serves, delete the provider classes and their registration, and set the rows to `removed` with the commit in `demo-mock-register.md`. The screen should not change visibly. No per-ticket Impeccable critique or polish; 8.12 covers it."]
 
 [[entry]]
 id = 3
@@ -27,6 +56,14 @@ title = "Paged participant detail rows with full-dataset totals"
 description = "Extends the report view with server-side 25-row paged participant detail rows with FR-30 fields (name, student number, snapshot course, registration status, attendance result, Manila check-in time), ordered by participant name, then registration_id, so page boundaries are stable (AD-13), while preserving full-dataset summary totals and entry 2 attendee distributions across pages; needs the shared 25-row pager component from epic-platform-access."
 verify = "Navigate through 25-row pages of participant detail rows on a completed event, verifying columns show name, student number, snapshot course, status, attendance result, and Manila check-in time, with stable paging across boundaries, while full-dataset totals and distributions remain unchanged."
 covers = ["R1", "R2"]
-after = [2, "1.4", "1.6"]
+after = [2, "1.4", "1.6", "4.6"]
 hitl = false
 risk = "low"
+phase = "integration"
+area = "backend"
+queue = 410
+references = ["_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/finale-test-cases.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = [
+  "Summary/distribution query work starts earlier; this final real-detail integration verifies actual invalidation effects from 4.6, pinning the epic's attendance handoff without gating the frontend or initial report reads.",
+  "Removes demo data M-13c (2026-11-06 demo rescope): implement the real source behind the contract the demo provider serves, delete the provider classes and their registration, and set the rows to `removed` with the commit in `demo-mock-register.md`. The screen should not change visibly. No per-ticket Impeccable critique or polish; 8.12 covers it.",
+]

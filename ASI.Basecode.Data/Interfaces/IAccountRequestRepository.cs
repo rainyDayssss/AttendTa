@@ -9,8 +9,15 @@ namespace ASI.Basecode.Data.Interfaces;
 public interface IAccountRequestRepository
 {
     Task<AccountRequest> LockAccountRequestAsync(int requestId, CancellationToken cancellationToken = default);
-    Task<int> CountByStatusAsync(AccountRequestStatusCode status, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<AccountRequestQueueItem>> GetPageByStatusAsync(AccountRequestStatusCode status, int skip, int take, CancellationToken cancellationToken = default);
+
+    /// <summary>Counts requests for one status, or every request when <paramref name="status"/> is null.</summary>
+    Task<int> CountByStatusAsync(AccountRequestStatusCode? status, string search, CancellationToken cancellationToken = default);
+
+    /// <summary>Pages requests for one status, or every request when <paramref name="status"/> is null.</summary>
+    Task<IReadOnlyList<AccountRequestQueueItem>> GetPageByStatusAsync(AccountRequestStatusCode? status, string search, bool oldestFirst, int skip, int take, CancellationToken cancellationToken = default);
+
+    /// <summary>Counts requests per status so the queue can label its filters.</summary>
+    Task<AccountRequestStatusCounts> GetStatusCountsAsync(string search, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Stages a new account request. The caller saves through the unit of work.

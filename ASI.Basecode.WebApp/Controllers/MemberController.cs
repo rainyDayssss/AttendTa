@@ -31,12 +31,17 @@ namespace ASI.Basecode.WebApp.Controllers
         [HttpGet]
         [Route("Member")]
         [Route("Member/Index")]
-        public async Task<IActionResult> Index(string search, int? page)
+        public async Task<IActionResult> Index(string search, string status, int? page)
         {
-            var members = await _memberService.GetPageAsync(search, page, HttpContext.RequestAborted);
+            var members = await _memberService.GetPageAsync(search, status, page, HttpContext.RequestAborted);
             ViewBag.Search = search;
+            ViewBag.Status = status;
             return View(members);
         }
+
+        [HttpGet]
+        [Route("Member/{id:int}/access")]
+        public IActionResult Access(int id) => PartialView("_AccessDialog", MembershipAccessViewModel.Empty(id));
 
         [HttpGet]
         [Route("Member/Edit/{id:int}")]

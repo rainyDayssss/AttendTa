@@ -1,4 +1,6 @@
 @model EventViewModel
+@using ASI.Basecode.Data.Models.Lookups
+@using System.Globalization
 
 <div class="field">
     <label asp-for="Title" class="field-label"></label>
@@ -10,6 +12,21 @@
     <textarea asp-for="Description" aria-describedby="Description-validation" class="field-control" rows="4"></textarea>
     <span id="Description-validation" asp-validation-for="Description" class="field-error"></span>
 </div>
+@if (Model.EventStatusId == EventStatusCode.Published)
+{
+    <p>Event type: @Model.TypeName</p>
+    <p>Venue: @Model.VenueName</p>
+    <p>Starts (Asia/Manila): @Model.StartsAt.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)</p>
+    <p>Signup deadline (Asia/Manila): @Model.RegistrationDeadline.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)</p>
+    <p>Participant limit: @Model.ParticipantLimit</p>
+    <input type="hidden" name="TypeId" value="@Model.TypeId" />
+    <input type="hidden" name="VenueId" value="@Model.VenueId" />
+    <input type="hidden" name="StartsAt" value="@Model.StartsAt.ToString("yyyy-MM-ddTHH:mm:ss.fffffff", CultureInfo.InvariantCulture)" />
+    <input type="hidden" name="RegistrationDeadline" value="@Model.RegistrationDeadline.ToString("yyyy-MM-ddTHH:mm:ss.fffffff", CultureInfo.InvariantCulture)" />
+    <input type="hidden" name="ParticipantLimit" value="@Model.ParticipantLimit" />
+}
+else
+{
 <div class="field">
     <label asp-for="TypeId" class="field-label">Event type</label>
     <select asp-for="TypeId" aria-describedby="TypeId-validation" class="field-control">
@@ -50,3 +67,4 @@
     <input asp-for="ParticipantLimit" type="number" min="1" aria-describedby="ParticipantLimit-validation" class="field-control" />
     <span id="ParticipantLimit-validation" asp-validation-for="ParticipantLimit" class="field-error"></span>
 </div>
+}

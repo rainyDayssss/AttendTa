@@ -13,13 +13,26 @@ namespace ASI.Basecode.Data.Repositories;
 
 public sealed class AccountRequestRepository(IUnitOfWork unitOfWork) : BaseRepository(unitOfWork), IAccountRequestRepository
 {
-    public Task<int> CountByStatusAsync(AccountRequestStatusCode status, CancellationToken cancellationToken = default) =>
-        GetDbSet<AccountRequest>()
-            .AsNoTracking()
-            .CountAsync(request => request.AccountRequestStatusId == status, cancellationToken);
+    public Task<int> CountByStatusAsync(AccountRequestStatusCode? status, string search, CancellationToken cancellationToken = default) =>
+        FilterByStatus(status, search).CountAsync(cancellationToken);
+
+    public async Task<AccountRequestStatusCounts> GetStatusCountsAsync(string search, CancellationToken cancellationToken = default)
+    {
+        var counts = await FilterByStatus(null, search)
+            .GroupBy(request => request.AccountRequestStatusId)
+            .Select(group => new { Status = group.Key, Count = group.Count() })
+            .ToListAsync(cancellationToken);
+
+        return new AccountRequestStatusCounts(
+            counts.Where(item => item.Status == AccountRequestStatusCode.Pending).Sum(item => item.Count),
+            counts.Where(item => item.Status == AccountRequestStatusCode.Approved).Sum(item => item.Count),
+            counts.Where(item => item.Status == AccountRequestStatusCode.Rejected).Sum(item => item.Count));
+    }
 
     public async Task<IReadOnlyList<AccountRequestQueueItem>> GetPageByStatusAsync(
-        AccountRequestStatusCode status,
+        AccountRequestStatusCode? status,
+        string search,
+        bool oldestFirst,
         int skip,
         int take,
         CancellationToken cancellationToken = default)
@@ -27,11 +40,12 @@ public sealed class AccountRequestRepository(IUnitOfWork unitOfWork) : BaseRepos
         if (skip < 0) throw new ArgumentOutOfRangeException(nameof(skip));
         if (take <= 0) throw new ArgumentOutOfRangeException(nameof(take));
 
-        return await GetDbSet<AccountRequest>()
-            .AsNoTracking()
-            .Where(request => request.AccountRequestStatusId == status)
-            .OrderByDescending(request => request.RequestedAt)
-            .ThenByDescending(request => request.RequestId)
+        var query = FilterByStatus(status, search);
+        query = oldestFirst
+            ? query.OrderBy(request => request.RequestedAt).ThenBy(request => request.RequestId)
+            : query.OrderByDescending(request => request.RequestedAt).ThenByDescending(request => request.RequestId);
+
+        return await query
             .Skip(skip)
             .Take(take)
             .Select(request => new AccountRequestQueueItem
@@ -83,6 +97,26 @@ public sealed class AccountRequestRepository(IUnitOfWork unitOfWork) : BaseRepos
                 request => request.AccountRequestStatusId == AccountRequestStatusCode.Pending
                     && request.Email == email,
                 cancellationToken);
+    }
+
+    private IQueryable<AccountRequest> FilterByStatus(AccountRequestStatusCode? status, string search)
+    {
+        var query = GetDbSet<AccountRequest>().AsNoTracking();
+        if (status is not null)
+        {
+            query = query.Where(request => request.AccountRequestStatusId == status);
+        }
+
+        var term = search?.Trim();
+        if (!string.IsNullOrEmpty(term))
+        {
+            query = query.Where(request =>
+                request.FullName.Contains(term)
+                || request.Email.Contains(term)
+                || request.StudentNumber.Contains(term));
+        }
+
+        return query;
     }
 
     public Task<bool> PendingStudentNumberExistsAsync(string studentNumber, CancellationToken cancellationToken = default)

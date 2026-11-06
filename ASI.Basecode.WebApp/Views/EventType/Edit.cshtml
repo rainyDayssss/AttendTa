@@ -3,15 +3,16 @@
     ViewData["Title"] = "Edit Event Type";
 }
 
-<h2>Edit Event Type</h2>
+<h1>Edit Event Type</h1>
 
-
-<form asp-action="Edit" method="post">
+<form asp-action="Edit" method="post" class="form-panel">
     <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
     <input type="hidden" asp-for="TypeId" />
     <partial name="_Form" model="Model" />
-    <button type="submit" class="button button-primary">Save</button>
-    <a asp-action="Index" class="button button-secondary">Cancel</a>
+    <div class="form-actions">
+        <button type="submit" class="button button-primary">Save</button>
+        <a asp-action="Index" class="button button-secondary">Cancel</a>
+    </div>
 </form>
 
 @section Scripts {

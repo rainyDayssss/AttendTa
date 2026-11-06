@@ -23,7 +23,6 @@ public sealed class EventTypeManagementFlowTests(SqlServerDatabaseFixture fixtur
         var memberEmail = $"event-type-member-{suffix}@attendta.test";
         var password = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)) + "aA1!";
         var officerId = await SeedUsersAsync(officerEmail, memberEmail, password, ct);
-        await SeedEventTypesAsync(officerId, ct);
 
         await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
         using var officerClient = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
@@ -35,6 +34,15 @@ public sealed class EventTypeManagementFlowTests(SqlServerDatabaseFixture fixtur
 
         await SignInAsync(officerClient, officerEmail, password, ct);
 
+        var emptyResponse = await officerClient.GetAsync("/EventType", ct);
+        Assert.Equal(HttpStatusCode.OK, emptyResponse.StatusCode);
+        var empty = await emptyResponse.Content.ReadAsStringAsync(ct);
+        Assert.Contains("No event types yet. Use \"New Event Type\" to create the first one.", empty, StringComparison.Ordinal);
+        Assert.Contains("data-table", empty, StringComparison.Ordinal);
+        Assert.DoesNotContain("aria-label=\"Pagination\"", empty, StringComparison.Ordinal);
+
+        await SeedEventTypesAsync(officerId, ct);
+
         var firstPageResponse = await officerClient.GetAsync("/EventType", ct);
         Assert.Equal(HttpStatusCode.OK, firstPageResponse.StatusCode);
         var firstPage = await firstPageResponse.Content.ReadAsStringAsync(ct);
@@ -44,11 +52,13 @@ public sealed class EventTypeManagementFlowTests(SqlServerDatabaseFixture fixtur
         Assert.Contains("Flow Type 25", firstPage, StringComparison.Ordinal);
         Assert.DoesNotContain("Flow Type 26", firstPage, StringComparison.Ordinal);
         Assert.Contains("data-table", firstPage, StringComparison.Ordinal);
+        Assert.Contains("class=\"badge badge-active\">Active</span>", firstPage, StringComparison.Ordinal);
         Assert.Contains("page=2", firstPage, StringComparison.Ordinal);
         Assert.Contains("aria-label=\"Next page\"", firstPage, StringComparison.Ordinal);
 
         var lastPage = await officerClient.GetStringAsync("/EventType?page=2", ct);
         Assert.Contains("Page 2 of 2", lastPage, StringComparison.Ordinal);
+        Assert.Contains("name=\"page\" value=\"2\"", lastPage, StringComparison.Ordinal);
         Assert.Contains("Flow Type 26", lastPage, StringComparison.Ordinal);
         Assert.DoesNotContain("Flow Type 01", lastPage, StringComparison.Ordinal);
         Assert.DoesNotContain("aria-label=\"Next page\"", lastPage, StringComparison.Ordinal);
@@ -120,6 +130,17 @@ public sealed class EventTypeManagementFlowTests(SqlServerDatabaseFixture fixtur
             Assert.Contains("\"IsActive\":true", statusLog.OldValues, StringComparison.Ordinal);
             Assert.Contains("\"IsActive\":false", statusLog.NewValues, StringComparison.Ordinal);
         }
+
+        var afterToggle = await officerClient.GetStringAsync("/EventType", ct);
+        Assert.Contains("class=\"badge badge-inactive\">Inactive</span>", afterToggle, StringComparison.Ordinal);
+
+        var pagedToggleToken = await AntiforgeryTokenAsync(officerClient, "/EventType?page=2", ct);
+        var pagedToggleResponse = await officerClient.PostAsync($"/EventType/ToggleActive?id={createdId}&page=2", Form(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = pagedToggleToken
+        }), ct);
+        Assert.Equal(HttpStatusCode.Redirect, pagedToggleResponse.StatusCode);
+        Assert.Equal("/EventType?page=2", LocationPath(pagedToggleResponse));
 
         await SignInAsync(memberClient, memberEmail, password, ct);
         var denied = await memberClient.GetAsync("/EventType", ct);

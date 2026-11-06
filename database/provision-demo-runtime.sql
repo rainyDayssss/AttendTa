@@ -32,6 +32,10 @@ BEGIN TRY
        OR HAS_PERMS_BY_NAME(N'dbo.activity_logs', 'OBJECT', 'INSERT') <> 1
        OR HAS_PERMS_BY_NAME(N'dbo.activity_logs', 'OBJECT', 'UPDATE') <> 0
        OR HAS_PERMS_BY_NAME(N'dbo.activity_logs', 'OBJECT', 'DELETE') <> 0
+       OR EXISTS (
+            SELECT 1 FROM sys.columns AS column_definition
+            WHERE column_definition.object_id = OBJECT_ID(N'dbo.activity_logs')
+              AND HAS_PERMS_BY_NAME(N'dbo.activity_logs', N'OBJECT', N'UPDATE', column_definition.name, N'COLUMN') = 1)
     BEGIN
         REVERT;
         THROW 51104, 'Runtime effective permissions are unsafe or incomplete; grants rolled back.', 1;

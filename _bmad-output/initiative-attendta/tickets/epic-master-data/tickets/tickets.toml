@@ -96,3 +96,83 @@ covers = []
 after = [1, 2, 3, 4, 5, 6, 7, 8]
 hitl = false
 risk = "low"
+
+[[entry]]
+id = 10
+type = "story"
+title = "Master Data lists: status filters, result counts, and loading/error states"
+description = "Finish existing GitHub #127 only: result counts shipped in #132 and status filters in #134. Preserve those real integrations and finish meaningful submitting/loading feedback and shell-preserving error/retry states on Member, Event Type and Venue lists. Use the 1.13 shared conventions; do not rebuild the filters or require an AJAX conversion merely to display a loading state. Runs after 2.12–2.14 so their list triggers are in place."
+verify = "An Officer sees the shipped filters and counts still working across pagination; a delayed or failed list interaction has truthful feedback and a usable retry inside the shell, and no records versus no matches remain distinct. Check keyboard and phone-width behavior manually."
+covers = ["R7"]
+after = [9, "1.13", 12, 13, 14]
+hitl = false
+risk = "low"
+phase = "frontend"
+area = "frontend"
+queue = 170
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Existing issue #127 is reused; #132/#134 shipped work remains historical acceptance evidence.", "Demo phase (2026-11-06 demo rescope): frontend only, real backend only; this ticket adds no demo data.", "Done check: `dotnet build`, `npm run css:build` when views or styles change, and one look at the changed screen with `DemoData__Enabled=true`. No new automated tests, no per-ticket Impeccable critique or polish and no separate code-review pass; the pull request keeps green existing CI and one peer approval. Critique, polish and the full Verify line run once in 8.15."]
+
+[[entry]]
+id = 12
+type = "story"
+title = "Shared centered record dialog and Event Type editor tracer"
+description = "Deliver the reusable centered-record-dialog interaction and convert Event Type create/edit as the tracer for #128, using the real existing services. Preserve required markers and grouping shipped in #132. Cover fetch or row hydration, retained input and field errors inside the dialog, submitting feedback, focus containment/restoration, Escape/Cancel and separate status actions. Publish the reusable partial/JavaScript contract for 2.13/2.14; do not rewrite the backend."
+verify = "An Officer creates and edits an Event Type from the list in a centered dialog, corrects a duplicate-name error without losing entered values, and can open/save/cancel with keyboard focus returned to the trigger. The dialog fits a 390px viewport."
+covers = ["R3", "R6"]
+after = [9, "1.13"]
+hitl = false
+risk = "medium"
+phase = "frontend"
+area = "frontend"
+queue = 140
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Demo phase (2026-11-06 demo rescope): frontend only, real backend only; this ticket adds no demo data.", "Done check: `dotnet build`, `npm run css:build` when views or styles change, and one look at the changed screen with `DemoData__Enabled=true`. No new automated tests, no per-ticket Impeccable critique or polish and no separate code-review pass; the pull request keeps green existing CI and one peer approval. Critique, polish and the full Verify line run once in 8.15."]
+
+[[entry]]
+id = 13
+type = "story"
+title = "Member centered record editor using the shared dialog"
+description = "Apply 2.12's reusable record dialog to Member edit using the current real Member service. Preserve read-only email, academic fields, membership type, student-number correction reason and errors; do not add standalone creation or implement membership-status mutations. Leave the access-action slot partial that 1.13 placed in each Members list row (5.11 fills it) untouched; change only the Edit trigger and the edit form."
+verify = "An Officer edits a Member in a centered dialog, sees a required correction reason and inline server errors, cancels without saving and returns focus to the original row. Phone-width content and actions remain reachable."
+covers = ["R2", "R6"]
+after = [12]
+hitl = false
+risk = "medium"
+phase = "frontend"
+area = "frontend"
+queue = 150
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Demo phase (2026-11-06 demo rescope): frontend only, real backend only; this ticket adds no demo data.", "Done check: `dotnet build`, `npm run css:build` when views or styles change, and one look at the changed screen with `DemoData__Enabled=true`. No new automated tests, no per-ticket Impeccable critique or polish and no separate code-review pass; the pull request keeps green existing CI and one peer approval. Critique, polish and the full Verify line run once in 8.15."]
+
+[[entry]]
+id = 14
+type = "story"
+title = "Venue centered record editor with photo and validation feedback"
+description = "Apply 2.12's reusable record dialog to Venue create/edit using the existing real service and private photo store. Keep the current photo, upload preview, required/format guidance, capacity guard errors and separate status action; retain entered values on failed save. Own only Venue presentation files and its scoped assets."
+verify = "An Officer creates/edits a Venue inside the centered dialog, sees its existing or selected photo, corrects an invalid capacity/upload without a blank panel and can cancel by keyboard. The dialog and footer fit phone width."
+covers = ["R4", "R5", "R6"]
+after = [12]
+hitl = false
+risk = "medium"
+phase = "frontend"
+area = "frontend"
+queue = 160
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md", "_bmad-output/initiative-attendta/demo-mock-register.md"]
+notes = ["Demo phase (2026-11-06 demo rescope): frontend only, real backend only; this ticket adds no demo data.", "Done check: `dotnet build`, `npm run css:build` when views or styles change, and one look at the changed screen with `DemoData__Enabled=true`. No new automated tests, no per-ticket Impeccable critique or polish and no separate code-review pass; the pull request keeps green existing CI and one peer approval. Critique, polish and the full Verify line run once in 8.15."]
+
+[[entry]]
+id = 11
+type = "story"
+title = "Master Data forms: centered record dialogs and required markers"
+description = "Finale acceptance check for existing GitHub #128: the Member, Event Type and Venue editors from 2.12–2.14 meet docs/DESIGN.md (centered dialogs, focus entering/contained/restored, separate status versus Cancel/Save actions, retained validation, Venue photo preview). Fix only findings; required markers, fieldsets and constrained forms already shipped in #132. Runs with the 8.12 whole-app Impeccable pass."
+verify = "All three editors satisfy docs/DESIGN.md: centered dialogs, keyboard focus entering/contained/restored, separate status versus Cancel/Save actions, retained validation and Venue photo preview. Close #128 only after 2.12–2.14 are complete and this combined walkthrough passes."
+covers = ["R2", "R3", "R4", "R5", "R6"]
+after = [13, 14]
+hitl = false
+risk = "low"
+phase = "finale"
+area = "frontend"
+queue = 515
+references = ["docs/DESIGN.md", "_bmad-output/initiative-attendta/delivery-queue.md"]
+notes = ["Existing issue #128 is reused, not closed or weakened by the split.", "Moved to the finale by the 2026-11-06 demo rescope: it is an acceptance check, not demo work. Impeccable critique and polish apply here as part of 8.12."]

@@ -26,6 +26,8 @@ namespace ASI.Basecode.Services.Services
         private readonly IEventRepository _events;
         private readonly IEventTypeRepository _eventTypes;
         private readonly IVenueRepository _venues;
+        private readonly IRegistrationRepository _registrations;
+        private readonly IRegistrationCancellationService _cancellations;
         private readonly IUnitOfWork _unitOfWork;
         private readonly TimeProvider _timeProvider;
         private readonly IMapper _mapper;
@@ -40,6 +42,8 @@ namespace ASI.Basecode.Services.Services
             IEventRepository events,
             IEventTypeRepository eventTypes,
             IVenueRepository venues,
+            IRegistrationRepository registrations,
+            IRegistrationCancellationService cancellations,
             IUnitOfWork unitOfWork,
             IMapper mapper,
             TimeProvider timeProvider,
@@ -51,6 +55,8 @@ namespace ASI.Basecode.Services.Services
             _events = events;
             _eventTypes = eventTypes;
             _venues = venues;
+            _registrations = registrations;
+            _cancellations = cancellations;
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _timeProvider = timeProvider;
@@ -76,7 +82,11 @@ namespace ASI.Basecode.Services.Services
         public async Task<EventViewModel> GetEventAsync(int id, CancellationToken cancellationToken = default)
         {
             var eventItem = await _events.GetEventAsync(id, cancellationToken);
-            return eventItem == null ? null : _mapper.Map<EventViewModel>(eventItem);
+            if (eventItem == null) return null;
+            var model = _mapper.Map<EventViewModel>(eventItem);
+            model.TypeName = _eventTypes.GetEventType(eventItem.TypeId)?.TypeName;
+            model.VenueName = _venues.GetVenue(eventItem.VenueId)?.RoomName;
+            return model;
         }
 
         public async Task<EventFormOptions> GetFormOptionsAsync(CancellationToken cancellationToken = default)
@@ -93,7 +103,7 @@ namespace ASI.Basecode.Services.Services
         public async Task<int> CreateDraftAsync(EventViewModel model, CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(model);
-            var actorUserId = ActorUserId();
+            var actorUserId = RequireManagementActor();
             var title = RequiredTitle(model);
             ValidateTimes(model);
             ValidateLimit(model);
@@ -125,7 +135,7 @@ namespace ASI.Basecode.Services.Services
         public async Task UpdateDraftAsync(EventViewModel model, CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(model);
-            var actorUserId = ActorUserId();
+            var actorUserId = RequireManagementActor();
             var title = RequiredTitle(model);
             ValidateTimes(model);
             ValidateLimit(model);
@@ -138,8 +148,22 @@ namespace ASI.Basecode.Services.Services
                     throw new DomainException(OutcomeCode.NotFound, "Event not found.");
                 }
 
-                var venue = await LockActiveReferencesAsync(model.TypeId, model.VenueId, ct);
-                ValidateCapacity(model, venue);
+                // The controller replaces the posted status with its own read before invoking us.
+                if (discovered.EventStatusId != model.EventStatusId)
+                {
+                    throw new DomainException(OutcomeCode.Stale, "The event changed while it was being edited.");
+                }
+
+                Venue venue = null;
+                if (discovered.EventStatusId == EventStatusCode.Draft)
+                {
+                    venue = await LockActiveReferencesAsync(model.TypeId, model.VenueId, ct);
+                    ValidateCapacity(model, venue);
+                }
+                else
+                {
+                    await LockCoverReferencesAsync(discovered, ct);
+                }
 
                 var eventItem = await _events.LockEventAsync(model.EventId, ct);
                 if (eventItem == null)
@@ -147,9 +171,22 @@ namespace ASI.Basecode.Services.Services
                     throw new DomainException(OutcomeCode.NotFound, "Event not found.");
                 }
 
-                if (eventItem.EventStatusId != EventStatusCode.Draft)
+                if (eventItem.EventStatusId != discovered.EventStatusId || eventItem.TypeId != discovered.TypeId || eventItem.VenueId != discovered.VenueId)
                 {
-                    throw new DomainException(OutcomeCode.Invalid, "Only draft events can be edited.");
+                    throw new DomainException(OutcomeCode.Stale, "The event changed while it was being edited.");
+                }
+
+                if (eventItem.EventStatusId is not (EventStatusCode.Draft or EventStatusCode.Published))
+                {
+                    throw new DomainException(OutcomeCode.Invalid, "Only draft or published events can be edited.");
+                }
+
+                if (eventItem.EventStatusId == EventStatusCode.Published &&
+                    (model.TypeId != eventItem.TypeId || model.VenueId != eventItem.VenueId ||
+                     model.StartsAt != eventItem.StartsAt || model.RegistrationDeadline != eventItem.RegistrationDeadline ||
+                     model.ParticipantLimit != eventItem.ParticipantLimit))
+                {
+                    throw new DomainException(OutcomeCode.Invalid, "Published event schedule, type, venue and limit cannot be changed.");
                 }
 
                 var oldValues = Snapshot(eventItem);
@@ -215,6 +252,87 @@ namespace ASI.Basecode.Services.Services
                 _audit.Append(new AuditEntry(AuditActions.EventPublished, "events", eventItem.EventId,
                     OldValues: oldValues,
                     NewValues: new EventPublicationAuditValues(eventItem.EventStatusId, eventItem.PublishedBy, eventItem.PublishedAt)));
+                await _unitOfWork.SaveChangesAsync(ct);
+            }, cancellationToken);
+        }
+
+        public async Task CancelAsync(int eventId, string reason, CancellationToken cancellationToken = default)
+        {
+            var actorUserId = RequireManagementActor();
+            var discovered = await _events.GetEventAsync(eventId, cancellationToken);
+            if (discovered == null)
+            {
+                throw new DomainException(OutcomeCode.NotFound, "Event not found.");
+            }
+
+            if (discovered.EventStatusId is not (EventStatusCode.Draft or EventStatusCode.Published))
+            {
+                throw new DomainException(OutcomeCode.Invalid, "Only draft or published events can be cancelled.");
+            }
+
+            await _unitOfWork.ExecuteInTransactionAsync(async ct =>
+            {
+                // AD-4: event cancellation takes only the event lock.
+                var eventItem = await _events.LockEventAsync(eventId, ct);
+                if (eventItem == null)
+                {
+                    throw new DomainException(OutcomeCode.NotFound, "Event not found.");
+                }
+
+                if (eventItem.EventStatusId != discovered.EventStatusId)
+                {
+                    throw new DomainException(OutcomeCode.Stale, "The event changed while it was being cancelled.");
+                }
+
+                if (eventItem.EventStatusId is not (EventStatusCode.Draft or EventStatusCode.Published))
+                {
+                    throw new DomainException(OutcomeCode.Invalid, "Only draft or published events can be cancelled.");
+                }
+
+                var cancellationReason = reason?.Trim();
+                if (string.IsNullOrWhiteSpace(cancellationReason))
+                {
+                    throw new DomainException(OutcomeCode.Invalid, "A cancellation reason is required.", nameof(EventCancelViewModel.Reason));
+                }
+
+                // Canonical facts are read under the event lock; attendance and certificates are
+                // written only while holding it.
+                if (await _registrations.HasValidAttendanceForEventAsync(eventId, ct))
+                {
+                    throw new DomainException(OutcomeCode.Invalid, "This event has recorded attendance and cannot be cancelled.");
+                }
+
+                if (await _registrations.HasIssuedCertificateForEventAsync(eventId, ct))
+                {
+                    throw new DomainException(OutcomeCode.Invalid, "This event has an issued certificate and cannot be cancelled.");
+                }
+
+                // Capture request time after the row is locked so the metadata and audit agree.
+                var now = _timeProvider.GetUtcNow().UtcDateTime;
+                var oldValues = new EventCancellationAuditValues(
+                    eventItem.EventStatusId, eventItem.IsCheckInOpen, eventItem.CancelledBy, eventItem.CancelledAt, eventItem.CancellationReason);
+
+                // The cancellation service is the only code that cancels registrations and clears QR tokens.
+                await _cancellations.CancelAllForEventAsync(eventId, CancellationCause.EventCancelled, cancellationReason, ct);
+
+                eventItem.EventStatusId = EventStatusCode.Cancelled;
+                eventItem.CancelledBy = actorUserId;
+                eventItem.CancelledAt = now;
+                eventItem.CancellationReason = cancellationReason;
+                if (eventItem.IsCheckInOpen)
+                {
+                    eventItem.CheckInClosedBy = actorUserId;
+                    eventItem.CheckInClosedAt = now;
+                }
+
+                eventItem.IsCheckInOpen = false;
+                eventItem.UpdatedBy = actorUserId;
+                eventItem.UpdatedAt = now;
+                await _events.UpdateEventAsync(eventItem, ct);
+                _audit.Append(new AuditEntry(AuditActions.EventCancelled, "events", eventItem.EventId, cancellationReason,
+                    OldValues: oldValues,
+                    NewValues: new EventCancellationAuditValues(
+                        eventItem.EventStatusId, eventItem.IsCheckInOpen, eventItem.CancelledBy, eventItem.CancelledAt, eventItem.CancellationReason)));
                 await _unitOfWork.SaveChangesAsync(ct);
             }, cancellationToken);
         }
@@ -439,7 +557,7 @@ namespace ASI.Basecode.Services.Services
 
         private static void EnsureSameCoverReferences(Event discovered, Event locked)
         {
-            if (discovered.TypeId != locked.TypeId || discovered.VenueId != locked.VenueId)
+            if (discovered.TypeId != locked.TypeId || discovered.VenueId != locked.VenueId || discovered.EventStatusId != locked.EventStatusId)
             {
                 throw new DomainException(OutcomeCode.Stale, "The event changed while its cover was being updated.");
             }
@@ -489,6 +607,13 @@ namespace ASI.Basecode.Services.Services
                 eventItem.EventStatusId);
 
         private sealed record EventPublicationAuditValues(EventStatusCode Status, int? PublishedBy, DateTime? PublishedAt) : IAuditValues;
+
+        private sealed record EventCancellationAuditValues(
+            EventStatusCode Status,
+            bool IsCheckInOpen,
+            int? CancelledBy,
+            DateTime? CancelledAt,
+            string CancellationReason) : IAuditValues;
 
         private int ActorUserId()
         {

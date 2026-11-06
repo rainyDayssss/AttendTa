@@ -73,6 +73,8 @@ context:
 
 Implemented queue, shared paging contracts and partial, and tests. .NET 10 build passed with one existing nullable warning; 27 service tests and 98 LocalDB integration tests passed. Manual desktop/mobile inspection remains outstanding. Story 1.5 remains absent on this branch.
 
+Follow-up (2026-11-06): the queue exposes All/Pending/Approved/Rejected tabs with counts, backed by one grouped count query, and the status filter accepts `all`. The queue now hosts the 1.7 decision actions through centered Approve/Decline dialogs. Search over name, email, and student number, an unconditional result count, a Requested sort toggle, and a mobile sticky decision layout landed in the same pass. Reviewer metadata and the table-preserving empty state remain deferred.
+
 ## Plan Change Log
 
 ## Review Triage Log

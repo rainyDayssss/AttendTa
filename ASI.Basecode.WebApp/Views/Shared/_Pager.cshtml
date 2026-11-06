@@ -20,14 +20,15 @@
         }
 
         query.Add("page", pageNumber.ToString(CultureInfo.InvariantCulture));
-        return $"{Context.Request.PathBase}{Context.Request.Path}{query.ToQueryString()}";
+        var path = ViewData["PagerPath"] as string ?? $"{Context.Request.PathBase}{Context.Request.Path}";
+        return $"{path}{query.ToQueryString()}";
     }
 }
 
 @if (Model.TotalPages > 1)
 {
     <nav class="page-heading" aria-label="Pagination">
-        <span aria-live="polite">Page @Model.PageNumber of @Model.TotalPages</span>
+        <span aria-live="polite" class="numeric">Page @Model.PageNumber of @Model.TotalPages</span>
         <div class="search-group">
             @if (Model.HasPreviousPage)
             {

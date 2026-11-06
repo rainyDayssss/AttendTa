@@ -15,7 +15,8 @@ Choose a private absolute `Common__SetupRoot` outside both the deployment and we
 restrict its ACLs to the runtime identity and authorized administrators. Create `keys`, `logs`,
 `temporary`, `uploads/venues`, `uploads/events`, and `certificates` beneath it. Ensure the app
 identity can write there and other users cannot read private files. Do not put browser files,
-keys, secrets or private files under wwwroot.
+keys, secrets or private files under wwwroot. The readiness check requires `logs` to exist, then
+creates and probes the logger's `logs/<yyyyMM>` directory; it never creates a missing `logs/`.
 
 Choose a dedicated SQL login and database user, not the administrator used for setup. Prefer
 Windows integrated authentication under the service account; provision the login through your
@@ -33,8 +34,9 @@ procedure. Run `database/provision-demo-runtime.sql` in that database as an admi
 `sqlcmd -b -d AttendTa_Demo -v RuntimeUser=<user> -i database/provision-demo-runtime.sql`.
 Use a simple DBA-selected user name with no quotes or sqlcmd metacharacters. The script never
 creates logins, denies no existing grants, and rolls its grants back on unsafe effective audit
-permissions. The separate runtime-login validation below is mandatory: impersonation of a database
-user alone cannot establish server-level safety.
+permissions, including a column-level `UPDATE` grant on any `activity_logs` column. The separate
+runtime-login validation below is mandatory: impersonation of a database user alone cannot
+establish server-level safety.
 
 Seed the first admin with `database/seed-local-admin.sql`, then run
 `database/seed-event-types.sql`, both with `sqlcmd -b -d AttendTa_Demo`. sqlcmd reads its
@@ -93,12 +95,30 @@ as the same OS identity with the same environment and deployment build, set
 command cannot verify offline status; it appears whether the host is connected or disconnected.
 Failures do not print exception
 details because connection errors may contain secrets. Investigate securely; do not publish
-connection strings. The SQL probe tests effective audit permissions before inserting a system audit
-row in a transaction which is always rolled back; identity values can still advance.
+connection strings.
+
+The four checks are, in order:
+
+1. `runtime SQL identity and audit permissions` — connects with the runtime connection string,
+   requires `AttendTa_Demo`, verifies the login identity and the absence of fixed server and
+   database roles, rejects any effective server permission other than `CONNECT SQL` and
+   `VIEW ANY DATABASE` (this covers direct grants and custom server roles that
+   `IS_SRVROLEMEMBER` misses), rejects table-level and column-level `activity_logs` mutation,
+   then inserts a system audit row in a transaction which is always rolled back; identity values
+   can still advance.
+2. `private storage` — requires the six SetupRoot areas, then creates and probes
+   `logs/<yyyyMM>` and leaves no probe files behind.
+3. `Playwright Chromium PDF rendering` — launches headless Chromium and renders a minimal
+   non-empty PDF, proving the staged browser can produce certificate output.
+4. `localhost login HTTP 200` — requests the exact localhost login URL without following
+   redirects.
 
 The validation checks writability, not ACL confidentiality: independently inspect ACLs and verify
 the SetupRoot is outside the deployment tree. A PASS also cannot prove the running service uses
 the same settings; the operator must establish that identity and environment equivalence.
+
+Record each result in `docs/demo-host-readiness-evidence.md`. A closed tracking issue is not
+proof that this host passed; only dated, host-specific evidence is.
 
 ## Benchmark and disconnected evidence
 
