@@ -154,9 +154,13 @@ password typed on the public form if the presenter submits a fresh request).
 
 | Event | SQL status | Demo state | Registrations |
 |---|---|---|---|
-| Leadership Summit 2026 | Published | Completed, check-in closed | 8 confirmed; 8 check-ins; last invalidated; 1 issued, 1 pending, 1 declined, 4 pending reviews |
-| Community Outreach Drive | Published | Started, ready to complete | 2 confirmed; Liza's own registration is cancelled |
+| Leadership Summit 2026 | Published | Ready to complete; attendance and certificate data seeded | 8 confirmed; 8 check-ins; last invalidated; 1 issued, 1 pending, 1 declined, 4 pending reviews |
+| Community Outreach Drive | Cancelled | Cancelled | 3 cancelled registrations (Liza, Joshua, Angela) |
 | Founders' Week Assembly | Published | Upcoming, check-in open | Liza, Mark, Sofia confirmed; Daniel pending |
+
+The demo completes Leadership Summit live in O3 through the real 3.12 service; until then it stays
+Published. The cancelled Community Outreach event shows the cancelled state and the completion
+refusal.
 
 - Venues: University Auditorium (400), Covered Court (250).
 - Event types: Seminar, Outreach, Meeting, Competition, General Assembly, Training.
@@ -189,15 +193,15 @@ Sign in as `rafael.santos@uc.edu.ph`.
 | # | Beat | Route / action | Expected outcome | 390px check |
 |---|---|---|---|---|
 | O1 | Home | `/Home/Index` | Officer cards; no Accounts or Activity log | Cards stack; Menu opens |
-| O2 | Event dossier | `/Event/1` and `/Event/2` | Metadata, capacity, status-aware roster; Leadership Summit is read-only; Community Outreach shows Complete event | Roster scrolls; actions stay reachable |
-| O3 | Completion | `/Event/2` → Complete event → Confirm | "Event completed."; status Completed; roster read-only; completing before start is refused with "An event cannot be completed before it starts." | Dialog fits |
+| O2 | Event dossier | `/Event/1`, `/Event/2` and `/Event/3` | Metadata, capacity, status-aware roster; Leadership Summit shows Complete event; Community Outreach is cancelled; Founders' Week shows the check-in control | Roster scrolls; actions stay reachable |
+| O3 | Completion | `/Event/1` → Complete event → Confirm | "Event completed."; status Completed; roster read-only. Completing Founders' Week before its start is refused with "An event cannot be completed before it starts."; completing the cancelled Community Outreach is refused | Dialog fits |
 | O4 | Registration review | `/RegistrationReview/Index` | Daniel Navarro pending on Founders' Week; approve/decline with a reason | Cards stack; buttons reachable |
 | O5 | Door scan | `/CheckIn` → Founders' Week → Pass code → paste Liza's pass token → Check in | "Liza Fernandez checked in." with name, student number, Manila time, and "Check-in recorded."; a second scan says "Already checked in. This is the original time." | Tabs, input, and outcome panel fit |
 | O6 | Manual lookup | `/CheckIn` → Manual lookup → `Liza` → Search | Liza is found with "Checked in"; searching alone does not record | Table scrolls |
 | O7 | Invalidation | Recorded check-ins → Invalidate | Dialog names the participant and requires a reason; Cancel leaves the check-in intact | Dialog fits |
 | O8 | Certificate review | `/Certificates?eventId=1` | Pending reviews; approve one; decline another with a required reason; the declined row shows "Decision final" | Table scrolls; dialogs fit |
 | O9 | Certificate issue and PDF | Eligibility Review → Issue certificate → Issued Registry → View PDF | "Certificate issued."; the registry lists the new number; the landscape A4 PDF opens with the configured signatory | Viewer is usable; the download link is reachable |
-| O10 | Report | `/Reports/Participation?eventId=1` and `?eventId=2` | Event 1: 8 confirmed, 7 valid, 87.5%, 1 no-show, course/year breakdowns; Event 2: 2 confirmed, 0 valid, 0%, 2 no-shows, empty breakdowns explained | Summary cards stack; tables scroll |
+| O10 | Report | `/Reports/Participation?eventId=1` and `?eventId=2` | Event 1 (completed in O3): 8 confirmed, 7 valid, 87.5%, 1 no-show, course/year breakdowns; Event 2 (cancelled): no final rate and no no-shows | Summary cards stack; tables scroll |
 
 The member's pass token for Founders' Week can be read from the pass page. The operator can
 also print the same value with
@@ -214,7 +218,7 @@ Sign in as `liza.fernandez@uc.edu.ph`.
 | M2 | Browse events | `/Events` | Three seeded events plus the newly published Peer Tutoring Session; covers load; badges show Completed / Check-in open / Signup open | One column; covers keep their aspect ratio |
 | M3 | Event detail | `/MemberEvents/Details?id=3` | Confirmed registration panel with Cancel; `?id=2` shows the cancelled state; `?id=1` shows the completed state | Status panel stacks under the hero |
 | M4 | Signup | Open the newly published event → Submit registration | "Registration submitted. Your request is pending review."; the panel changes to Pending review | Button and panel fit |
-| M5 | My Events | `/MyEvents/Registrations` | Registrations tab lists the confirmed, cancelled, and pending records with View event | Tabs wrap; cards stack |
+| M5 | My Events | `/MyEvents/Registrations` | Registrations tab lists the confirmed and cancelled records with View event | Tabs wrap; cards stack |
 | M6 | Attendance | `/MyEvents/Attendance` | **Known limit:** the tab shows its empty state until 4.7 (M-08); the demo store's check-ins appear on the scanner and report | Empty state fits |
 | M7 | Certificates | `/MyEvents/Certificates` | Issued Leadership Summit certificate with View/Download PDF; Founders' Week shows Unavailable; no demo sign | Table scrolls; links reachable |
 | M8 | Passes | `/Passes` | Active Founders' Week and Peer Tutoring cards, past Leadership Summit card, QR canvas, Download PNG; no pass for the cancelled registration | One column; QR keeps its quiet zone |
@@ -234,18 +238,17 @@ Sign in as `liza.fernandez@uc.edu.ph`.
 - **Member attendance history is empty until 4.7.** The demo store records check-ins for the
   scanner and report, but `MyEventsService.GetAttendanceAsync` is still the real empty read
   (register M-08). Show the scanner log or the report for attendance during the demo.
-- **The Activity Log records real service actions only.** Demo-store check-ins, completion,
-  certificate decisions, and issuance do not write SQL or the Activity Log (register rule 4).
-  The account-request approval and member creation are real and do appear.
+- **Completion is live.** The demo completes Leadership Summit in O3 through the real 3.12
+  service, so completion writes SQL and the Activity Log. A restart returns the scenario's
+  events to their seeded status and resets the in-memory store.
+- **The Activity Log records real service actions only.** Demo-store check-ins, certificate
+  decisions, and issuance do not write SQL or the Activity Log (register rule 4). The
+  account-request approval, member creation, and event completion are real and do appear.
 - **The demo store resets on restart.** Check-ins, reviews, and issued documents last only for
-  the process lifetime; passes keep scanning because the token is the HMAC of the registration
-  id under `DemoData__TokenKey`.
+  the process lifetime; a completed event stays completed in SQL. Passes keep scanning because
+  the token is the HMAC of the registration id under `DemoData__TokenKey`.
 - **Publishing requires a cover.** The create form saves a draft; add a cover from the Events
   list, then publish. The generic refusal message does not name the missing cover.
-- **The Members status filter is applied in SQL before the demo overlay**, so a membership a
-  demo command changed can still appear under the tab that matches its real status.
-- **Account reactivation is an overlay until 5.5.** A deactivated account's next request is
-  refused by the real 5.4 command; demo reactivation does not restore sign-in until 5.5.
 - **A pass scanned in the demo uses the rule-10 HMAC token**, not `registrations.qr_token`.
 - **`--demo-readiness` needs a provisioned host.** On an unprovisioned machine the runtime SQL
   identity and localhost login checks fail; 8.14 owns host provisioning and evidence.

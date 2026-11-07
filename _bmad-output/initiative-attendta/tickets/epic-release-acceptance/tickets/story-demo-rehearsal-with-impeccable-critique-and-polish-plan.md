@@ -97,6 +97,7 @@ context:
 - Critique ran degraded: the harness blocks nested subagents (depth limit 1), so the snapshot carries the required degraded banner; the bundled detector returned `[]` and the score is 28/40. The P2 findings are recorded for 8.12, not fixed here.
 - Matrix audit: rows 2 and 4 are covered by `DemoDataStartupGuardTests` and `CertificateTracerFlowTests` (both ran and passed). Row 3 gained a missing-TokenKey guard test in the same 1.14 test class (342 integration tests pass). Rows 1, 5 and 6 are covered by the demo-off suites and the rehearsal's manual checks; the demo-phase rule adds no automated tests beyond 1.14's guard test.
 - Left open and recorded: 4.12 is partial because the member attendance read is empty until 4.7 (M-08); the create-event Publish action, the redundant event-row links, the report Show step and the generic publish refusal go to 8.12. None blocks the demo script.
+- Post-merge adaptation (PR #187, 3.12): the merged `DemoSeedService` no longer marks an event completed at startup. The seed now leaves Leadership Summit ready to complete (completed live in O3) and marks Community Outreach cancelled; the script and findings were updated, and the merged build re-verified (286 services + 361 integration tests).
 
 ## Review Triage Log
 

@@ -10,8 +10,12 @@ and each demo ticket's Verify result.
   `DemoData__AllowDatabase=AttendTaMVP_Test`, a local `DemoData__TokenKey`, and the
   disposable LocalDB database `AttendTaMVP_Test`.
 - Starting state: `database/seed-demo-scenario.sql` after the schema, admin seed, and
-  event-type seed. The database held 3 published events, 9 members, 10 users, 15
-  registrations, and 1 pending account request.
+  event-type seed. The database held 2 published events, 1 cancelled event, 9 members,
+  10 users, 15 registrations, and 1 pending account request.
+- Post-merge adaptation: PR #187 (3.12 event completion) merged after the first walk. The
+  seed now leaves Leadership Summit ready to complete and the presenter completes it live
+  through the real service; Community Outreach is cancelled. The affected beats were
+  re-checked against the merged build.
 - Roles: Administrator (`maria.dizon@uc.edu.ph`), Officer
   (`rafael.santos@uc.edu.ph`), Member (`liza.fernandez@uc.edu.ph`).
 - Widths: 1440×900 and 390×844. The in-app browser was used for interactive beats; a
@@ -159,38 +163,32 @@ These are recorded, not fixed here. None blocks the demo script.
 5. **The demo store resets on restart.** Check-ins, reviews, and issued documents last only
    for the process lifetime. Passes keep scanning because the token is the HMAC of the
    registration id under `DemoData__TokenKey`. Expected.
-6. **Members status filter applies SQL before the demo overlay.** A membership a demo command
-   changed can still appear under the tab that matches its real status. Known limit in the
-   register.
-7. **Account reactivation is an overlay until 5.5.** A deactivated account's next request is
-   refused by the real 5.4 command; demo reactivation does not restore sign-in until 5.5.
-   Known limit.
-8. **The demo pass token is the rule-10 HMAC**, not `registrations.qr_token`. Known limit.
-9. **`--demo-readiness` is not provisioned on this machine.** The command reported FAIL for
+6. **The demo pass token is the rule-10 HMAC**, not `registrations.qr_token`. Known limit.
+7. **`--demo-readiness` is not provisioned on this machine.** The command reported FAIL for
    the runtime SQL identity/audit check and FAIL for the localhost login check (the app was
    stopped), PASS for private storage, PASS for Playwright Chromium PDF rendering, and the
    INFO line that offline status is not verified; exit 1. This is expected on an
    unprovisioned host; 8.14 owns host provisioning and dated evidence.
-10. **The report's zero-confirmed N/A path was reviewed, not exercised.** The seeded state
-    has no published event with zero confirmed registrations. The view renders N/A when the
-    rate is null; a fresh zero-confirmed event would confirm it in 8.12.
+8. **The report's zero-confirmed N/A path was reviewed, not exercised.** The seeded state
+   has no published event with zero confirmed registrations. The view renders N/A when the
+   rate is null; a fresh zero-confirmed event would confirm it in 8.12.
 
 ## 6. Demo ticket Verify results
 
 | Ticket | Verify result | Evidence / note |
 |---|---|---|
 | 1.13 / #136 | **Pass** | Every navigation link opened an authorized screen. A Member was sent to `/Account/AccessDenied` for Event, Check-in, Certificates, Reports, Members, Accounts, and Activity log; an Officer was refused Accounts and Activity log. My Events tabs, Accounts rows, and Members rows rendered with no placeholder copy. Existing suites pass. |
-| 1.14 | **Pass** | Both startup guard integration tests pass (wrong database and missing `TokenKey`). With the app running, the seeded list/feed/detail show Completed and check-in state. Completing before start returned "An event cannot be completed before it starts." Opening check-in on a draft and completing a cancelled event returned "This action is only available for a published event." `--demo-pass-token 12` returned the same token twice and matched the pass page. SQL `attendance` and `certificates` stayed at 0 rows; the Activity Log held only the two seed rows. Switch-off suites pass. |
-| 3.16 | **Pass** | The dossier showed metadata, capacity, and the status-aware roster. Approve/decline/cancel controls were present; check-in open/close worked; Community Outreach completed with the dialog; completion before start was refused. 1440 and 390 had no overflow. |
-| 3.17 | **Pass** | My Events opened on Registrations, listed confirmed/cancelled/pending records, and the three tabs paged independently. No demo sign. |
+| 1.14 | **Pass** | Both startup guard integration tests pass (wrong database and missing `TokenKey`). With the app running, the seeded list/feed/detail show the ready-to-complete and check-in-open state. Completing before start returned "An event cannot be completed before it starts." Opening check-in on a draft and completing a cancelled event returned "This action is only available for a published event." `--demo-pass-token 12` returned the same token twice and matched the pass page. SQL `attendance` and `certificates` stayed at 0 rows; the Activity Log held only the two seed rows. Switch-off suites pass. |
+| 3.16 | **Pass** | The dossier showed metadata, capacity, and the status-aware roster. Approve/decline/cancel controls were present; check-in open/close worked; Leadership Summit completed with the dialog; completing the cancelled Community Outreach and completing before start were refused. 1440 and 390 had no overflow. |
+| 3.17 | **Pass** | My Events opened on Registrations, listed confirmed and cancelled records, and the three tabs paged independently. No demo sign. |
 | 4.10 | **Pass** | Each confirmed registration had a pass card with a 180×180 QR canvas and an enabled Download PNG (`door-pass-12.png`, 2,782 bytes). The cancelled registration had no usable pass. One column at 390, two at 1440. |
 | 4.11 | **Pass** | Pass-code scan returned "Liza Fernandez checked in." with identity, student number, and Manila time; a repeat returned the original time; manual lookup found Liza and showed "Checked in"; the invalidation dialog named the participant and required a reason. No demo sign. |
 | 4.12 | **Partial** | The Attendance tab opened and showed its empty state at both widths, with no self-check-in or correction control. The seeded check-in is only in the demo store, so the member history is empty until 4.7 (M-08). Record against 4.12 / 4.7. |
 | 5.11 | **Pass** | The account preview listed affected registrations; the Deactivate dialog showed the consequence and required a reason; the last active Administrator showed the blocked explanation; the membership dialog kept account and membership states distinct. Empty reasons are refused by the shared dialog. 1440 and 390. |
-| 6.12 | **Pass** | The ledger showed a review per valid check-in; approving moved the row to Approved; issuing produced `AT-2026-000002` and the PDF viewer returned 200; declining Beatrice Lim with a reason moved the row to Not eligible with the reason and "Decision final". No demo sign in the page or PDF. 1440 and 390. |
+| 6.12 | **Pass** | After completing Leadership Summit in O3, the ledger showed a review per valid check-in; approving moved the row to Approved; issuing produced `AT-2026-000002` and the PDF viewer returned 200; declining Beatrice Lim with a reason moved the row to Not eligible with the reason and "Decision final". No demo sign in the page or PDF. 1440 and 390. |
 | 6.13 | **Pass** | The member saw the issued Leadership Summit certificate with View/Download PDF and the Founders' Week Unavailable state. The download produced `AT-2026-000001.pdf` (445,686 bytes, `application/pdf`). No demo sign. 390 fits. |
-| 7.4 | **Pass** | Leadership Summit showed 8 confirmed, 7 valid, 87.5%, 1 no-show, and course/year breakdowns that agreed with the seeded check-ins. Community Outreach (completed) showed 2 confirmed, 0 valid, 0%, 2 no-shows, and the cancelled row. Founders' Week showed the not-final markers. Summary totals did not depend on the detail page. 1440 and 390. The zero-confirmed N/A path was reviewed, not exercised (open finding 10). |
-| 8.15 | **Pass with recorded limits** | The script was walked in all three roles at 1440 and 390; the demo-data scan found no visible sign; the tracer is 404; the fixes above are in place. The limits in §5 are recorded for 8.12. |
+| 7.4 | **Pass** | Leadership Summit showed 8 confirmed, 7 valid, 87.5%, 1 no-show, and course/year breakdowns that agreed with the seeded check-ins. Community Outreach (cancelled) showed no final rate and no no-shows. Founders' Week showed the not-final markers. Summary totals did not depend on the detail page. 1440 and 390. The zero-confirmed N/A path was reviewed, not exercised (open finding 10). |
+| 8.15 | **Pass with recorded limits** | The script was walked in all three roles at 1440 and 390; the demo-data scan found no visible sign; the tracer is 404; the fixes above are in place. After the 3.12 merge the adapted starting state was re-checked: check-in open event 3, ready to complete event 1, and the affected beats re-walked. The limits in §5 are recorded for 8.12. |
 
 Demo-polish rows (3.18, 4.13, 2.12, 2.13, 2.14, 2.10) were not separate demo beats. The
 shared record dialogs (Event Type, Venue, Member Edit) loaded their fields and actions; the
@@ -204,8 +202,8 @@ loading/error/retry surfaces were not re-triggered beyond the normal reads.
 | `dotnet build ASI.Basecode.sln` | Success, 0 warnings, 0 errors |
 | `cd ASI.Basecode.WebApp; npm run css:build` | Success; `wwwroot/css/app.css` regenerated after the view/style changes |
 | `npm run test:js` | 1 passed, 0 failed |
-| `dotnet test tests/ASI.Basecode.Services.Tests/ASI.Basecode.Services.Tests.csproj` | 281 passed, 0 failed |
-| `dotnet test tests/ASI.Basecode.IntegrationTests/ASI.Basecode.IntegrationTests.csproj` with `ATTENDTA_TEST_SQL` | 342 passed, 0 failed (the 1.14 guard class gained a missing-TokenKey refusal test) |
+| `dotnet test tests/ASI.Basecode.Services.Tests/ASI.Basecode.Services.Tests.csproj` | 286 passed, 0 failed (after the 3.12 merge) |
+| `dotnet test tests/ASI.Basecode.IntegrationTests/ASI.Basecode.IntegrationTests.csproj` with `ATTENDTA_TEST_SQL` | 361 passed, 0 failed (the 1.14 guard class gained a missing-TokenKey refusal test; the 3.12 merge added its completion suite) |
 | `/CertificateTracer` (GET, authenticated Administrator) | 404 |
 | `/CertificateTracer/Trace` (POST, authenticated Administrator with antiforgery token) | 404 |
 | `dotnet run --project ASI.Basecode.WebApp -- --demo-readiness` | FAIL runtime SQL identity/audit; PASS private storage; PASS Playwright Chromium PDF; INFO offline not verified; FAIL localhost login (app stopped); exit 1 — expected on an unprovisioned host, recorded not blocking |
@@ -226,6 +224,10 @@ loading/error/retry surfaces were not re-triggered beyond the normal reads.
 - `ASI.Basecode.WebApp/Views/Reports/Participation.cshtml` — empty-state copy.
 - `ASI.Basecode.WebApp/wwwroot/css/app.css` — regenerated.
 - `tests/ASI.Basecode.IntegrationTests/DemoDataStartupGuardTests.cs` — added the missing-`TokenKey` refusal test (the 1.14 guard-test exception).
+
+After PR #187 (3.12) merged, the scenario seed and this script were adapted: Leadership Summit is
+ready to complete and is completed live in O3, and Community Outreach is a cancelled event. The
+seed, `demo-script.md` and this file carry those changes; no demo provider or register row changed.
 
 No schema, service behavior, demo register row, or real backend was changed. The demo store
 and its providers were not modified.

@@ -14,13 +14,15 @@
    is used for the supporting participant accounts so the presenter only needs one
    member credential. Nothing here stores or logs a plaintext password or the hash.
 
-   The starting state is three published events:
-     - Leadership Summit 2026   started, eight confirmed registrations (completed in the
-                                in-memory demo store, so it opens with attendance,
-                                certificate reviews and an issued certificate)
-     - Community Outreach Drive started, two confirmed registrations (ready to complete)
+   The starting state is two published events and one cancelled event:
+     - Leadership Summit 2026   started, eight confirmed registrations (the demo seed
+                                marks it ready to complete and seeds its attendance,
+                                certificate reviews and issued certificate; the presenter
+                                completes it live through the real 3.12 service)
+     - Community Outreach Drive cancelled, its registrations cancelled (shows the
+                                cancelled state and the completion refusal)
      - Founders' Week Assembly  upcoming, three confirmed and one pending registration
-                                (the check-in window is opened by the demo seed)
+                                (the demo seed opens its check-in window)
 
    The demo store (ASI.Basecode.WebApp/DemoData) reads these rows at start-up and never
    writes SQL, a private file or the Activity Log. Venue photos and event covers are
@@ -308,11 +310,12 @@ BEGIN TRY
     BEGIN
         INSERT INTO dbo.events ([title], [description], [type_id], [venue_id], [starts_at], [registration_deadline],
                                 [participant_limit], [event_status_id], [image_path], [published_by], [published_at],
-                                [is_check_in_open], [created_by])
+                                [is_check_in_open], [cancelled_by], [cancelled_at], [cancellation_reason], [created_by])
         VALUES (N'Community Outreach Drive',
                 N'A coastal cleanup and school-supplies drive with partner barangays and volunteer student groups.',
                 @OutreachTypeId, @CourtVenueId, DATEADD(day, -1, @Now), DATEADD(day, -3, @Now),
-                80, 2, N'uploads/events/2b3c4d5e6f7a48b9c0d1e2f3a4b5c6d7.jpg', @AdminUserId, DATEADD(day, -8, @Now), 0, @AdminUserId);
+                80, 3, N'uploads/events/2b3c4d5e6f7a48b9c0d1e2f3a4b5c6d7.jpg', @AdminUserId, DATEADD(day, -8, @Now), 0,
+                @AdminUserId, DATEADD(day, -2, @Now), N'Venue booking withdrawn by the facilities office.', @AdminUserId);
         SET @ReadyEventId = CAST(SCOPE_IDENTITY() AS int);
     END
     ELSE
@@ -324,7 +327,7 @@ BEGIN TRY
             [starts_at] = DATEADD(day, -1, @Now),
             [registration_deadline] = DATEADD(day, -3, @Now),
             [participant_limit] = 80,
-            [event_status_id] = 2,
+            [event_status_id] = 3,
             [image_path] = N'uploads/events/2b3c4d5e6f7a48b9c0d1e2f3a4b5c6d7.jpg',
             [published_by] = @AdminUserId,
             [published_at] = DATEADD(day, -8, @Now),
@@ -332,7 +335,8 @@ BEGIN TRY
             [check_in_opened_by] = NULL, [check_in_opened_at] = NULL,
             [check_in_closed_by] = NULL, [check_in_closed_at] = NULL,
             [completed_by] = NULL, [completed_at] = NULL,
-            [cancelled_by] = NULL, [cancelled_at] = NULL, [cancellation_reason] = NULL,
+            [cancelled_by] = @AdminUserId, [cancelled_at] = DATEADD(day, -2, @Now),
+            [cancellation_reason] = N'Venue booking withdrawn by the facilities office.',
             [updated_by] = @AdminUserId, [updated_at] = @Now
         WHERE [event_id] = @ReadyEventId;
     END
@@ -416,23 +420,26 @@ BEGIN TRY
     CLOSE registration_cursor;
     DEALLOCATE registration_cursor;
 
-    /* Ready-to-complete event: two confirmed participants and the demo member's own
-       cancelled registration, so My Events shows a cancelled record. */
+    /* Cancelled event: two participants whose registrations were cancelled with the event,
+       and the demo member's own cancelled registration, so My Events shows a cancelled record. */
     DECLARE @ReadyMemberId int;
     SET @ReadyMemberId = NULL; SELECT @ReadyMemberId = [MemberId] FROM @MemberIds WHERE [Ordinal] = 2;
     SET @RegistrationId = NULL; SELECT @RegistrationId = [registration_id] FROM dbo.registrations WHERE [event_id] = @ReadyEventId AND [member_id] = @ReadyMemberId;
     IF @RegistrationId IS NULL
     BEGIN
         INSERT INTO dbo.registrations ([member_id], [event_id], [registration_status_id], [course_snapshot], [year_level_snapshot], [section_snapshot],
-                                       [submitted_at], [reviewed_by], [reviewed_at], [confirmed_by], [confirmed_at], [created_by])
-        SELECT m.[MemberId], @ReadyEventId, 2, p.[Course], p.[YearLevel], p.[Section],
-               DATEADD(day, -5, @Now), @AdminUserId, DATEADD(day, -4, @Now), @AdminUserId, DATEADD(day, -4, @Now), @AdminUserId
+                                       [submitted_at], [reviewed_by], [reviewed_at], [confirmed_by], [confirmed_at],
+                                       [cancelled_by], [cancelled_at], [cancellation_reason], [created_by])
+        SELECT m.[MemberId], @ReadyEventId, 4, p.[Course], p.[YearLevel], p.[Section],
+               DATEADD(day, -5, @Now), @AdminUserId, DATEADD(day, -4, @Now), @AdminUserId, DATEADD(day, -4, @Now),
+               @AdminUserId, DATEADD(day, -2, @Now), N'Event cancelled by the facilities office.', @AdminUserId
         FROM @MemberIds AS m
         JOIN @Participants AS p ON p.[Ordinal] = m.[Ordinal]
         WHERE m.[Ordinal] = 2;
     END
     ELSE
-        UPDATE dbo.registrations SET [registration_status_id] = 2, [cancelled_by] = NULL, [cancelled_at] = NULL, [cancellation_reason] = NULL,
+        UPDATE dbo.registrations SET [registration_status_id] = 4, [cancelled_by] = @AdminUserId,
+            [cancelled_at] = DATEADD(day, -2, @Now), [cancellation_reason] = N'Event cancelled by the facilities office.',
             [updated_by] = @AdminUserId, [updated_at] = @Now WHERE [registration_id] = @RegistrationId;
 
     SET @ReadyMemberId = NULL; SELECT @ReadyMemberId = [MemberId] FROM @MemberIds WHERE [Ordinal] = 3;
@@ -440,15 +447,18 @@ BEGIN TRY
     IF @RegistrationId IS NULL
     BEGIN
         INSERT INTO dbo.registrations ([member_id], [event_id], [registration_status_id], [course_snapshot], [year_level_snapshot], [section_snapshot],
-                                       [submitted_at], [reviewed_by], [reviewed_at], [confirmed_by], [confirmed_at], [created_by])
-        SELECT m.[MemberId], @ReadyEventId, 2, p.[Course], p.[YearLevel], p.[Section],
-               DATEADD(day, -5, @Now), @AdminUserId, DATEADD(day, -4, @Now), @AdminUserId, DATEADD(day, -4, @Now), @AdminUserId
+                                       [submitted_at], [reviewed_by], [reviewed_at], [confirmed_by], [confirmed_at],
+                                       [cancelled_by], [cancelled_at], [cancellation_reason], [created_by])
+        SELECT m.[MemberId], @ReadyEventId, 4, p.[Course], p.[YearLevel], p.[Section],
+               DATEADD(day, -5, @Now), @AdminUserId, DATEADD(day, -4, @Now), @AdminUserId, DATEADD(day, -4, @Now),
+               @AdminUserId, DATEADD(day, -2, @Now), N'Event cancelled by the facilities office.', @AdminUserId
         FROM @MemberIds AS m
         JOIN @Participants AS p ON p.[Ordinal] = m.[Ordinal]
         WHERE m.[Ordinal] = 3;
     END
     ELSE
-        UPDATE dbo.registrations SET [registration_status_id] = 2, [cancelled_by] = NULL, [cancelled_at] = NULL, [cancellation_reason] = NULL,
+        UPDATE dbo.registrations SET [registration_status_id] = 4, [cancelled_by] = @AdminUserId,
+            [cancelled_at] = DATEADD(day, -2, @Now), [cancellation_reason] = N'Event cancelled by the facilities office.',
             [updated_by] = @AdminUserId, [updated_at] = @Now WHERE [registration_id] = @RegistrationId;
 
     DECLARE @DemoMemberId int;
