@@ -30,6 +30,13 @@ namespace ASI.Basecode.WebApp.Controllers
 
         private IActionResult Editor(VenueViewModel model)
         {
+            // The photo is not posted back, so a failed save must reload the persisted path to keep
+            // the current-photo block visible instead of showing an empty panel.
+            if (model.VenueId > 0 && string.IsNullOrWhiteSpace(model.ImagePath))
+            {
+                model.ImagePath = _venueService.GetVenue(model.VenueId)?.ImagePath;
+            }
+
             return IsRecordDialog ? PartialView("_Editor", model) : View(model);
         }
 

@@ -1,6 +1,7 @@
 @model VenueViewModel
 @{
     var photoRequired = ViewData["PhotoRequired"] is true;
+    var hasCurrentPhoto = !string.IsNullOrWhiteSpace(Model.ImagePath);
 }
 
 <fieldset>
@@ -40,7 +41,10 @@
     <legend>Photo</legend>
     <div class="field">
         <label for="photo" class="field-label">Venue photo @if (photoRequired) { <span class="required" aria-hidden="true">*</span> }</label>
-        <input id="photo" name="photo" aria-describedby="photo-help photo-validation" type="file" accept="image/png,image/jpeg" class="field-control" required="@(photoRequired ? "required" : null)" />
+        <input id="photo" name="photo" aria-describedby="photo-help photo-validation" type="file" accept="image/png,image/jpeg" class="field-control" required="@(photoRequired ? "required" : null)" data-photo-input />
+        <figure class="venue-photo-preview" data-photo-preview hidden>
+            <figcaption>@(hasCurrentPhoto ? "Selected photo. Save to replace the current one." : "Selected photo. Save to add it to the venue.")</figcaption>
+        </figure>
         <small id="photo-help" class="muted">A JPEG or PNG photo up to 2 MiB is required when creating a venue. Select a new photo to replace the existing one.</small>
         @Html.ValidationMessage("photo", null, new { id = "photo-validation", @class = "field-error" })
     </div>

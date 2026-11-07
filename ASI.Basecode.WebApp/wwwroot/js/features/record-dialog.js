@@ -16,7 +16,8 @@
     }
     function focusForm() {
         const errors = body.querySelector('.validation-summary-errors');
-        (errors || body.querySelector('input:not([type="hidden"]), textarea, select, button'))?.focus();
+        const control = body.querySelector('input:not([type="hidden"]):not([readonly]):not([disabled]), textarea:not([readonly]):not([disabled]), select:not([disabled]), button:not([disabled])');
+        (errors || control)?.focus();
     }
     function setBusy(value) {
         busy = value;
