@@ -87,9 +87,10 @@ public class AccountRequestSubmissionTests : IClassFixture<SqlServerDatabaseFixt
         Assert.Contains("__RequestVerificationToken", html, StringComparison.Ordinal);
         Assert.Contains("public-wide", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Sign out", html, StringComparison.Ordinal);
-        var yearLevel = Regex.Match(html, "<input[^>]*name=\"YearLevel\"[^>]*>", RegexOptions.IgnoreCase);
+        var yearLevel = Regex.Match(html, "<select[^>]*name=\"YearLevel\"[^>]*>.*?</select>", RegexOptions.IgnoreCase | RegexOptions.Singleline);
         Assert.True(yearLevel.Success, "No YearLevel control.");
         Assert.DoesNotContain("value=\"0\"", yearLevel.Value, StringComparison.Ordinal);
+        Assert.Contains("value=\"1\"", yearLevel.Value, StringComparison.Ordinal);
     }
 
     [Fact]

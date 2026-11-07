@@ -4,12 +4,12 @@
 
 <div class="field">
     <label asp-for="Title" class="field-label"></label>
-    <input asp-for="Title" aria-describedby="Title-validation" class="field-control" />
+    <input asp-for="Title" aria-describedby="Title-validation" class="field-control" placeholder="e.g. Leadership Summit 2026" />
     <span id="Title-validation" asp-validation-for="Title" class="field-error"></span>
 </div>
 <div class="field">
     <label asp-for="Description" class="field-label"></label>
-    <textarea asp-for="Description" aria-describedby="Description-validation" class="field-control" rows="4"></textarea>
+    <textarea asp-for="Description" aria-describedby="Description-validation" class="field-control" rows="4" placeholder="What the event covers, who it is for, and what to bring"></textarea>
     <span id="Description-validation" asp-validation-for="Description" class="field-error"></span>
 </div>
 @if (Model.EventStatusId == EventStatusCode.Published)
@@ -64,7 +64,7 @@ else
 </div>
 <div class="field">
     <label asp-for="ParticipantLimit" class="field-label">Participant limit</label>
-    <input asp-for="ParticipantLimit" type="number" min="1" aria-describedby="ParticipantLimit-validation" class="field-control" />
+    <input asp-for="ParticipantLimit" type="number" min="1" aria-describedby="ParticipantLimit-validation" class="field-control" placeholder="e.g. 100" />
     <span id="ParticipantLimit-validation" asp-validation-for="ParticipantLimit" class="field-error"></span>
 </div>
 }

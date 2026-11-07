@@ -1,13 +1,13 @@
 @model LoginViewModel
 @{ ViewData["Title"] = "Sign in"; }
 <section class="login-card">
-    <h1>Sign in</h1>
-    <p class="muted">Sign in to your AttendTa account.</p>
+    <h1>Sign in to your account</h1>
+    <p class="muted">Enter the email address registered to your account.</p>
     <form method="post" asp-controller="Account" asp-action="Login" id="loginForm">
         <input type="hidden" asp-for="ReturnUrl" />
         <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
-        <div class="field"><label asp-for="Email"></label><input asp-for="Email" aria-describedby="Email-validation" type="email" autocomplete="username" /><span id="Email-validation" asp-validation-for="Email" class="field-error"></span></div>
-        <div class="field"><label asp-for="Password"></label><input asp-for="Password" aria-describedby="Password-validation" type="password" autocomplete="current-password" /><span id="Password-validation" asp-validation-for="Password" class="field-error"></span></div>
+        <div class="field"><label asp-for="Email"></label><input asp-for="Email" aria-describedby="Email-validation" type="email" autocomplete="username" placeholder="name@uc.edu.ph" /><span id="Email-validation" asp-validation-for="Email" class="field-error"></span></div>
+        <div class="field"><label asp-for="Password"></label><input asp-for="Password" aria-describedby="Password-validation" type="password" autocomplete="current-password" placeholder="Your password" /><span id="Password-validation" asp-validation-for="Password" class="field-error"></span></div>
         <button class="button button-primary full-width" type="submit">Sign in</button>
     </form>
     <p class="muted">New to AttendTa? <a asp-controller="AccountRequest" asp-action="Request">Request membership</a></p>
