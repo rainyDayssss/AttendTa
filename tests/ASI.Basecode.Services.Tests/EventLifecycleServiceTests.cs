@@ -847,6 +847,209 @@ public class EventLifecycleServiceTests
         Assert.Empty(harness.Audit.Entries);
     }
 
+    [Fact]
+    public async Task OpenCheckInWindowSetsTheFlagActorAndTimeAndWritesOneAuditEntry()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var clock = new FixedClock { Now = new DateTimeOffset(2026, 3, 5, 10, 0, 0, TimeSpan.Zero) };
+        var harness = new Harness(clock);
+        var eventType = harness.AddType("Workshop", isActive: true);
+        var venue = harness.AddVenue("Room A", capacity: 30, isActive: true);
+        var id = await harness.Service.CreateDraftAsync(Model("Orientation", eventType.TypeId, venue.VenueId), ct);
+        var row = Assert.Single(harness.Events.Items);
+        row.EventStatusId = EventStatusCode.Published;
+        harness.Locks.Clear();
+
+        await harness.Service.SetCheckInWindowAsync(id, true, ct);
+
+        Assert.Equal(["event"], harness.Locks);
+        Assert.True(row.IsCheckInOpen);
+        Assert.Equal(7, row.CheckInOpenedBy);
+        Assert.Equal(clock.Now.UtcDateTime, row.CheckInOpenedAt);
+        Assert.Null(row.CheckInClosedBy);
+        Assert.Null(row.CheckInClosedAt);
+        Assert.Equal(7, row.UpdatedBy);
+        Assert.Equal(clock.Now.UtcDateTime, row.UpdatedAt);
+
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Equal(AuditActions.EventCheckInOpened, audit.Action);
+        Assert.Equal("events", audit.EntityType);
+        Assert.Equal(id, audit.EntityId);
+        Assert.Contains("\"IsCheckInOpen\":false", Json(audit.OldValues));
+        Assert.Contains("\"IsCheckInOpen\":true", Json(audit.NewValues));
+        Assert.Contains("\"CheckInOpenedBy\":7", Json(audit.NewValues));
+        Assert.DoesNotContain("token", Json(audit.NewValues), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("path", Json(audit.NewValues), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CloseCheckInWindowSetsTheClosedColumnsAndWritesOneAuditEntry()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var clock = new FixedClock { Now = new DateTimeOffset(2026, 3, 5, 11, 0, 0, TimeSpan.Zero) };
+        var harness = new Harness(clock);
+        var eventType = harness.AddType("Workshop", isActive: true);
+        var venue = harness.AddVenue("Room A", capacity: 30, isActive: true);
+        var id = await harness.Service.CreateDraftAsync(Model("Orientation", eventType.TypeId, venue.VenueId), ct);
+        var row = Assert.Single(harness.Events.Items);
+        row.EventStatusId = EventStatusCode.Published;
+        row.IsCheckInOpen = true;
+        row.CheckInOpenedBy = 7;
+        row.CheckInOpenedAt = Start;
+        harness.Locks.Clear();
+
+        await harness.Service.SetCheckInWindowAsync(id, false, ct);
+
+        Assert.Equal(["event"], harness.Locks);
+        Assert.False(row.IsCheckInOpen);
+        Assert.Equal(7, row.CheckInClosedBy);
+        Assert.Equal(clock.Now.UtcDateTime, row.CheckInClosedAt);
+        Assert.Equal(7, row.CheckInOpenedBy);
+        Assert.Equal(Start, row.CheckInOpenedAt);
+        Assert.Equal(7, row.UpdatedBy);
+        Assert.Equal(clock.Now.UtcDateTime, row.UpdatedAt);
+
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Equal(AuditActions.EventCheckInClosed, audit.Action);
+        Assert.Contains("\"IsCheckInOpen\":true", Json(audit.OldValues));
+        Assert.Contains("\"IsCheckInOpen\":false", Json(audit.NewValues));
+        Assert.Contains("\"CheckInClosedBy\":7", Json(audit.NewValues));
+    }
+
+    [Theory]
+    [InlineData(EventStatusCode.Draft)]
+    [InlineData(EventStatusCode.Cancelled)]
+    [InlineData(EventStatusCode.Completed)]
+    public async Task SetCheckInWindowRefusesNonPublishedEventsWithoutTakingLocks(EventStatusCode status)
+    {
+        var harness = new Harness();
+        var eventType = harness.AddType("Workshop", isActive: true);
+        var venue = harness.AddVenue("Room A", capacity: 30, isActive: true);
+        var id = await harness.Service.CreateDraftAsync(Model("Orientation", eventType.TypeId, venue.VenueId), TestContext.Current.CancellationToken);
+        var row = Assert.Single(harness.Events.Items);
+        row.EventStatusId = status;
+        harness.Locks.Clear();
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.SetCheckInWindowAsync(id, true, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Invalid, error.Outcome);
+        Assert.False(row.IsCheckInOpen);
+        Assert.Null(row.CheckInOpenedBy);
+        Assert.Empty(harness.Locks);
+        Assert.Empty(harness.Audit.Entries);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task SetCheckInWindowRefusesARepeatedDirectionWithoutWrites(bool open)
+    {
+        var harness = new Harness();
+        var eventType = harness.AddType("Workshop", isActive: true);
+        var venue = harness.AddVenue("Room A", capacity: 30, isActive: true);
+        var id = await harness.Service.CreateDraftAsync(Model("Orientation", eventType.TypeId, venue.VenueId), TestContext.Current.CancellationToken);
+        var row = Assert.Single(harness.Events.Items);
+        row.EventStatusId = EventStatusCode.Published;
+        row.IsCheckInOpen = open;
+        harness.Locks.Clear();
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.SetCheckInWindowAsync(id, open, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Invalid, error.Outcome);
+        Assert.Equal(open, row.IsCheckInOpen);
+        Assert.Empty(harness.Locks);
+        Assert.Empty(harness.Audit.Entries);
+    }
+
+    [Fact]
+    public async Task SetCheckInWindowRejectsAStatusChangeBeforeTheLockAsStale()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var harness = new Harness();
+        var eventType = harness.AddType("Workshop", isActive: true);
+        var venue = harness.AddVenue("Room A", capacity: 30, isActive: true);
+        var id = await harness.Service.CreateDraftAsync(Model("Orientation", eventType.TypeId, venue.VenueId), ct);
+        var row = Assert.Single(harness.Events.Items);
+        row.EventStatusId = EventStatusCode.Published;
+        harness.Events.BeforeLock = item => item.EventStatusId = EventStatusCode.Completed;
+        harness.Locks.Clear();
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.SetCheckInWindowAsync(id, true, ct));
+
+        Assert.Equal(OutcomeCode.Stale, error.Outcome);
+        Assert.Empty(harness.Audit.Entries);
+    }
+
+    [Fact]
+    public async Task SetCheckInWindowRejectsAFlagChangeBeforeTheLockAsInvalid()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var harness = new Harness();
+        var eventType = harness.AddType("Workshop", isActive: true);
+        var venue = harness.AddVenue("Room A", capacity: 30, isActive: true);
+        var id = await harness.Service.CreateDraftAsync(Model("Orientation", eventType.TypeId, venue.VenueId), ct);
+        var row = Assert.Single(harness.Events.Items);
+        row.EventStatusId = EventStatusCode.Published;
+        harness.Events.BeforeLock = item => item.IsCheckInOpen = true;
+        harness.Locks.Clear();
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.SetCheckInWindowAsync(id, true, ct));
+
+        Assert.Equal(OutcomeCode.Invalid, error.Outcome);
+        Assert.False(Assert.Single(harness.Events.Items).IsCheckInOpen);
+        Assert.Empty(harness.Audit.Entries);
+    }
+
+    [Fact]
+    public async Task SetCheckInWindowOnMissingEventIsNotFoundWithoutTakingLocks()
+    {
+        var harness = new Harness();
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.SetCheckInWindowAsync(404, true, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.NotFound, error.Outcome);
+        Assert.Empty(harness.Locks);
+        Assert.Empty(harness.Audit.Entries);
+    }
+
+    [Theory]
+    [InlineData(0, false, RoleCodes.Officer)]
+    [InlineData(7, true, RoleCodes.Member)]
+    [InlineData(0, true, RoleCodes.Officer)]
+    public async Task SetCheckInWindowRejectsAnonymousMemberAndInvalidActorsBeforeTakingLocks(int userId, bool authenticated, string role)
+    {
+        var harness = new Harness(actor: new FixedActor(userId, authenticated, role));
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.SetCheckInWindowAsync(1, true, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Forbidden, error.Outcome);
+        Assert.Empty(harness.Locks);
+        Assert.Empty(harness.Audit.Entries);
+    }
+
+    [Fact]
+    public async Task SetCheckInWindowRollsBackWhenTheAuditFails()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var harness = new Harness();
+        var eventType = harness.AddType("Workshop", isActive: true);
+        var venue = harness.AddVenue("Room A", capacity: 30, isActive: true);
+        var id = await harness.Service.CreateDraftAsync(Model("Orientation", eventType.TypeId, venue.VenueId), ct);
+        var row = Assert.Single(harness.Events.Items);
+        row.EventStatusId = EventStatusCode.Published;
+        harness.Audit.FailOnAction = AuditActions.EventCheckInOpened;
+        var commits = harness.UnitOfWork.CommitCount;
+
+        await Assert.ThrowsAsync<IOException>(() => harness.Service.SetCheckInWindowAsync(id, true, ct));
+
+        var restored = Assert.Single(harness.Events.Items);
+        Assert.False(restored.IsCheckInOpen);
+        Assert.Null(restored.CheckInOpenedBy);
+        Assert.Null(restored.CheckInOpenedAt);
+        Assert.Empty(harness.Audit.Entries);
+        Assert.Equal(commits, harness.UnitOfWork.CommitCount);
+    }
+
     private static void AssertUnchangedAfterRollback(Harness harness, int eventId, int expectedCommits)
     {
         var row = Assert.Single(harness.Events.Items);
@@ -1033,6 +1236,9 @@ public class EventLifecycleServiceTests
         public Task<bool> IsConfirmedAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<bool> ExistsAsync(int eventId, int memberId, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<int> CountConfirmedAsync(int eventId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<int> CountConfirmedLookupAsync(int eventId, string query, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<ConfirmedLookupRow>> GetConfirmedLookupPageAsync(int eventId, string query, int skip, int take, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<string> GetConfirmedStudentNumberAsync(int eventId, int registrationId, CancellationToken ct = default) => throw new NotSupportedException();
         public Task AddAsync(Registration registration, CancellationToken ct = default) => throw new NotSupportedException();
     }
 
@@ -1112,10 +1318,20 @@ public class EventLifecycleServiceTests
             return Task.FromResult<Event>(item == null ? null! : new Event
             {
                 EventId = item.EventId,
+                Title = item.Title,
+                Description = item.Description,
                 TypeId = item.TypeId,
                 VenueId = item.VenueId,
+                StartsAt = item.StartsAt,
+                RegistrationDeadline = item.RegistrationDeadline,
+                ParticipantLimit = item.ParticipantLimit,
                 EventStatusId = item.EventStatusId,
-                ImagePath = item.ImagePath
+                ImagePath = item.ImagePath,
+                IsCheckInOpen = item.IsCheckInOpen,
+                CheckInOpenedBy = item.CheckInOpenedBy,
+                CheckInOpenedAt = item.CheckInOpenedAt,
+                CheckInClosedBy = item.CheckInClosedBy,
+                CheckInClosedAt = item.CheckInClosedAt
             });
         }
 

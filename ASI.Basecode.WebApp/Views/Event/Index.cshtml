@@ -42,7 +42,7 @@ else
                         <td>@eventItem.ParticipantLimit</td>
                         <td><span class="badge @EventStatusDisplay.BadgeClass(eventItem.EventStatusId)">@eventItem.StatusLabel</span></td>
                         <td>
-                            <partial name="_CheckInControl" model="new CheckInControlViewModel { EventId = eventItem.EventId, IsCheckInOpen = eventItem.IsCheckInOpen, CanChange = eventItem.EventStatusId == EventStatusCode.Published }" />
+                            <partial name="_CheckInControl" model="new CheckInControlViewModel { EventId = eventItem.EventId, IsCheckInOpen = eventItem.IsCheckInOpen, CheckInOpenedByName = eventItem.CheckInOpenedByName, CheckInOpenedAt = eventItem.CheckInOpenedAt, CheckInClosedByName = eventItem.CheckInClosedByName, CheckInClosedAt = eventItem.CheckInClosedAt, CanChange = eventItem.EventStatusId == EventStatusCode.Published }" />
                         </td>
                         <td class="actions">
                             <a asp-action="Cover" asp-route-id="@eventItem.EventId" class="button button-secondary">Cover</a>
@@ -61,7 +61,7 @@ else
                             }
                             @if (eventItem.EventStatusId == EventStatusCode.Published)
                             {
-                                <a asp-action="Details" asp-route-id="@eventItem.EventId" class="button button-secondary">Lifecycle controls</a>
+                                <a asp-action="Details" asp-route-id="@eventItem.EventId" class="button button-secondary">Manage event</a>
                             }
                         </td>
                     </tr>

@@ -884,6 +884,15 @@ public sealed class MemberEventRegistrationPersistenceTests(SqlServerDatabaseFix
         public Task<int> CountConfirmedAsync(int eventId, CancellationToken cancellationToken = default) =>
             inner.CountConfirmedAsync(eventId, cancellationToken);
 
+        public Task<int> CountConfirmedLookupAsync(int eventId, string query, CancellationToken cancellationToken = default) =>
+            inner.CountConfirmedLookupAsync(eventId, query, cancellationToken);
+
+        public Task<IReadOnlyList<ConfirmedLookupRow>> GetConfirmedLookupPageAsync(int eventId, string query, int skip, int take, CancellationToken cancellationToken = default) =>
+            inner.GetConfirmedLookupPageAsync(eventId, query, skip, take, cancellationToken);
+
+        public Task<string> GetConfirmedStudentNumberAsync(int eventId, int registrationId, CancellationToken cancellationToken = default) =>
+            inner.GetConfirmedStudentNumberAsync(eventId, registrationId, cancellationToken);
+
         public Task AddAsync(Registration registration, CancellationToken cancellationToken = default) =>
             inner.AddAsync(registration, cancellationToken);
     }

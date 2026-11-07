@@ -121,6 +121,79 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
         ParticipationFacts.SeatHolders(GetDbSet<Registration>().AsNoTracking())
             .CountAsync(registration => registration.EventId == eventId, cancellationToken);
 
+    public Task<int> CountConfirmedLookupAsync(int eventId, string query, CancellationToken cancellationToken = default)
+    {
+        var trimmed = query?.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return Task.FromResult(0);
+        }
+
+        return ConfirmedLookup(eventId, trimmed).CountAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ConfirmedLookupRow>> GetConfirmedLookupPageAsync(
+        int eventId,
+        string query,
+        int skip,
+        int take,
+        CancellationToken cancellationToken = default)
+    {
+        var trimmed = query?.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return Array.Empty<ConfirmedLookupRow>();
+        }
+
+        return await ConfirmedLookup(eventId, trimmed)
+            .OrderBy(row => row.User.Name)
+            .ThenBy(row => row.Registration.RegistrationId)
+            .Skip(skip)
+            .Take(take)
+            .Select(row => new ConfirmedLookupRow(
+                row.Registration.RegistrationId,
+                row.User.Name,
+                row.Member.StudentNumber,
+                row.Attendance != null,
+                row.Attendance != null && row.Attendance.InvalidatedAt != null))
+            .ToListAsync(cancellationToken);
+    }
+
+    public Task<string> GetConfirmedStudentNumberAsync(int eventId, int registrationId, CancellationToken cancellationToken = default) =>
+        (from registration in GetDbSet<Registration>().AsNoTracking()
+         join member in GetDbSet<Member>().AsNoTracking() on registration.MemberId equals member.MemberId
+         where registration.RegistrationId == registrationId
+             && registration.EventId == eventId
+             && registration.RegistrationStatusId == RegistrationStatusCode.Confirmed
+         select member.StudentNumber)
+        .FirstOrDefaultAsync(cancellationToken);
+
+    /// <summary>
+    /// The manual check-in lookup: the event's Confirmed registrations matching a name or student
+    /// number substring, left joined to their attendance row. <c>Contains</c> is the house search
+    /// pattern and relies on the SQL Server case-insensitive collation. Kept apart from
+    /// <see cref="ReviewQueue"/>, which orders by <c>SubmittedAt</c> for the review screens.
+    /// </summary>
+    private IQueryable<ConfirmedLookupCandidate> ConfirmedLookup(int eventId, string query) =>
+        from registration in GetDbSet<Registration>().AsNoTracking()
+        join member in GetDbSet<Member>().AsNoTracking() on registration.MemberId equals member.MemberId
+        join user in GetDbSet<User>().AsNoTracking() on member.UserId equals user.Id
+        join attendance in GetDbSet<Attendance>().AsNoTracking()
+            on registration.RegistrationId equals attendance.RegistrationId into attendances
+        from attendance in attendances.DefaultIfEmpty()
+        where registration.EventId == eventId
+            && registration.RegistrationStatusId == RegistrationStatusCode.Confirmed
+            && (user.Name.Contains(query) || member.StudentNumber.Contains(query))
+        select new ConfirmedLookupCandidate { Registration = registration, Member = member, User = user, Attendance = attendance };
+
+    private sealed class ConfirmedLookupCandidate
+    {
+        public Registration Registration { get; init; }
+        public Member Member { get; init; }
+        public User User { get; init; }
+        public Attendance Attendance { get; init; }
+    }
+
     public Task AddAsync(Registration registration, CancellationToken cancellationToken = default)
     {
         GetDbSet<Registration>().Add(registration);

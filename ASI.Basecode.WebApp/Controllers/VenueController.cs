@@ -40,6 +40,28 @@ namespace ASI.Basecode.WebApp.Controllers
             return Editor(model);
         }
 
+        // A failed edit response carries the posted view model, which has no image path. Restore
+        // the persisted photo so the editor still shows it and the user only reselects the file.
+        // Only paths the Photo action can serve are restored; a legacy key would render broken.
+        private void RestoreCurrentPhoto(VenueViewModel model, bool selectedPhoto)
+        {
+            if (model.VenueId <= 0) return;
+            var imagePath = _venueService.GetVenue(model.VenueId)?.ImagePath;
+            model.ImagePath = IsServablePhoto(imagePath) ? imagePath : null;
+            if (selectedPhoto && model.ImagePath != null) ViewData["PhotoReselect"] = true;
+        }
+
+        private static bool IsServablePhoto(string path)
+        {
+            const string prefix = "uploads/venues/";
+            return !string.IsNullOrWhiteSpace(path) &&
+                path.StartsWith(prefix, StringComparison.Ordinal) &&
+                path.Length > prefix.Length &&
+                path.IndexOf('\0') < 0 &&
+                path.IndexOfAny(new[] { '/', '\\' }, prefix.Length) < 0 &&
+                Path.GetExtension(path).ToLowerInvariant() is ".jpg" or ".jpeg" or ".png";
+        }
+
         public VenueController(IHttpContextAccessor httpContextAccessor, ILoggerFactory loggerFactory,
             IConfiguration configuration, IMapper mapper, IVenueService venueService, IPrivateFileStore privateFileStore)
             : base(httpContextAccessor, loggerFactory, configuration, mapper)
@@ -137,6 +159,7 @@ namespace ASI.Basecode.WebApp.Controllers
         {
             if (!ModelState.IsValid)
             {
+                RestoreCurrentPhoto(model, photo != null);
                 ViewData["PhotoRequired"] = false;
                 return Editor(model);
             }
@@ -149,7 +172,12 @@ namespace ASI.Basecode.WebApp.Controllers
                 if (IsRecordDialog) return Json(new { saved = true });
                 return RedirectToAction("Index");
             }
-            catch (DomainException ex) { return EditorError(ex, model); }
+            catch (DomainException ex)
+            {
+                RestoreCurrentPhoto(model, photo != null);
+                ViewData["PhotoRequired"] = false;
+                return EditorError(ex, model);
+            }
         }
 
         [HttpPost]

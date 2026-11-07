@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,8 +13,8 @@ namespace ASI.Basecode.Services.Services;
 
 /// <summary>
 /// Real per-event participation report read. The selector and event header come from the event
-/// repository and the summary comes from the canonical participation facts; the detail rows,
-/// breakdowns and no-shows stay with their open demo rows until 7.2 and 7.3 replace them.
+/// repository; the summary, no-shows and attendee distributions come from the canonical
+/// participation facts. The paged detail rows stay with their open demo row until 7.3 replaces them.
 /// </summary>
 public sealed class ParticipationReportService : IParticipationReportService
 {
@@ -49,6 +50,8 @@ public sealed class ParticipationReportService : IParticipationReportService
         }
 
         var facts = await _reports.GetSummaryFactsAsync(eventItem.EventId, cancellationToken);
+        var noShowCount = await _reports.GetNoShowCountAsync(eventItem.EventId, cancellationToken);
+        var distribution = await _reports.GetAttendeeDistributionAsync(eventItem.EventId, cancellationToken);
         var status = eventItem.EventStatusId;
 
         return new ParticipationReportViewModel
@@ -67,12 +70,55 @@ public sealed class ParticipationReportService : IParticipationReportService
             CancelledCount = facts.CancelledCount,
             ValidAttendeeCount = facts.ValidAttendeeCount,
             AttendanceRate = facts.AttendanceRate,
-            NoShowCount = 0,
+            NoShowCount = noShowCount,
             Rows = Array.Empty<ParticipationReportRowViewModel>(),
-            CourseBreakdown = Array.Empty<ParticipationBreakdownItemViewModel>(),
-            YearBreakdown = Array.Empty<ParticipationBreakdownItemViewModel>(),
+            CourseBreakdown = CourseBreakdown(distribution.Courses),
+            YearBreakdown = YearBreakdown(distribution.Years),
             PageNumber = 1,
             TotalCount = 0
         };
     }
+
+    private static IReadOnlyList<ParticipationBreakdownItemViewModel> CourseBreakdown(IReadOnlyList<CourseDistributionRow> rows)
+    {
+        var total = rows.Sum(row => row.Count);
+
+        return rows
+            .GroupBy(
+                row => string.IsNullOrWhiteSpace(row.Course) ? "Unspecified" : row.Course.Trim(),
+                StringComparer.OrdinalIgnoreCase)
+            .Select(group => new { Label = group.Key, Count = group.Sum(row => row.Count) })
+            .OrderByDescending(item => item.Count)
+            .ThenBy(item => item.Label, StringComparer.OrdinalIgnoreCase)
+            .Select(item => new ParticipationBreakdownItemViewModel
+            {
+                Label = item.Label,
+                Count = item.Count,
+                Percent = Share(item.Count, total)
+            })
+            .ToList();
+    }
+
+    private static IReadOnlyList<ParticipationBreakdownItemViewModel> YearBreakdown(IReadOnlyList<YearDistributionRow> rows)
+    {
+        var total = rows.Sum(row => row.Count);
+
+        return rows
+            .GroupBy(row => row.YearLevel)
+            .OrderBy(group => group.Key)
+            .Select(group =>
+            {
+                var count = group.Sum(row => row.Count);
+                return new ParticipationBreakdownItemViewModel
+                {
+                    Label = group.Key > 0 ? $"Year {group.Key}" : "Unspecified",
+                    Count = count,
+                    Percent = Share(count, total)
+                };
+            })
+            .ToList();
+    }
+
+    private static int Share(int count, int total) =>
+        total == 0 ? 0 : (int)Math.Round(count * 100m / total, MidpointRounding.AwayFromZero);
 }

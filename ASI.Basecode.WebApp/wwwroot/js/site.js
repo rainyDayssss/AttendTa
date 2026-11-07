@@ -31,8 +31,28 @@ $(function () {
         if (closer) closer.closest('dialog')?.close();
     });
 
+    // A native dialog's own padding is part of the dialog element, so the event target alone
+    // cannot distinguish an interior click from a backdrop click. Decide from where the press
+    // started: a text selection that begins inside the panel and releases over the backdrop must
+    // not discard input. A busy dialog refuses every dismissal.
+    let pressedBackdrop = false;
+    document.addEventListener('pointerdown', function (event) {
+        const dialog = event.target;
+        if (!(dialog instanceof HTMLDialogElement)) {
+            pressedBackdrop = false;
+            return;
+        }
+        const bounds = dialog.getBoundingClientRect();
+        pressedBackdrop = event.clientX < bounds.left || event.clientX > bounds.right ||
+            event.clientY < bounds.top || event.clientY > bounds.bottom;
+    });
     document.addEventListener('click', function (event) {
-        if (event.target instanceof HTMLDialogElement) event.target.close();
+        const dialog = event.target;
+        const fromBackdrop = pressedBackdrop;
+        pressedBackdrop = false;
+        if (!(dialog instanceof HTMLDialogElement) || !fromBackdrop) return;
+        if (dialog.getAttribute('aria-busy') === 'true') return;
+        dialog.close();
     });
 
     document.addEventListener('submit', function (event) {

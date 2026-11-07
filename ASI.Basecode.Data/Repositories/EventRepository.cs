@@ -29,11 +29,16 @@ namespace ASI.Basecode.Data.Repositories
             var events = GetDbSet<Event>().AsNoTracking();
             var eventTypes = GetDbSet<EventType>().AsNoTracking();
             var venues = GetDbSet<Venue>().AsNoTracking();
+            var users = GetDbSet<User>().AsNoTracking();
 
             return await (
                 from eventItem in events
                 join eventType in eventTypes on eventItem.TypeId equals eventType.TypeId
                 join venue in venues on eventItem.VenueId equals venue.VenueId
+                join openedBy in users on eventItem.CheckInOpenedBy equals (int?)openedBy.Id into openedByUsers
+                from openedBy in openedByUsers.DefaultIfEmpty()
+                join closedBy in users on eventItem.CheckInClosedBy equals (int?)closedBy.Id into closedByUsers
+                from closedBy in closedByUsers.DefaultIfEmpty()
                 orderby eventItem.StartsAt ascending, eventItem.EventId ascending
                 select new EventListItem
                 {
@@ -44,7 +49,12 @@ namespace ASI.Basecode.Data.Repositories
                     StartsAt = eventItem.StartsAt,
                     RegistrationDeadline = eventItem.RegistrationDeadline,
                     ParticipantLimit = eventItem.ParticipantLimit,
-                    EventStatusId = eventItem.EventStatusId
+                    EventStatusId = eventItem.EventStatusId,
+                    IsCheckInOpen = eventItem.IsCheckInOpen,
+                    CheckInOpenedByName = openedBy == null ? null : openedBy.Name,
+                    CheckInOpenedAt = eventItem.CheckInOpenedAt,
+                    CheckInClosedByName = closedBy == null ? null : closedBy.Name,
+                    CheckInClosedAt = eventItem.CheckInClosedAt
                 })
                 .Skip(skip)
                 .Take(take)
@@ -86,7 +96,8 @@ namespace ASI.Basecode.Data.Repositories
                     ParticipantLimit = eventItem.ParticipantLimit,
                     ConfirmedCount = seatHolders.Count(registration => registration.EventId == eventItem.EventId),
                     HasCover = eventItem.ImagePath != null && eventItem.ImagePath.StartsWith("uploads/events/"),
-                    EventStatusId = eventItem.EventStatusId
+                    EventStatusId = eventItem.EventStatusId,
+                    IsCheckInOpen = eventItem.IsCheckInOpen
                 })
                 .Skip(skip)
                 .Take(take)
@@ -117,7 +128,8 @@ namespace ASI.Basecode.Data.Repositories
                     ParticipantLimit = eventItem.ParticipantLimit,
                     ConfirmedCount = seatHolders.Count(registration => registration.EventId == eventItem.EventId),
                     HasCover = eventItem.ImagePath != null && eventItem.ImagePath.StartsWith("uploads/events/"),
-                    EventStatusId = eventItem.EventStatusId
+                    EventStatusId = eventItem.EventStatusId,
+                    IsCheckInOpen = eventItem.IsCheckInOpen
                 })
                 .SingleOrDefaultAsync(cancellationToken);
         }
@@ -156,7 +168,8 @@ namespace ASI.Basecode.Data.Repositories
                     ParticipantLimit = eventItem.ParticipantLimit,
                     ConfirmedCount = seatHolders.Count(registration => registration.EventId == eventItem.EventId),
                     HasCover = eventItem.ImagePath != null && eventItem.ImagePath.StartsWith("uploads/events/"),
-                    EventStatusId = eventItem.EventStatusId
+                    EventStatusId = eventItem.EventStatusId,
+                    IsCheckInOpen = eventItem.IsCheckInOpen
                 })
                 .Skip(skip)
                 .Take(take)
@@ -189,7 +202,8 @@ namespace ASI.Basecode.Data.Repositories
                     ParticipantLimit = eventItem.ParticipantLimit,
                     ConfirmedCount = seatHolders.Count(registration => registration.EventId == eventItem.EventId),
                     HasCover = eventItem.ImagePath != null && eventItem.ImagePath.StartsWith("uploads/events/"),
-                    EventStatusId = eventItem.EventStatusId
+                    EventStatusId = eventItem.EventStatusId,
+                    IsCheckInOpen = eventItem.IsCheckInOpen
                 })
                 .SingleOrDefaultAsync(cancellationToken);
         }

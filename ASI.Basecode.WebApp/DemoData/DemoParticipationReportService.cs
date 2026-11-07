@@ -12,11 +12,12 @@ using ASI.Basecode.Services.Services;
 namespace ASI.Basecode.WebApp.DemoData;
 
 /// <summary>
-/// Demo overlay for the per-event participation report (register M-13b and M-13c). The real
-/// <see cref="ParticipationReportService"/> answers the 7.1 summary first; this provider then adds
-/// the still-open demo rows, breakdowns and no-shows, and keeps the attendance-derived valid count
-/// and rate while M-05 and M-07 remain open. The event status comes from SQL; the store's completed
-/// fallback is only a test fixture. It never writes.
+/// Demo overlay for the per-event participation report (register M-13c). The real
+/// <see cref="ParticipationReportService"/> answers the summary, no-shows and breakdowns first; this
+/// provider then adds the still-open demo detail rows and keeps the attendance-derived valid count,
+/// rate, no-shows and breakdowns while M-05 and M-07 remain open and the store holds attendance for
+/// the event. The event status comes from SQL; the store's completed fallback is only a test
+/// fixture. It never writes.
 /// </summary>
 public sealed class DemoParticipationReportService : IParticipationReportService
 {
@@ -91,13 +92,18 @@ public sealed class DemoParticipationReportService : IParticipationReportService
             .Take(PageRequest.FixedPageSize)
             .ToList();
 
-        // Rule 12: while M-05 and M-07 are open, the demo store's attendance drives the valid count
-        // and rate whenever it holds attendance for the event; otherwise the real SQL facts stand.
+        // Rule 12: while M-05 and M-07 are open, the demo store's attendance drives the valid count,
+        // rate, no-shows and breakdowns whenever it holds attendance for the event; otherwise the
+        // real SQL facts stand.
         var hasDemoAttendance = _store.GetAttendanceForEvent(selectedEventId).Count > 0;
         var validAttendeeCount = hasDemoAttendance ? validAttendees.Count : report.ValidAttendeeCount;
         var attendanceRate = hasDemoAttendance
             ? report.ConfirmedCount == 0 ? null : (decimal)validAttendees.Count / report.ConfirmedCount
             : report.AttendanceRate;
+        // No-shows are a completed-event fact; a cancelled event shows no figure at all.
+        var noShowCount = hasDemoAttendance
+            ? isFinal ? report.ConfirmedCount - validAttendeeCount : 0
+            : report.NoShowCount;
 
         return new ParticipationReportViewModel
         {
@@ -115,11 +121,10 @@ public sealed class DemoParticipationReportService : IParticipationReportService
             CancelledCount = report.CancelledCount,
             ValidAttendeeCount = validAttendeeCount,
             AttendanceRate = attendanceRate,
-            // No-shows are a completed-event fact; a cancelled event shows no figure at all.
-            NoShowCount = isFinal ? report.ConfirmedCount - validAttendeeCount : 0,
+            NoShowCount = noShowCount,
             Rows = pageRows.Select(row => ToRow(row, attendance, isFinal)).ToList(),
-            CourseBreakdown = CourseBreakdown(validAttendees),
-            YearBreakdown = YearBreakdown(validAttendees),
+            CourseBreakdown = hasDemoAttendance ? CourseBreakdown(validAttendees) : report.CourseBreakdown,
+            YearBreakdown = hasDemoAttendance ? YearBreakdown(validAttendees) : report.YearBreakdown,
             PageNumber = normalizedPage,
             TotalCount = ordered.Count
         };

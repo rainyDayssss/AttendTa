@@ -8,6 +8,8 @@ public static class AuditActions
     public const string EventPublished = "event.published";
     public const string EventCancelled = "event.cancelled";
     public const string EventCompleted = "event.completed";
+    public const string EventCheckInOpened = "event.check_in_opened";
+    public const string EventCheckInClosed = "event.check_in_closed";
     public const string RegistrationCancelled = "registration.cancelled";
     public const string RegistrationApproved = "registration.approved";
     public const string RegistrationPromoted = "registration.promoted";
@@ -27,4 +29,5 @@ public static class AuditActions
     public const string MemberStudentNumberCorrected = "member.student_number_corrected";
     public const string MemberMembershipDeactivated = "member.membership_deactivated";
     public const string MemberMembershipReactivated = "member.membership_reactivated";
+    public const string AttendanceRecorded = "attendance.recorded";
 }

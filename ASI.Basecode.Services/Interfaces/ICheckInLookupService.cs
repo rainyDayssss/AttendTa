@@ -5,8 +5,10 @@ using ASI.Basecode.Services.ServiceModels;
 namespace ASI.Basecode.Services.Interfaces;
 
 /// <summary>
-/// Manual lookup and manual check-in by name or student number (register M-06). 4.5 replaces this
-/// contract with the real registration-scoped search and manual check-in.
+/// Manual lookup and manual check-in by name or student number. The real
+/// <see cref="Services.CheckInLookupService"/> serves both switch states: the search is a read-only,
+/// server-paged read of the selected event's Confirmed registrations, and the explicit Check in runs
+/// through the shared attendance recording engine.
 /// </summary>
 public interface ICheckInLookupService
 {

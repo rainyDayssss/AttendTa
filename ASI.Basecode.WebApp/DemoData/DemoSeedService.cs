@@ -13,8 +13,8 @@ using Microsoft.Extensions.Logging;
 namespace ASI.Basecode.WebApp.DemoData;
 
 /// <summary>
-/// Seeds the demo store at start-up from rows already in the connected database (register M-01,
-/// M-04 and M-05; register rule 5). It only composes existing repository reads and never writes a
+/// Seeds the demo store at start-up from rows already in the connected database (register M-01
+/// and M-07; register rule 5). It only composes existing repository reads and never writes a
 /// SQL row, a stored file or an Activity Log entry. The ready-to-complete event keeps its attendance
 /// and certificate data so the demo completes it live through the real service. Missing rows are
 /// logged, not fatal, so the app still starts on a sparsely populated database.
@@ -83,22 +83,14 @@ public sealed class DemoSeedService : IHostedService
                 .OrderByDescending(row => confirmedByEvent.TryGetValue(row.EventId, out var list) ? list.Count : 0)
                 .ThenBy(row => row.EventId)
                 .FirstOrDefault();
-            var checkInOpen = published.FirstOrDefault(row => row.EventId != readyToComplete?.EventId);
 
             if (readyToComplete != null)
             {
                 SeedReadyToCompleteEvent(readyToComplete.EventId, readyToComplete.Title, readyToComplete.StartsAt, confirmedByEvent);
             }
 
-            if (checkInOpen != null)
-            {
-                _store.SetCheckInOpen(checkInOpen.EventId, true);
-            }
-
             _logger.LogInformation(
-                "Demo data active (M-01, M-04, M-05, M-06, M-07). Check-in open event {CheckInOpenEventId}; "
-                + "ready to complete event {ReadyToCompleteEventId}.",
-                checkInOpen?.EventId,
+                "Demo data active (M-01, M-07). Ready to complete event {ReadyToCompleteEventId}.",
                 readyToComplete?.EventId);
         }
         catch (OperationCanceledException)
@@ -150,7 +142,7 @@ public sealed class DemoSeedService : IHostedService
         }
 
         var valid = recorded.Where(registrationId => registrationId != invalidatedRegistrationId).ToList();
-        _store.EnsureCertificateReviews(eventId, startsAt.AddHours(2));
+        _store.SeedPendingReviewsForEvent(eventId, startsAt.AddHours(2));
 
         // A pending, a declined and an issued certificate, so every review state opens populated.
         if (valid.Count >= 1)

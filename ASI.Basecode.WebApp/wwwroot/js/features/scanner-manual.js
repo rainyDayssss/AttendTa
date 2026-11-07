@@ -1,4 +1,4 @@
-// Door scanner manual adapter (register M-06). The lookup is server-rendered so it works without
+// Door scanner manual adapter. The lookup is server-rendered so it works without
 // JavaScript; this adapter keeps the interaction explicit and predictable: selecting or viewing a
 // row never records attendance, only the Check in button posts, and a submitted row cannot post
 // twice. It also focuses the lookup field when the manual mode is selected.

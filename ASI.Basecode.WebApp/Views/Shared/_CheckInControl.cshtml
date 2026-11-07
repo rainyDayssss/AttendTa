@@ -5,6 +5,13 @@
     var action = Model.IsCheckInOpen ? "CloseCheckIn" : "OpenCheckIn";
     var actionLabel = Model.IsCheckInOpen ? "Close check-in for this event" : "Open check-in for this event";
     var actionText = Model.IsCheckInOpen ? "Close check-in" : "Open check-in";
+    var stateMeta = Model.IsCheckInOpen
+        ? (Model.CheckInOpenedAt.HasValue && !string.IsNullOrWhiteSpace(Model.CheckInOpenedByName)
+            ? $"Opened by {Model.CheckInOpenedByName} · {ManilaTimeFormatter.Format(Model.CheckInOpenedAt)}"
+            : null)
+        : (Model.CheckInClosedAt.HasValue && !string.IsNullOrWhiteSpace(Model.CheckInClosedByName)
+            ? $"Closed by {Model.CheckInClosedByName} · {ManilaTimeFormatter.Format(Model.CheckInClosedAt)}"
+            : null);
 }
 
 @if (Model.CanChange)
@@ -33,10 +40,18 @@
         }
         <span class="badge @stateBadge">@stateLabel</span>
         <button type="submit" class="button button-secondary button-small" aria-label="@actionLabel">@actionText</button>
+        @if (!string.IsNullOrWhiteSpace(stateMeta))
+        {
+            <span class="check-in-meta">@stateMeta</span>
+        }
     </form>
     }
 }
 else
 {
     <span class="badge @stateBadge">@stateLabel</span>
+    @if (!string.IsNullOrWhiteSpace(stateMeta))
+    {
+        <span class="check-in-meta">@stateMeta</span>
+    }
 }

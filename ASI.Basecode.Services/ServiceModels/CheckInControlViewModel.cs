@@ -1,3 +1,5 @@
+using System;
+
 namespace ASI.Basecode.Services.ServiceModels;
 
 /// <summary>
@@ -11,6 +13,18 @@ public sealed class CheckInControlViewModel
 
     /// <summary>True when the check-in window is open for the event.</summary>
     public bool IsCheckInOpen { get; set; }
+
+    /// <summary>The full name of the officer who last opened the window, when known.</summary>
+    public string CheckInOpenedByName { get; set; }
+
+    /// <summary>The UTC time the window was last opened, when known.</summary>
+    public DateTime? CheckInOpenedAt { get; set; }
+
+    /// <summary>The full name of the officer who last closed the window, when known.</summary>
+    public string CheckInClosedByName { get; set; }
+
+    /// <summary>The UTC time the window was last closed, when known.</summary>
+    public DateTime? CheckInClosedAt { get; set; }
 
     /// <summary>True when the event is in a state that accepts an open or close command.</summary>
     public bool CanChange { get; set; }

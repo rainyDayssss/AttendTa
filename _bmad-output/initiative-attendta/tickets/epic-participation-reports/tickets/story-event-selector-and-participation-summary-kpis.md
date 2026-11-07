@@ -9,7 +9,7 @@ hitl: false
 risk: medium
 tracker_id: "71"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/71"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Event selector and participation summary KPIs

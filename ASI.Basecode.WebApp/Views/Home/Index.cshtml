@@ -1,2 +1,119 @@
-@{ ViewData["Title"] = "Home"; }
-<section class="panel"><h1>Welcome to AttendTa</h1><p class="muted">Use the navigation to access the pages available to your account.</p></section>
+@using ASI.Basecode.Resources.Constants
+@{
+    ViewData["Title"] = "Home";
+    var management = User.IsInRole(RoleCodes.Admin) || User.IsInRole(RoleCodes.Officer);
+    var administrator = User.IsInRole(RoleCodes.Admin);
+    var member = User.IsInRole(RoleCodes.Member);
+    var displayName = User.Identity?.Name ?? "there";
+}
+<header class="page-heading">
+    <div>
+        <h1>Welcome back, @displayName</h1>
+        <p class="muted">
+            @if (management)
+            {
+                <text>Review requests, run events, and keep the organization's records current.</text>
+            }
+            else
+            {
+                <text>Browse events, hold your passes, and review your participation history.</text>
+            }
+        </p>
+    </div>
+</header>
+
+@if (management)
+{
+    <section class="home-section" aria-labelledby="home-operations">
+        <h2 id="home-operations">Run the organization</h2>
+        <div class="home-grid">
+            <a class="home-card" asp-controller="Event" asp-action="Index">
+                <h3>Events</h3>
+                <p>Create, publish, and manage event sessions.</p>
+            </a>
+            <a class="home-card" asp-controller="CheckIn" asp-action="Index">
+                <h3>Check-in</h3>
+                <p>Scan passes and record attendance at the door.</p>
+            </a>
+            <a class="home-card" asp-controller="RegistrationReview" asp-action="Index">
+                <h3>Registration review</h3>
+                <p>Approve, decline, and promote registrations.</p>
+            </a>
+            <a class="home-card" asp-controller="CertificateLedger" asp-action="Index">
+                <h3>Certificates</h3>
+                <p>Review eligibility and issue certificates.</p>
+            </a>
+            <a class="home-card" asp-controller="Reports" asp-action="Participation">
+                <h3>Reports</h3>
+                <p>Read per-event participation and attendance.</p>
+            </a>
+            <a class="home-card" asp-controller="MemberEvents" asp-action="Index">
+                <h3>Browse events</h3>
+                <p>See the published event feed members use.</p>
+            </a>
+        </div>
+    </section>
+
+    <section class="home-section" aria-labelledby="home-records">
+        <h2 id="home-records">Records and requests</h2>
+        <div class="home-grid">
+            <a class="home-card" asp-controller="Member" asp-action="Index">
+                <h3>Members</h3>
+                <p>Maintain member records and membership status.</p>
+            </a>
+            <a class="home-card" asp-controller="AccountRequest" asp-action="Index">
+                <h3>Account requests</h3>
+                <p>Review membership requests and record a decision.</p>
+            </a>
+            <a class="home-card" asp-controller="EventType" asp-action="Index">
+                <h3>Event types</h3>
+                <p>Maintain event classifications and their descriptions.</p>
+            </a>
+            <a class="home-card" asp-controller="Venue" asp-action="Index">
+                <h3>Venues</h3>
+                <p>Maintain campus facilities, capacity, and photos.</p>
+            </a>
+            @if (administrator)
+            {
+                <a class="home-card" asp-controller="AdminAccounts" asp-action="Index">
+                    <h3>Accounts</h3>
+                    <p>Manage account roles and access.</p>
+                </a>
+                <a class="home-card" asp-controller="ActivityLog" asp-action="Index">
+                    <h3>Activity log</h3>
+                    <p>Read the append-only governance trail.</p>
+                </a>
+            }
+        </div>
+    </section>
+}
+else if (member)
+{
+    <section class="home-section" aria-labelledby="home-member">
+        <h2 id="home-member">Your participation</h2>
+        <div class="home-grid">
+            <a class="home-card" asp-controller="MemberEvents" asp-action="Index">
+                <h3>Browse events</h3>
+                <p>Find published events and submit a registration.</p>
+            </a>
+            <a class="home-card" asp-controller="Passes" asp-action="Index">
+                <h3>My Passes</h3>
+                <p>Show your door pass and download the QR code.</p>
+            </a>
+            <a class="home-card" asp-controller="MyEvents" asp-action="Registrations">
+                <h3>My Events</h3>
+                <p>Review your registrations, attendance, and certificates.</p>
+            </a>
+            <a class="home-card" asp-controller="Profile" asp-action="Index">
+                <h3>Profile</h3>
+                <p>Check your account and membership details.</p>
+            </a>
+        </div>
+    </section>
+}
+else
+{
+    <section class="panel">
+        <p>Use the navigation to access the pages available to your account.</p>
+    </section>
+}

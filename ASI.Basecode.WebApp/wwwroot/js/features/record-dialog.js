@@ -5,7 +5,8 @@
     const body = dialog.querySelector('[data-record-body]');
     const message = dialog.querySelector('[data-record-message]');
     const recovery = dialog.querySelector('[data-record-recovery]');
-    let trigger, busy = false, request;
+    const subtitle = dialog.querySelector('[data-record-subtitle]');
+    let trigger, busy = false, request, previewUrl;
     const headers = { 'X-Record-Dialog': 'true' };
     const restoreKey = 'attendta-record-focus';
     const previous = sessionStorage.getItem(restoreKey);
@@ -16,8 +17,36 @@
     }
     function focusForm() {
         const errors = body.querySelector('.validation-summary-errors');
-        (errors || body.querySelector('input:not([type="hidden"]), textarea, select, button'))?.focus();
+        (errors || body.querySelector('input:not([type="hidden"]):not([readonly]):not([disabled]), textarea, select, button'))?.focus();
     }
+    function clearPreview() {
+        if (previewUrl) {
+            if (typeof URL !== 'undefined' && URL.revokeObjectURL) URL.revokeObjectURL(previewUrl);
+            previewUrl = null;
+        }
+        body.querySelectorAll('[data-record-preview]').forEach(host => {
+            host.replaceChildren();
+            host.hidden = true;
+        });
+    }
+    function previewFile(input) {
+        const host = body.querySelector('[data-record-preview]');
+        const file = input.files?.[0];
+        if (!host || !file || !file.type?.startsWith('image/') || typeof URL === 'undefined' || !URL.createObjectURL) return;
+        previewUrl = URL.createObjectURL(file);
+        const image = document.createElement('img');
+        image.src = previewUrl;
+        image.alt = host.dataset.recordPreviewAlt || 'Preview of the selected image';
+        image.className = 'record-dialog-preview-image';
+        host.replaceChildren(image);
+        host.hidden = false;
+    }
+    body.addEventListener('change', event => {
+        const input = event.target.closest('input[type="file"]');
+        if (!input) return;
+        clearPreview();
+        previewFile(input);
+    });
     function setBusy(value) {
         busy = value;
         dialog.setAttribute('aria-busy', String(value));
@@ -27,6 +56,7 @@
         request?.abort();
         request = new AbortController();
         const current = request;
+        clearPreview();
         body.replaceChildren();
         recovery.hidden = true;
         message.textContent = 'Loading editor…';
@@ -51,6 +81,10 @@
         event.preventDefault();
         trigger = link;
         dialog.querySelector('#record-dialog-title').textContent = link.dataset.recordTitle;
+        if (subtitle) {
+            subtitle.textContent = link.dataset.recordSubtitle ?? '';
+            subtitle.hidden = !subtitle.textContent;
+        }
         dialog.querySelector('[data-record-fallback]').href = link.href;
         dialog.showModal();
         load();
@@ -72,7 +106,7 @@
             event.preventDefault(); first.focus();
         }
     });
-    dialog.addEventListener('close', () => { request?.abort(); trigger?.focus(); });
+    dialog.addEventListener('close', () => { request?.abort(); clearPreview(); trigger?.focus(); });
     dialog.addEventListener('submit', async event => {
         const form = event.target.closest('[data-record-form]');
         if (!form) return;
@@ -94,6 +128,7 @@
             }
             const html = await response.text();
             if (!html.includes('data-record-form')) throw new Error();
+            clearPreview();
             body.innerHTML = html;
             message.textContent = 'Please correct the highlighted errors.';
             setBusy(false);

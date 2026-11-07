@@ -10,6 +10,8 @@
   <data name="EventPublished" xml:space="preserve"><value>Event published.</value></data>
   <data name="EventCancelled" xml:space="preserve"><value>Event cancelled.</value></data>
   <data name="EventCompleted" xml:space="preserve"><value>Event completed.</value></data>
+  <data name="EventCheckInOpened" xml:space="preserve"><value>Event check-in opened.</value></data>
+  <data name="EventCheckInClosed" xml:space="preserve"><value>Event check-in closed.</value></data>
   <data name="EventTypeCreated" xml:space="preserve"><value>Event type created.</value></data>
   <data name="EventTypeEdited" xml:space="preserve"><value>Event type edited.</value></data>
   <data name="EventTypeStatusChanged" xml:space="preserve"><value>Event type status changed.</value></data>
@@ -29,4 +31,5 @@
   <data name="RegistrationPromoted" xml:space="preserve"><value>Registration promoted from the waitlist.</value></data>
   <data name="RegistrationDeclined" xml:space="preserve"><value>Registration declined.</value></data>
   <data name="RegistrationAdminCancelled" xml:space="preserve"><value>Registration administratively cancelled.</value></data>
+  <data name="AttendanceRecorded" xml:space="preserve"><value>Attendance recorded.</value></data>
 </root>

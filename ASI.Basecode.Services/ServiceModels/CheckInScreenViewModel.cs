@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using ASI.Basecode.Services.Interfaces;
 
 namespace ASI.Basecode.Services.ServiceModels;
 
@@ -70,6 +71,34 @@ public sealed class CheckInOutcomeViewModel
     {
         Outcome = Closed,
         Message = message
+    };
+
+    /// <summary>
+    /// Maps the shared engine's result onto the screen outcome. The scan, manual check-in and
+    /// invalidation paths all answer through this one mapping so their shape cannot drift.
+    /// </summary>
+    public static CheckInOutcomeViewModel FromRecordingResult(AttendanceRecordingResult result) => result.Outcome switch
+    {
+        AttendanceRecordingOutcome.Recorded => new CheckInOutcomeViewModel
+        {
+            Outcome = Success,
+            Message = result.Message,
+            MemberName = result.MemberName,
+            StudentNumber = result.StudentNumber,
+            RecordedAt = result.RecordedAt,
+            RegistrationId = result.RegistrationId
+        },
+        AttendanceRecordingOutcome.Repeat => new CheckInOutcomeViewModel
+        {
+            Outcome = Repeat,
+            Message = result.Message,
+            MemberName = result.MemberName,
+            StudentNumber = result.StudentNumber,
+            RecordedAt = result.RecordedAt,
+            RegistrationId = result.RegistrationId
+        },
+        AttendanceRecordingOutcome.Closed => ClosedResult(result.Message),
+        _ => InvalidResult(result.Message)
     };
 }
 

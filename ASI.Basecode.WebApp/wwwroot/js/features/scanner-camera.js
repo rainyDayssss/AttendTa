@@ -33,6 +33,18 @@
         if (note) note.textContent = text;
     }
 
+    function showStart() {
+        if (startButton) { startButton.hidden = false; startButton.disabled = false; }
+        if (stopButton) stopButton.hidden = true;
+        if (nextButton) nextButton.hidden = true;
+    }
+
+    function showNext() {
+        if (startButton) { startButton.hidden = true; startButton.disabled = false; }
+        if (stopButton) stopButton.hidden = true;
+        if (nextButton) nextButton.hidden = false;
+    }
+
     function stop() {
         // Permission prompts can resolve after switching modes or leaving the page. Invalidate
         // their continuations so a late stream cannot restart a hidden camera or leak tracks.
@@ -48,14 +60,11 @@
             stream = null;
         }
         if (video) video.srcObject = null;
-        if (startButton) startButton.hidden = false;
-        if (startButton) startButton.disabled = false;
-        if (stopButton) stopButton.hidden = true;
+        showStart();
     }
 
     function unavailable(message) {
         stop();
-        if (nextButton) nextButton.hidden = true;
         setNote(message);
         api.render({ outcome: 'camera-unavailable', message: message });
     }
@@ -77,7 +86,9 @@
                 api.postScan(scanForm, code.data).then(function () {
                     busy = false;
                     stop();
-                    if (nextButton) nextButton.hidden = false;
+                    // One resume control: the outcome is shown, so offer Scan next rather than
+                    // both Scan next and Start camera.
+                    showNext();
                 });
                 return;
             }
@@ -95,7 +106,8 @@
 
         var requestGeneration = ++generation;
         starting = true;
-        if (startButton) startButton.disabled = true;
+        // Keep a visible, disabled control while the permission prompt is open.
+        if (startButton) { startButton.hidden = false; startButton.disabled = true; }
         if (nextButton) nextButton.hidden = true;
         setNote('Waiting for camera access. You can use manual lookup at any time.');
         navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })

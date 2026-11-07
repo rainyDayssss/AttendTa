@@ -9,7 +9,7 @@ hitl: false
 risk: low
 tracker_id: "127"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/127"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Master Data lists: status filters, result counts, and loading/error states

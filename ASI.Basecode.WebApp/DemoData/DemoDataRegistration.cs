@@ -7,9 +7,9 @@ namespace ASI.Basecode.WebApp.DemoData;
 /// <summary>
 /// The one demo registration method (register M-01; register rule 9). Called from
 /// <c>Startup.DI.cs</c> behind <c>DemoData:Enabled</c>; it calls one registration file per surface.
-/// With the switch off it registers the no-op providers so the controllers keep the same shape and
-/// the normal screens are untouched. Both account commands and both membership commands are the real
-/// services registered by DI.
+/// With the switch off it registers the unavailable invalidation provider so the normal screens are
+/// untouched. Check-in by scan, the manual lookup, both account commands and both membership
+/// commands are the real services registered by DI in both switch states.
 /// </summary>
 internal static class DemoDataRegistration
 {
@@ -18,10 +18,6 @@ internal static class DemoDataRegistration
         DemoCertificatesRegistration.AddCertificates(services, configuration.GetValue<bool>(DemoDataOptions.SectionName + ":Enabled"));
         if (!configuration.GetValue<bool>(DemoDataOptions.SectionName + ":Enabled"))
         {
-            services.AddSingleton<IEventStateOverlay, NoOpEventStateOverlay>();
-            services.AddScoped<IEventStateCommands, UnavailableEventStateCommands>();
-            services.AddScoped<ICheckInService, UnavailableCheckInService>();
-            services.AddScoped<ICheckInLookupService, UnavailableCheckInLookupService>();
             services.AddScoped<IAttendanceInvalidationService, UnavailableAttendanceInvalidationService>();
             return;
         }
@@ -30,7 +26,6 @@ internal static class DemoDataRegistration
         services.AddSingleton<DemoStore>();
         services.AddHostedService<DemoSeedService>();
 
-        DemoEventsRegistration.AddDemoEvents(services);
         DemoReportsRegistration.AddDemoReports(services);
         DemoCheckInRegistration.AddDemoCheckIn(services);
     }

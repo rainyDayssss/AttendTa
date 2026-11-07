@@ -5,9 +5,9 @@ using ASI.Basecode.Services.ServiceModels;
 namespace ASI.Basecode.Services.Interfaces;
 
 /// <summary>
-/// Per-event participation report read. The demo provider implements this contract now; 7.1, 7.2
-/// and 7.3 implement the real reads behind the same contract and remove the demo rows M-13a,
-/// M-13b and M-13c. Reads only: the report never mutates participation records.
+/// Per-event participation report read. 7.1 and 7.2 are real; only the M-13c detail-row overlay
+/// remains with the demo provider, and 7.3 removes it behind the same contract. Reads only: the
+/// report never mutates participation records.
 /// </summary>
 public interface IParticipationReportService
 {

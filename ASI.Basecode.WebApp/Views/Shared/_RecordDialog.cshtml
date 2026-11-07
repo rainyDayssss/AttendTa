@@ -1,7 +1,10 @@
 <dialog id="record-dialog" class="record-dialog" aria-labelledby="record-dialog-title" aria-describedby="record-dialog-description">
     <header class="record-dialog-header">
-        <h2 id="record-dialog-title">Record editor</h2>
-        <button type="button" class="button button-secondary" data-record-close aria-label="Close editor">×</button>
+        <div class="record-dialog-heading">
+            <h2 id="record-dialog-title">Record editor</h2>
+            <p class="record-dialog-subtitle" data-record-subtitle hidden></p>
+        </div>
+        <button type="button" class="record-dialog-close" data-record-close aria-label="Close editor">×</button>
     </header>
     <p id="record-dialog-description">Required fields are marked with an asterisk.</p>
     <div data-record-message role="status" tabindex="-1"></div>

@@ -4,6 +4,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using ASI.Basecode.Data;
+using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Data.Repositories;
@@ -547,7 +548,8 @@ internal static class EventDraftTestSupport
 
     public static EventLifecycleService Service(AsiBasecodeDBContext context, int actorId, TimeProvider? clock = null,
         Func<IActivityLogWriter, IActivityLogWriter>? wrapAudit = null,
-        IEnumerable<IEventCompletionHandler>? completionHandlers = null)
+        IEnumerable<IEventCompletionHandler>? completionHandlers = null,
+        Func<IUnitOfWork, IEnumerable<IEventCompletionHandler>>? completionHandlerFactory = null)
     {
         var unitOfWork = new UnitOfWork(context);
         var actor = new Actor(actorId);
@@ -566,7 +568,7 @@ internal static class EventDraftTestSupport
             new VenueRepository(unitOfWork),
             registrations,
             new RegistrationCancellationService(registrations, events, unitOfWork, actor, audit, timeProvider),
-            completionHandlers ?? Array.Empty<IEventCompletionHandler>(),
+            completionHandlerFactory?.Invoke(unitOfWork) ?? completionHandlers ?? Array.Empty<IEventCompletionHandler>(),
             unitOfWork,
             Mapper,
             timeProvider,

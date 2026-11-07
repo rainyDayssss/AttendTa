@@ -184,16 +184,19 @@
         var body = new URLSearchParams();
         body.set('eventId', form.elements.eventId.value);
         body.set('token', value);
+
+        // AD-8: AJAX mutations carry the layout meta token as the antiforgery header, not in the body.
+        var headers = {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        };
         var token = requestToken();
-        if (token) body.set('__RequestVerificationToken', token);
+        if (token) headers.RequestVerificationToken = token;
 
         return fetch(form.action, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json'
-            },
+            headers: headers,
             credentials: 'same-origin',
             body: body.toString()
         })

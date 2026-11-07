@@ -23,6 +23,12 @@ namespace ASI.Basecode.Services.Interfaces
         /// </summary>
         Task CompleteAsync(int eventId, CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// Opens or closes the check-in window of a published event, recording the actor and time
+        /// and appending one audit entry in the same transaction.
+        /// </summary>
+        Task SetCheckInWindowAsync(int eventId, bool open, CancellationToken cancellationToken = default);
+
         Task<EventCoverViewModel> GetCoverManagementAsync(int eventId, CancellationToken cancellationToken = default);
         Task<EventCoverStream> OpenCoverAsync(int eventId, CancellationToken cancellationToken = default);
         Task UploadCoverAsync(int eventId, Stream image, string extension, CancellationToken cancellationToken = default);

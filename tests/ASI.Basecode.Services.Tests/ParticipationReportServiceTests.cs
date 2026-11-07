@@ -46,7 +46,68 @@ public sealed class ParticipationReportServiceTests
         Assert.Equal(2, report.Selector.Options.Count);
         Assert.Equal(1, report.Selector.SelectedEventId);
         Assert.Equal(1, summary.Calls);
+        Assert.Equal(1, summary.NoShowCalls);
+        Assert.Equal(1, summary.DistributionCalls);
         Assert.Equal(1, summary.LastEventId);
+    }
+
+    [Fact]
+    public async Task CompletedEventMapsNoShowsAndSignupSnapshotBreakdowns()
+    {
+        var events = new FakeEvents { EventItem = Event(1, EventStatusCode.Completed) };
+        events.Items.Add(new EventListItem { EventId = 1, Title = "Completed" });
+        var courses = new[]
+        {
+            new CourseDistributionRow("BSIT", 2),
+            new CourseDistributionRow("bsit", 1),
+            new CourseDistributionRow("BSED", 1),
+            new CourseDistributionRow("   ", 1)
+        };
+        var years = new[]
+        {
+            new YearDistributionRow(1, 2),
+            new YearDistributionRow(3, 1),
+            new YearDistributionRow(0, 1),
+            new YearDistributionRow(1, 1)
+        };
+        var summary = new FakeReportFacts(
+            new ParticipationReportSummaryFacts(0, 5, 0, 0, 5, 1m),
+            1,
+            courses,
+            years);
+        var service = new ParticipationReportService(events, summary);
+
+        var report = await service.GetReportAsync(1, null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, report.NoShowCount);
+        Assert.Equal(1, summary.NoShowCalls);
+        Assert.Equal(1, summary.DistributionCalls);
+
+        // Course labels are trimmed and grouped case-insensitively, largest share first then label.
+        Assert.Equal(new[] { "BSIT", "BSED", "Unspecified" }, report.CourseBreakdown.Select(row => row.Label));
+        Assert.Equal(new[] { 3, 1, 1 }, report.CourseBreakdown.Select(row => row.Count));
+        Assert.Equal(new[] { 60, 20, 20 }, report.CourseBreakdown.Select(row => row.Percent));
+
+        // Year labels order by the snapshot year, with an unspecified year first.
+        Assert.Equal(new[] { "Unspecified", "Year 1", "Year 3" }, report.YearBreakdown.Select(row => row.Label));
+        Assert.Equal(new[] { 1, 3, 1 }, report.YearBreakdown.Select(row => row.Count));
+        Assert.Equal(new[] { 20, 60, 20 }, report.YearBreakdown.Select(row => row.Percent));
+    }
+
+    [Fact]
+    public async Task ZeroAttendeesProducesEmptyBreakdownsWithoutDividingByZero()
+    {
+        var events = new FakeEvents { EventItem = Event(1, EventStatusCode.Completed) };
+        events.Items.Add(new EventListItem { EventId = 1, Title = "Empty" });
+        var service = new ParticipationReportService(
+            events,
+            new FakeReportFacts(new ParticipationReportSummaryFacts(0, 2, 0, 0, 0, 0m), 2));
+
+        var report = await service.GetReportAsync(1, null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, report.NoShowCount);
+        Assert.Empty(report.CourseBreakdown);
+        Assert.Empty(report.YearBreakdown);
     }
 
     [Theory]
@@ -152,9 +213,15 @@ public sealed class ParticipationReportServiceTests
         EventStatusId = status
     };
 
-    private sealed class FakeReportFacts(ParticipationReportSummaryFacts facts) : IParticipationReportRepository
+    private sealed class FakeReportFacts(
+        ParticipationReportSummaryFacts facts,
+        int noShowCount = 0,
+        IReadOnlyList<CourseDistributionRow>? courses = null,
+        IReadOnlyList<YearDistributionRow>? years = null) : IParticipationReportRepository
     {
         public int Calls { get; private set; }
+        public int NoShowCalls { get; private set; }
+        public int DistributionCalls { get; private set; }
         public int? LastEventId { get; private set; }
 
         public Task<ParticipationReportSummaryFacts> GetSummaryFactsAsync(int eventId, CancellationToken cancellationToken = default)
@@ -162,6 +229,20 @@ public sealed class ParticipationReportServiceTests
             Calls++;
             LastEventId = eventId;
             return Task.FromResult(facts);
+        }
+
+        public Task<int> GetNoShowCountAsync(int eventId, CancellationToken cancellationToken = default)
+        {
+            NoShowCalls++;
+            LastEventId = eventId;
+            return Task.FromResult(noShowCount);
+        }
+
+        public Task<ParticipationReportDistributionFacts> GetAttendeeDistributionAsync(int eventId, CancellationToken cancellationToken = default)
+        {
+            DistributionCalls++;
+            LastEventId = eventId;
+            return Task.FromResult(new ParticipationReportDistributionFacts(courses ?? [], years ?? []));
         }
     }
 

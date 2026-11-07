@@ -166,6 +166,8 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         await page.ScreenshotAsync(new() { Path = Path.Combine(Path.GetTempPath(), "attendta-6-12-certificate-viewer-phone.png"), FullPage = true });
         await page.CloseAsync();
         await using var observer = MemberEventTestSupport.Context(fixture.ConnectionString);
+        // The demo event's attendance lives only in DemoStore, so the real completion hook finds no
+        // SQL attendance and inserts no certificate rows here; the ledger still shows the seeded reviews.
         Assert.Empty(await observer.Certificates.ToListAsync(ct));
         var logs = await observer.ActivityLogs.ToListAsync(ct);
         var completion = Assert.Single(logs);

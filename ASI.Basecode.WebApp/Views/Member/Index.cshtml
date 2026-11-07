@@ -128,7 +128,7 @@ else
                         <td><span class="badge @(member.Status == "active" ? "badge-active" : "badge-inactive")">@(member.Status == "active" ? "Active" : "Inactive")</span></td>
                         <td class="actions">
                             <div class="row-actions">
-                                <a asp-action="Edit" asp-route-id="@member.MemberId" class="button button-small button-secondary" data-record-open="edit-member-@member.MemberId" data-record-title="Edit Member">Edit</a>
+                                <a asp-action="Edit" asp-route-id="@member.MemberId" class="button button-small button-secondary" data-record-open="edit-member-@member.MemberId" data-record-title="Edit Member" data-record-subtitle="@member.FullName · @member.StudentNumber">Edit</a>
                                 <partial name="_AccessActions" model="MembershipAccessViewModel.For(member)" />
                             </div>
                         </td>

@@ -414,6 +414,91 @@ namespace ASI.Basecode.Services.Services
             }, cancellationToken);
         }
 
+        public async Task SetCheckInWindowAsync(int eventId, bool open, CancellationToken cancellationToken = default)
+        {
+            var actorUserId = RequireManagementActor();
+            var discovered = await _events.GetEventAsync(eventId, cancellationToken);
+            if (discovered == null)
+            {
+                throw new DomainException(OutcomeCode.NotFound, "Event not found.");
+            }
+
+            if (discovered.EventStatusId != EventStatusCode.Published)
+            {
+                throw new DomainException(OutcomeCode.Invalid, "Check-in can only be changed for a published event.");
+            }
+
+            if (discovered.IsCheckInOpen == open)
+            {
+                throw new DomainException(OutcomeCode.Invalid, open
+                    ? "Check-in is already open for this event."
+                    : "Check-in is already closed for this event.");
+            }
+
+            await _unitOfWork.ExecuteInTransactionAsync(async ct =>
+            {
+                // AD-4: the check-in window takes only the event lock.
+                var eventItem = await _events.LockEventAsync(eventId, ct);
+                if (eventItem == null)
+                {
+                    throw new DomainException(OutcomeCode.NotFound, "Event not found.");
+                }
+
+                if (eventItem.EventStatusId != discovered.EventStatusId)
+                {
+                    throw new DomainException(OutcomeCode.Stale, "The event changed while its check-in window was being updated.");
+                }
+
+                if (eventItem.IsCheckInOpen != discovered.IsCheckInOpen)
+                {
+                    throw new DomainException(OutcomeCode.Invalid, "The check-in window changed. Refresh the page and try again.");
+                }
+
+                if (eventItem.EventStatusId != EventStatusCode.Published)
+                {
+                    throw new DomainException(OutcomeCode.Invalid, "Check-in can only be changed for a published event.");
+                }
+
+                var now = _timeProvider.GetUtcNow().UtcDateTime;
+                var oldValues = new EventCheckInWindowAuditValues(
+                    eventItem.EventStatusId,
+                    eventItem.IsCheckInOpen,
+                    eventItem.CheckInOpenedBy,
+                    eventItem.CheckInOpenedAt,
+                    eventItem.CheckInClosedBy,
+                    eventItem.CheckInClosedAt);
+
+                eventItem.IsCheckInOpen = open;
+                if (open)
+                {
+                    eventItem.CheckInOpenedBy = actorUserId;
+                    eventItem.CheckInOpenedAt = now;
+                }
+                else
+                {
+                    eventItem.CheckInClosedBy = actorUserId;
+                    eventItem.CheckInClosedAt = now;
+                }
+
+                eventItem.UpdatedBy = actorUserId;
+                eventItem.UpdatedAt = now;
+                await _events.UpdateEventAsync(eventItem, ct);
+                _audit.Append(new AuditEntry(
+                    open ? AuditActions.EventCheckInOpened : AuditActions.EventCheckInClosed,
+                    "events",
+                    eventItem.EventId,
+                    OldValues: oldValues,
+                    NewValues: new EventCheckInWindowAuditValues(
+                        eventItem.EventStatusId,
+                        eventItem.IsCheckInOpen,
+                        eventItem.CheckInOpenedBy,
+                        eventItem.CheckInOpenedAt,
+                        eventItem.CheckInClosedBy,
+                        eventItem.CheckInClosedAt)));
+                await _unitOfWork.SaveChangesAsync(ct);
+            }, cancellationToken);
+        }
+
         public async Task<EventCoverViewModel> GetCoverManagementAsync(int eventId, CancellationToken cancellationToken = default)
         {
             RequireManagementActor();
@@ -697,6 +782,14 @@ namespace ASI.Basecode.Services.Services
             bool IsCheckInOpen,
             int? CompletedBy,
             DateTime? CompletedAt) : IAuditValues;
+
+        private sealed record EventCheckInWindowAuditValues(
+            EventStatusCode Status,
+            bool IsCheckInOpen,
+            int? CheckInOpenedBy,
+            DateTime? CheckInOpenedAt,
+            int? CheckInClosedBy,
+            DateTime? CheckInClosedAt) : IAuditValues;
 
         private int ActorUserId()
         {

@@ -21,4 +21,5 @@ public sealed class PublishedEventDetail
     public int ConfirmedCount { get; set; }
     public bool HasCover { get; set; }
     public EventStatusCode EventStatusId { get; set; }
+    public bool IsCheckInOpen { get; set; }
 }

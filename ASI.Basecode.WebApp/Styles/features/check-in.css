@@ -29,6 +29,8 @@
   .scanner-window .scanner-panel .data-table { color: #0f172a; }
   .scanner-window .scanner-panel .table-scroll .muted { color: #475569; }
 
+  .check-in-meta { display: block; flex-basis: 100%; margin: 0; color: #475569; font-size: .8rem; }
+
   .scanner-result { margin-top: 1rem; }
   .scanner-result:empty { display: none; }
   .scanner-outcome { padding: 1rem; border: 1px solid #334155; border-radius: 10px; background: #0f172a; }

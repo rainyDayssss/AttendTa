@@ -9,7 +9,7 @@ hitl: false
 risk: medium
 tracker_id: "147"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/147"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Member centered record editor using the shared dialog

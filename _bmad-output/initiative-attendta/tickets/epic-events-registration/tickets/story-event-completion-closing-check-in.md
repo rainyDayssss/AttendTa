@@ -9,7 +9,7 @@ hitl: false
 risk: low
 tracker_id: "41"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/41"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Event completion closing check-in

@@ -442,6 +442,9 @@ public sealed class EventCoverServiceTests
         public Task<bool> IsConfirmedAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<bool> ExistsAsync(int eventId, int memberId, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<int> CountConfirmedAsync(int eventId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<int> CountConfirmedLookupAsync(int eventId, string query, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<ConfirmedLookupRow>> GetConfirmedLookupPageAsync(int eventId, string query, int skip, int take, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<string> GetConfirmedStudentNumberAsync(int eventId, int registrationId, CancellationToken ct = default) => throw new NotSupportedException();
         public Task AddAsync(Registration registration, CancellationToken ct = default) => throw new NotSupportedException();
     }
 

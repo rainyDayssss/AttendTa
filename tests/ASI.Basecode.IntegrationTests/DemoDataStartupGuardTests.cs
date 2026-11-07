@@ -26,4 +26,19 @@ public sealed class DemoDataStartupGuardTests(SqlServerDatabaseFixture fixture) 
         Assert.Contains(fixture.DatabaseName, exception.ToString(), StringComparison.Ordinal);
         Assert.Contains("Demo data refuses to start", exception.ToString(), StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void StartupRefusesWhenDemoDataTokenKeyIsMissing()
+    {
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var guarded = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("DemoData:Enabled", "true");
+            builder.UseSetting("DemoData:AllowDatabase", fixture.DatabaseName);
+        });
+
+        var exception = Assert.ThrowsAny<Exception>(() => guarded.CreateClient());
+
+        Assert.Contains("DemoData:TokenKey is required", exception.ToString(), StringComparison.Ordinal);
+    }
 }

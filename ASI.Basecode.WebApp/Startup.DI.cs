@@ -52,11 +52,18 @@ namespace ASI.Basecode.WebApp
             this._services.AddScoped<IMemberEventService, MemberEventService>();
             this._services.AddScoped<IRegistrationCancellationService, RegistrationCancellationService>();
             this._services.AddScoped<IRegistrationReviewService, RegistrationReviewService>();
+            this._services.AddScoped<IAttendanceRecordingService, AttendanceRecordingService>();
+            this._services.AddScoped<ICheckInService, CheckInService>();
+            this._services.AddScoped<ICheckInLookupService, CheckInLookupService>();
             this._services.AddScoped<ICertificateTracerService, CertificateTracerService>();
             this._services.AddScoped<IMyEventsService, MyEventsService>();
             this._services.AddScoped<IPassService, PassService>();
             this._services.AddScoped<ParticipationReportService>();
             this._services.AddScoped<IParticipationReportService>(services => services.GetRequiredService<ParticipationReportService>());
+
+            // Event completion hooks (AD-2). The completion use case invokes every registration inside
+            // its transaction; each handler shares the caller's unit of work.
+            this._services.AddScoped<IEventCompletionHandler, CertificateReviewCompletionHandler>();
 
             // Repositories
             this._services.AddScoped<IUserRepository, UserRepository>();
@@ -68,7 +75,9 @@ namespace ASI.Basecode.WebApp
             this._services.AddScoped<IVenueRepository, VenueRepository>();
             this._services.AddScoped<IEventRepository, EventRepository>();
             this._services.AddScoped<IRegistrationRepository, RegistrationRepository>();
+            this._services.AddScoped<IAttendanceRepository, AttendanceRepository>();
             this._services.AddScoped<IParticipationReportRepository, ParticipationReportRepository>();
+            this._services.AddScoped<ICertificateRepository, CertificateRepository>();
 
             // Shared server-local storage for private images, certificates and renderer files.
             this._services.AddScoped<IPrivateFileStore, PrivateFileStore>();

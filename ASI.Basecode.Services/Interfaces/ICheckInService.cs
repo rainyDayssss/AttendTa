@@ -5,8 +5,9 @@ using ASI.Basecode.Services.ServiceModels;
 namespace ASI.Basecode.Services.Interfaces;
 
 /// <summary>
-/// Door scanner screen data and scan check-in (register M-05). 4.3 replaces this contract with the
-/// real validation engine and attendance write.
+/// Door scanner screen data and scan check-in. The real <c>CheckInService</c> reads the published
+/// event and the real attendance log, and delegates every scan to the shared
+/// <see cref="IAttendanceRecordingService"/>.
 /// </summary>
 public interface ICheckInService
 {

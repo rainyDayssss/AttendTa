@@ -33,6 +33,14 @@ namespace ASI.Basecode.Services.ServiceModels
         /// <summary>True when the event's check-in window is open.</summary>
         public bool IsCheckInOpen { get; set; }
 
+        public string CheckInOpenedByName { get; set; }
+
+        public DateTime? CheckInOpenedAt { get; set; }
+
+        public string CheckInClosedByName { get; set; }
+
+        public DateTime? CheckInClosedAt { get; set; }
+
         public string TypeName { get; set; }
 
         public string VenueName { get; set; }

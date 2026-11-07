@@ -50,6 +50,25 @@ public interface IRegistrationRepository
     /// <summary>Counts confirmed seats for the event using the canonical seat fact.</summary>
     Task<int> CountConfirmedAsync(int eventId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Counts the event's Confirmed registrations whose member name or student number contains the
+    /// trimmed query, using the database collation for the comparison.
+    /// </summary>
+    Task<int> CountConfirmedLookupAsync(int eventId, string query, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reads one page of the event's Confirmed registrations whose member name or student number
+    /// contains the trimmed query, ordered by member name then registration id, with the attendance
+    /// state the manual check-in table shows. Read only.
+    /// </summary>
+    Task<IReadOnlyList<ConfirmedLookupRow>> GetConfirmedLookupPageAsync(int eventId, string query, int skip, int take, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reads the student number of a Confirmed registration of the event, or <c>null</c> when the
+    /// registration is unknown, belongs to another event or is not Confirmed.
+    /// </summary>
+    Task<string> GetConfirmedStudentNumberAsync(int eventId, int registrationId, CancellationToken cancellationToken = default);
+
     Task AddAsync(Registration registration, CancellationToken cancellationToken = default);
 
     Task<Registration> GetForCancellationAsync(int registrationId, CancellationToken cancellationToken = default);
@@ -77,6 +96,11 @@ public sealed record RegistrationPromotionCandidate(int RegistrationId, int User
 public sealed record MyEventRegistrationRow(int RegistrationId, int EventId, string EventTitle, string TypeName, string VenueName, DateTime StartsAt, ASI.Basecode.Data.Models.Lookups.EventStatusCode EventStatusId, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status);
 public sealed record MyPassRow(int RegistrationId, int EventId, string EventTitle, string EventTypeName, string VenueName, DateTime StartsAt, string HolderName, string StudentNumber, string QrToken);
 public sealed record OwnedPassRow(int RegistrationId, int EventId, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status, ASI.Basecode.Data.Models.Lookups.EventStatusCode EventStatus, string QrToken);
+/// <summary>
+/// One confirmed participant in the manual check-in lookup. <see cref="HasAttendance"/> is true for
+/// any attendance row; <see cref="IsAttendanceInvalidated"/> is true when that row is invalidated.
+/// </summary>
+public sealed record ConfirmedLookupRow(int RegistrationId, string MemberName, string StudentNumber, bool HasAttendance, bool IsAttendanceInvalidated);
 public sealed record RegistrationReviewRow(int RegistrationId, int EventId, string EventTitle, string MemberName, string StudentNumber, DateTime SubmittedAt, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status)
 {
     /// <summary>The course captured at signup, used by the participation report breakdowns.</summary>

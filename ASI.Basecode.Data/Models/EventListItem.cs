@@ -14,4 +14,9 @@ public sealed class EventListItem
     public DateTime RegistrationDeadline { get; set; }
     public int ParticipantLimit { get; set; }
     public EventStatusCode EventStatusId { get; set; }
+    public bool IsCheckInOpen { get; set; }
+    public string CheckInOpenedByName { get; set; }
+    public DateTime? CheckInOpenedAt { get; set; }
+    public string CheckInClosedByName { get; set; }
+    public DateTime? CheckInClosedAt { get; set; }
 }

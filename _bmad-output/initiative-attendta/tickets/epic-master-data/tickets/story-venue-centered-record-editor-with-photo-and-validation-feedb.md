@@ -9,7 +9,7 @@ hitl: false
 risk: medium
 tracker_id: "148"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/148"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Venue centered record editor with photo and validation feedback

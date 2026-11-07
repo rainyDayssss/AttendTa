@@ -9,7 +9,7 @@ hitl: false
 risk: medium
 tracker_id: "143"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/143"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Shared centered record dialog and Event Type editor tracer

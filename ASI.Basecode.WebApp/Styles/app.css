@@ -14,6 +14,7 @@
 @import "./features/event-selector.css";
 @import "./features/record-dialog.css";
 @import "./features/list-feedback.css";
+@import "./features/home.css";
 @source "../Views/**/*.cshtml";
 @source "../wwwroot/js/**/*.js";
 /* Dynamic status and shell classes are enumerated so they survive source scanning. */

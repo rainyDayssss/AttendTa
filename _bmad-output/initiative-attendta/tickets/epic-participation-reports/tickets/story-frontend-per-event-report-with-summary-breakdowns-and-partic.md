@@ -9,7 +9,7 @@ hitl: false
 risk: medium
 tracker_id: "140"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/140"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Frontend per-event report with summary breakdowns and participant table

@@ -3,7 +3,6 @@ using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
-using ASI.Basecode.WebApp.DemoData;
 using ASI.Basecode.WebApp.Formatting;
 using ASI.Basecode.WebApp.Mvc;
 using AutoMapper;
@@ -30,8 +29,6 @@ namespace ASI.Basecode.WebApp.Controllers
         private const string EventIndexRoute = "EventIndex";
 
         private readonly IEventLifecycleService _eventService;
-        private readonly IEventStateCommands _eventStateCommands;
-        private readonly IEventStateOverlay _eventStateOverlay;
         private readonly IRegistrationReviewService _review;
         private readonly TimeProvider _timeProvider;
 
@@ -40,14 +37,10 @@ namespace ASI.Basecode.WebApp.Controllers
                                IConfiguration configuration,
                                IMapper mapper,
                                IEventLifecycleService eventService,
-                               IEventStateCommands eventStateCommands,
-                                IEventStateOverlay eventStateOverlay,
-                                IRegistrationReviewService review,
-                                TimeProvider timeProvider) : base(httpContextAccessor, loggerFactory, configuration, mapper)
+                               IRegistrationReviewService review,
+                               TimeProvider timeProvider) : base(httpContextAccessor, loggerFactory, configuration, mapper)
         {
             _eventService = eventService;
-            _eventStateCommands = eventStateCommands;
-            _eventStateOverlay = eventStateOverlay;
             _review = review;
             _timeProvider = timeProvider;
         }
@@ -56,7 +49,7 @@ namespace ASI.Basecode.WebApp.Controllers
         [Route("Event", Name = EventIndexRoute)]
         [Route("Event/Index")]
         public async Task<IActionResult> Index(int? page, CancellationToken cancellationToken) =>
-            View(_eventStateOverlay.Apply(await _eventService.GetPageAsync(page, cancellationToken)));
+            View(await _eventService.GetPageAsync(page, cancellationToken));
 
         [HttpGet]
         [Route("Event/Details")]
@@ -72,7 +65,7 @@ namespace ASI.Basecode.WebApp.Controllers
                 (await _review.GetPageAsync(value, id, 1, cancellationToken)).TotalCount;
             var model = new EventDossierViewModel
             {
-                Event = _eventStateOverlay.Apply(item), Status = status, Roster = roster,
+                Event = item, Status = status, Roster = roster,
                 PendingCount = await Count("pending"), ConfirmedCount = await Count("confirmed"),
                 WaitlistedCount = await Count("waitlisted"),
                 HasStarted = item.StartsAt <= _timeProvider.GetUtcNow().UtcDateTime
@@ -235,7 +228,7 @@ namespace ASI.Basecode.WebApp.Controllers
         {
             try
             {
-                await _eventStateCommands.OpenCheckInAsync(id, cancellationToken);
+                await _eventService.SetCheckInWindowAsync(id, true, cancellationToken);
                 TempData["SuccessMessage"] = "Check-in opened.";
             }
             catch (DomainException exception)
@@ -251,7 +244,7 @@ namespace ASI.Basecode.WebApp.Controllers
         {
             try
             {
-                await _eventStateCommands.CloseCheckInAsync(id, cancellationToken);
+                await _eventService.SetCheckInWindowAsync(id, false, cancellationToken);
                 TempData["SuccessMessage"] = "Check-in closed.";
             }
             catch (DomainException exception)

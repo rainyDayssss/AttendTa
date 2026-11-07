@@ -13,7 +13,8 @@ using ASI.Basecode.Services.ServiceModels;
 
 namespace ASI.Basecode.WebApp.DemoData;
 
-// M-10a/M-10b/M-11a/M-11b: certificate surface adapters removed by 6.4/6.6/6.7/6.8 respectively.
+// M-10b/M-11a/M-11b: certificate surface adapters removed by 6.6/6.7/6.8 respectively. M-10a was
+// removed by 6.4: the real completion hook creates reviews, so this surface no longer creates them.
 public sealed class DemoCertificateLedgerService(
     IEventRepository events, IRegistrationRepository registrations, DemoStore store,
     DemoCertificateDocuments documents, ICurrentActor actor, TimeProvider clock) : ICertificateLedgerService
@@ -30,7 +31,6 @@ public sealed class DemoCertificateLedgerService(
         var rows = new List<CertificateLedgerRowViewModel>();
         if (selected != null)
         {
-            store.EnsureCertificateReviews(selected.EventId, clock.GetUtcNow().UtcDateTime);
             var confirmed = await ReadRegistrationsAsync(selected.EventId, cancellationToken);
             foreach (var row in confirmed)
             {

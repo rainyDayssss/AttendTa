@@ -36,10 +36,20 @@ public sealed class DemoParticipationReportOverlayTests
         Assert.Equal(0, report.NoShowCount);
         var row = Assert.Single(report.Rows);
         Assert.True(row.Attended);
+
+        // The demo store holds attendance, so the overlay keeps its attendance-derived breakdowns.
+        var course = Assert.Single(report.CourseBreakdown);
+        Assert.Equal("Unspecified", course.Label);
+        Assert.Equal(1, course.Count);
+        Assert.Equal(100, course.Percent);
+        var year = Assert.Single(report.YearBreakdown);
+        Assert.Equal("Unspecified", year.Label);
+        Assert.Equal(1, year.Count);
+        Assert.Equal(100, year.Percent);
     }
 
     [Fact]
-    public async Task RealValidCountDrivesNoShowsWhenDemoStoreHoldsNoAttendance()
+    public async Task RealNoShowsAndBreakdownsPassThroughWhenDemoStoreHoldsNoAttendance()
     {
         const int registrationId = 11;
         const int eventId = 22;
@@ -50,14 +60,27 @@ public sealed class DemoParticipationReportOverlayTests
 
         var real = new ParticipationReportService(
             new FakeEvents(eventId),
-            new FakeReportFacts(new ParticipationReportSummaryFacts(0, 3, 0, 0, 2, 2m / 3m)));
+            new FakeReportFacts(
+                new ParticipationReportSummaryFacts(0, 3, 0, 0, 2, 2m / 3m),
+                0,
+                [new CourseDistributionRow("BSIT", 1), new CourseDistributionRow("BSED", 1)],
+                [new YearDistributionRow(2, 1), new YearDistributionRow(1, 1)]));
         var service = new DemoParticipationReportService(real, new FakeRegistrations(registrationId, eventId, now), store);
 
         var report = await service.GetReportAsync(eventId, null, TestContext.Current.CancellationToken);
 
         Assert.True(report.IsFinal);
         Assert.Equal(2, report.ValidAttendeeCount);
-        Assert.Equal(1, report.NoShowCount);
+        // Confirmed - Valid would be 1 here, so a 0 proves the real no-show fact passed through.
+        Assert.Equal(0, report.NoShowCount);
+
+        // With no demo attendance the real no-shows and snapshot breakdowns stand unchanged.
+        Assert.Equal(new[] { "BSED", "BSIT" }, report.CourseBreakdown.Select(row => row.Label));
+        Assert.Equal(new[] { 1, 1 }, report.CourseBreakdown.Select(row => row.Count));
+        Assert.Equal(new[] { 50, 50 }, report.CourseBreakdown.Select(row => row.Percent));
+        Assert.Equal(new[] { "Year 1", "Year 2" }, report.YearBreakdown.Select(row => row.Label));
+        Assert.Equal(new[] { 1, 1 }, report.YearBreakdown.Select(row => row.Count));
+        Assert.Equal(new[] { 50, 50 }, report.YearBreakdown.Select(row => row.Percent));
     }
 
     private sealed class FakeEvents(int eventId) : IEventRepository
@@ -89,10 +112,20 @@ public sealed class DemoParticipationReportOverlayTests
         public Task<PublishedEventDetail> GetMemberVisibleEventAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
-    private sealed class FakeReportFacts(ParticipationReportSummaryFacts facts) : IParticipationReportRepository
+    private sealed class FakeReportFacts(
+        ParticipationReportSummaryFacts facts,
+        int noShowCount = 0,
+        IReadOnlyList<CourseDistributionRow>? courses = null,
+        IReadOnlyList<YearDistributionRow>? years = null) : IParticipationReportRepository
     {
         public Task<ParticipationReportSummaryFacts> GetSummaryFactsAsync(int eventId, CancellationToken cancellationToken = default) =>
             Task.FromResult(facts);
+
+        public Task<int> GetNoShowCountAsync(int eventId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(noShowCount);
+
+        public Task<ParticipationReportDistributionFacts> GetAttendeeDistributionAsync(int eventId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ParticipationReportDistributionFacts(courses ?? [], years ?? []));
     }
 
     private sealed class FakeRegistrations(int registrationId, int eventId, DateTime submittedAt) : IRegistrationRepository
@@ -110,6 +143,9 @@ public sealed class DemoParticipationReportOverlayTests
         public Task<int> CountMyRegistrationsAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<MyEventRegistrationRow>> GetMyRegistrationsAsync(int userId, int skip, int take, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<int> CountConfirmedAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<int> CountConfirmedLookupAsync(int eventId, string query, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<ConfirmedLookupRow>> GetConfirmedLookupPageAsync(int eventId, string query, int skip, int take, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<string> GetConfirmedStudentNumberAsync(int eventId, int registrationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<MyPassRow>> GetMyPassRowsAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<OwnedPassRow> GetOwnedPassAsync(int registrationId, int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<int?> FindConfirmedRegistrationIdByTokenAsync(int eventId, string token, CancellationToken cancellationToken = default) => throw new NotSupportedException();
