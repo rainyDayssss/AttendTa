@@ -1,0 +1,57 @@
+/* Home shortcuts: role-aware entry points that replace the old one-line landing panel. */
+.home-section + .home-section {
+    margin-top: 1.5rem;
+}
+
+.home-section h2 {
+    margin-bottom: .75rem;
+    font-size: 1.1rem;
+}
+
+.home-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 768px) {
+    .home-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1280px) {
+    .home-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+.home-card {
+    display: block;
+    padding: 1.25rem;
+    color: #090d16;
+    text-decoration: none;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px -2px #0f172a0d;
+}
+
+.home-card:hover {
+    color: #090d16;
+    text-decoration: none;
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+.home-card h3 {
+    margin: 0 0 .35rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.home-card p {
+    margin: 0;
+    color: #475569;
+    font-size: .95rem;
+}
