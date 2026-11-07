@@ -6,6 +6,11 @@ Do not reset, replace, or reuse an existing database. Stop if `AttendTa_Demo` al
 HTTPS phone trust and backup/restore are separate work. A successful online run is not evidence
 of offline operation.
 
+For coordinated persistence capture and restart/redeploy/restore verification, follow
+[storage backup and restore](storage-backup-restore.md) and record real-host results in
+[storage survival evidence](storage-survival-evidence.md). Obtain explicit host, downtime and
+new disposable-target approval first; provisioning or a closed issue does not prove survival.
+
 ## Select and prepare the host
 
 Record the host name, OS version, CPU, RAM, .NET 10 SDK/runtime version, SQL Server version,
@@ -17,6 +22,8 @@ restrict its ACLs to the runtime identity and authorized administrators. Create 
 identity can write there and other users cannot read private files. Do not put browser files,
 keys, secrets or private files under wwwroot. The readiness check requires `logs` to exist, then
 creates and probes the logger's `logs/<yyyyMM>` directory; it never creates a missing `logs/`.
+Keep this same external SetupRoot through restarts, redeploys and deployment rollbacks. Never
+include it in a deployment replacement, clean/publish target or staging-directory cleanup.
 
 Choose a dedicated SQL login and database user, not the administrator used for setup. Prefer
 Windows integrated authentication under the service account; provision the login through your
