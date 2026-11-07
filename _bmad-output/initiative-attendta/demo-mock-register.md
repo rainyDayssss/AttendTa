@@ -140,7 +140,7 @@ in `ASI.Basecode.Services`.
 | Shared check-in control and its model | `Views/Shared/_CheckInControl.cshtml`, `ASI.Basecode.Services/ServiceModels/CheckInControlViewModel.cs` |
 | Operator pass-token switch | `ASI.Basecode.WebApp/Program.cs` (`--demo-pass-token <registrationId>`) |
 
-**Store.** One singleton keyed by real ids: check-in-open event ids, attendance by registration id, certificate review and issue state. `MarkCompleted` and `IsCompleted` remain only as the M-10a/M-13b test fixture; the app completes events through the real service. `InvalidateAttendance` requires a reason, is refused once a certificate is
+**Store.** One singleton keyed by real ids: check-in-open event ids, attendance by registration id, and certificate review and issue state. `MarkCompleted` and `IsCompleted` remain only as the M-10a/M-13b test fixture; the app completes events through the real service. `InvalidateAttendance` requires a reason, is refused once a certificate is
 issued, and turns a pending or approved review not eligible with that reason. `GetPassToken` is
 the lowercase hex HMAC-SHA256 of the invariant registration id under `DemoData:TokenKey`; the
 `--demo-pass-token` switch prints the same value and writes nothing.
