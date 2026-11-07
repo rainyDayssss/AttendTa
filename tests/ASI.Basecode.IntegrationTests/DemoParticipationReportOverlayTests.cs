@@ -25,7 +25,8 @@ public sealed class DemoParticipationReportOverlayTests
         var real = new ParticipationReportService(
             new FakeEvents(eventId),
             new FakeReportFacts(new ParticipationReportSummaryFacts(0, 1, 0, 0, 0, null)));
-        var service = new DemoParticipationReportService(real, new FakeRegistrations(registrationId, eventId, now), store);
+        var service = new DemoParticipationReportService(
+            real, new FakeRegistrations(registrationId, eventId, now), new FakeAttendance(), store);
 
         var report = await service.GetReportAsync(eventId, null, TestContext.Current.CancellationToken);
 
@@ -65,7 +66,7 @@ public sealed class DemoParticipationReportOverlayTests
                 0,
                 [new CourseDistributionRow("BSIT", 1), new CourseDistributionRow("BSED", 1)],
                 [new YearDistributionRow(2, 1), new YearDistributionRow(1, 1)]));
-        var service = new DemoParticipationReportService(real, new FakeRegistrations(registrationId, eventId, now), store);
+        var service = new DemoParticipationReportService(real, new FakeRegistrations(registrationId, eventId, now), new FakeAttendance(), store);
 
         var report = await service.GetReportAsync(eventId, null, TestContext.Current.CancellationToken);
 
@@ -81,6 +82,45 @@ public sealed class DemoParticipationReportOverlayTests
         Assert.Equal(new[] { "Year 1", "Year 2" }, report.YearBreakdown.Select(row => row.Label));
         Assert.Equal(new[] { 1, 1 }, report.YearBreakdown.Select(row => row.Count));
         Assert.Equal(new[] { 50, 50 }, report.YearBreakdown.Select(row => row.Percent));
+    }
+
+    [Fact]
+    public async Task RealInvalidatedRowOverridesTheSeededStoreRow()
+    {
+        const int registrationId = 11;
+        const int eventId = 22;
+        var now = DateTime.UtcNow;
+
+        var store = new DemoStore(Options.Create(new DemoDataOptions { TokenKey = "test-demo-token" }));
+        store.RecordAttendance(registrationId, eventId, "Demo Member", "S-0001", now.AddMinutes(-30), CheckInMethodCode.QrCode);
+        store.MarkCompleted(eventId);
+
+        // The real facts still claim one valid attendee; the overlay must let the real invalidated
+        // row win over the seeded store row and derive its own counts from the merged map.
+        var real = new ParticipationReportService(
+            new FakeEvents(eventId),
+            new FakeReportFacts(new ParticipationReportSummaryFacts(0, 1, 0, 0, 1, 1m)));
+        var service = new DemoParticipationReportService(
+            real,
+            new FakeRegistrations(registrationId, eventId, now),
+            new FakeAttendance(new EventAttendanceRow(
+                registrationId, now.AddMinutes(-30), now.AddMinutes(-5), "Pass could not be verified.")),
+            store);
+
+        var report = await service.GetReportAsync(eventId, null, TestContext.Current.CancellationToken);
+
+        Assert.True(report.IsFinal);
+        Assert.Equal(0, report.ValidAttendeeCount);
+        Assert.Equal(0m, report.AttendanceRate);
+        Assert.Equal(1, report.NoShowCount);
+        Assert.Empty(report.CourseBreakdown);
+        Assert.Empty(report.YearBreakdown);
+
+        var row = Assert.Single(report.Rows);
+        Assert.False(row.Attended);
+        Assert.True(row.IsNoShow);
+        Assert.Equal("Invalidated", row.AttendanceLabel);
+        Assert.Equal(now.AddMinutes(-30), row.CheckedInAt);
     }
 
     private sealed class FakeEvents(int eventId) : IEventRepository
@@ -126,6 +166,20 @@ public sealed class DemoParticipationReportOverlayTests
 
         public Task<ParticipationReportDistributionFacts> GetAttendeeDistributionAsync(int eventId, CancellationToken cancellationToken = default) =>
             Task.FromResult(new ParticipationReportDistributionFacts(courses ?? [], years ?? []));
+    }
+
+    private sealed class FakeAttendance(params EventAttendanceRow[] rows) : IAttendanceRepository
+    {
+        public Task<IReadOnlyList<EventAttendanceRow>> GetForEventAsync(int eventId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<EventAttendanceRow>>(rows);
+
+        public Task<Attendance> LockAttendanceAsync(int attendanceId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Attendance> GetByRegistrationIdAsync(int registrationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task AddAsync(Attendance attendance, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<AttendanceLogRow>> GetRecentForEventAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<int>> GetValidAttendedRegistrationIdsAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<int> CountMyAttendanceAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<MyAttendanceRow>> GetMyAttendanceAsync(int userId, int skip, int take, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private sealed class FakeRegistrations(int registrationId, int eventId, DateTime submittedAt) : IRegistrationRepository

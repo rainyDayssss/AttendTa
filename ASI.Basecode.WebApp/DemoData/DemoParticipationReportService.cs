@@ -14,10 +14,11 @@ namespace ASI.Basecode.WebApp.DemoData;
 /// <summary>
 /// Demo overlay for the per-event participation report (register M-13c). The real
 /// <see cref="ParticipationReportService"/> answers the summary, no-shows and breakdowns first; this
-/// provider then adds the still-open demo detail rows and keeps the attendance-derived valid count,
-/// rate, no-shows and breakdowns while M-05 and M-07 remain open and the store holds attendance for
-/// the event. The event status comes from SQL; the store's completed fallback is only a test
-/// fixture. It never writes.
+/// provider then adds the still-open demo detail rows. Attendance is the real
+/// <see cref="IAttendanceRepository.GetForEventAsync"/> read, with the store's seeded check-ins
+/// filling only the registrations that have no real row, so a real invalidation always wins and the
+/// seeded demo event stays populated. The event status comes from SQL; the store's completed
+/// fallback is only a test fixture. It never writes.
 /// </summary>
 public sealed class DemoParticipationReportService : IParticipationReportService
 {
@@ -33,15 +34,18 @@ public sealed class DemoParticipationReportService : IParticipationReportService
 
     private readonly ParticipationReportService _real;
     private readonly IRegistrationRepository _registrations;
+    private readonly IAttendanceRepository _attendance;
     private readonly DemoStore _store;
 
     public DemoParticipationReportService(
         ParticipationReportService real,
         IRegistrationRepository registrations,
+        IAttendanceRepository attendance,
         DemoStore store)
     {
         _real = real;
         _registrations = registrations;
+        _attendance = attendance;
         _store = store;
     }
 
@@ -61,13 +65,19 @@ public sealed class DemoParticipationReportService : IParticipationReportService
                 registrationStatus, selectedEventId, 0, AllRows, cancellationToken));
         }
 
-        var attendance = new Dictionary<int, DemoAttendance>();
+        // The store fills only registrations without a real row; a real row always wins (rule 12).
+        var attendance = new Dictionary<int, AttendanceCell>();
         foreach (var row in registrations)
         {
             if (_store.TryGetAttendance(row.RegistrationId, out var record))
             {
-                attendance[row.RegistrationId] = record;
+                attendance[row.RegistrationId] = new AttendanceCell(record.RecordedAt, record.IsValid);
             }
+        }
+
+        foreach (var row in await _attendance.GetForEventAsync(selectedEventId, cancellationToken))
+        {
+            attendance[row.RegistrationId] = new AttendanceCell(row.RecordedAt, row.IsValid);
         }
 
         var confirmed = registrations.Where(row => row.Status == RegistrationStatusCode.Confirmed).ToList();
@@ -92,16 +102,15 @@ public sealed class DemoParticipationReportService : IParticipationReportService
             .Take(PageRequest.FixedPageSize)
             .ToList();
 
-        // Rule 12: while M-05 and M-07 are open, the demo store's attendance drives the valid count,
-        // rate, no-shows and breakdowns whenever it holds attendance for the event; otherwise the
-        // real SQL facts stand.
-        var hasDemoAttendance = _store.GetAttendanceForEvent(selectedEventId).Count > 0;
-        var validAttendeeCount = hasDemoAttendance ? validAttendees.Count : report.ValidAttendeeCount;
-        var attendanceRate = hasDemoAttendance
+        // The merged attendance map drives the valid count, rate, no-shows and breakdowns whenever
+        // it holds a row for the event; otherwise the real SQL facts stand unchanged.
+        var hasAttendance = attendance.Count > 0;
+        var validAttendeeCount = hasAttendance ? validAttendees.Count : report.ValidAttendeeCount;
+        var attendanceRate = hasAttendance
             ? report.ConfirmedCount == 0 ? null : (decimal)validAttendees.Count / report.ConfirmedCount
             : report.AttendanceRate;
         // No-shows are a completed-event fact; a cancelled event shows no figure at all.
-        var noShowCount = hasDemoAttendance
+        var noShowCount = hasAttendance
             ? isFinal ? report.ConfirmedCount - validAttendeeCount : 0
             : report.NoShowCount;
 
@@ -123,8 +132,8 @@ public sealed class DemoParticipationReportService : IParticipationReportService
             AttendanceRate = attendanceRate,
             NoShowCount = noShowCount,
             Rows = pageRows.Select(row => ToRow(row, attendance, isFinal)).ToList(),
-            CourseBreakdown = hasDemoAttendance ? CourseBreakdown(validAttendees) : report.CourseBreakdown,
-            YearBreakdown = hasDemoAttendance ? YearBreakdown(validAttendees) : report.YearBreakdown,
+            CourseBreakdown = hasAttendance ? CourseBreakdown(validAttendees) : report.CourseBreakdown,
+            YearBreakdown = hasAttendance ? YearBreakdown(validAttendees) : report.YearBreakdown,
             PageNumber = normalizedPage,
             TotalCount = ordered.Count
         };
@@ -132,7 +141,7 @@ public sealed class DemoParticipationReportService : IParticipationReportService
 
     private static ParticipationReportRowViewModel ToRow(
         RegistrationReviewRow row,
-        IReadOnlyDictionary<int, DemoAttendance> attendance,
+        IReadOnlyDictionary<int, AttendanceCell> attendance,
         bool isFinal)
     {
         attendance.TryGetValue(row.RegistrationId, out var record);
@@ -160,7 +169,7 @@ public sealed class DemoParticipationReportService : IParticipationReportService
         };
     }
 
-    private static (string Label, string BadgeClass) Attendance(DemoAttendance record, bool isConfirmed, bool isNoShow)
+    private static (string Label, string BadgeClass) Attendance(AttendanceCell record, bool isConfirmed, bool isNoShow)
     {
         if (record is null)
         {
@@ -209,4 +218,7 @@ public sealed class DemoParticipationReportService : IParticipationReportService
 
     private static int Share(int count, int total) =>
         total == 0 ? 0 : (int)Math.Round(count * 100m / total, MidpointRounding.AwayFromZero);
+
+    /// <summary>The attendance facts the report needs, from a real row or a seeded store row.</summary>
+    private sealed record AttendanceCell(DateTime RecordedAt, bool IsValid);
 }

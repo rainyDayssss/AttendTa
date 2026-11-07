@@ -122,8 +122,9 @@ public sealed class DemoStore
     }
 
     /// <summary>
-    /// The event's attendance rows, newest first, for the scanner log. The store is in memory, so
-    /// this read is bounded by the rows a session recorded.
+    /// The event's seeded attendance rows, newest first. The report overlay now reads real
+    /// attendance first and uses the store only to fill registrations without a real row; this
+    /// per-event read stays part of the demo seam until 8.13 removes the store.
     /// </summary>
     public IReadOnlyList<DemoAttendance> GetAttendanceForEvent(int eventId)
     {
@@ -138,9 +139,10 @@ public sealed class DemoStore
     }
 
     /// <summary>
-    /// Invalidates an attendance with a reason. Refused when the registration's certificate is
-    /// already issued; otherwise a pending or approved review becomes not eligible with that reason
-    /// (register rules 4, 5 and 8).
+    /// Invalidates a seeded attendance with a reason. The app invalidates through the real
+    /// <c>IAttendanceInvalidationService</c>; this helper only builds the start-up seed and the
+    /// demo tests. Refused when the registration's certificate is already issued; otherwise a
+    /// pending or approved review becomes not eligible with that reason.
     /// </summary>
     public DemoAttendance InvalidateAttendance(int registrationId, string reason, DateTime invalidatedAt)
     {

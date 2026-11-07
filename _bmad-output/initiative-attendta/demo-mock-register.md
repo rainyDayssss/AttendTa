@@ -88,16 +88,16 @@ into lettered rows.
 | M-04 | Check-in window open/close command, the shared control partial, and the open flag overlaid on event reads (rule 7) | Open/close command | 1.14 | 4.2 | removed (7f6ae2218e6bc9e74611c610287b11ffa7f19ec4) |
 | M-05 | Check-in by scan: outcome (success, repeat, invalid, closed) and the attendance record | Validation engine and attendance write | 4.11 | 4.3 | removed |
 | M-06 | Manual lookup of confirmed participants by name or student number, and manual check-in | Registration-scoped search and manual check-in | 4.11 | 4.5 | removed (ff06123) |
-| M-07 | Attendance invalidation with reason, and its effect on the review (rule 8) | Invalidation command | 4.11 | 4.6 | open |
-| M-08 | Member attendance history | Owner-scoped attendance query | 4.12 | 4.7 | open |
+| M-07 | Attendance invalidation with reason, and its effect on the review (rule 8) | Invalidation command | 4.11 | 4.6 | removed (6a82840) |
+| M-08 | Member attendance history | Owner-scoped attendance query | 4.12 | 4.7 | removed (d3edd37) |
 | M-09 | Event completion command and the Completed status overlaid on event reads (rule 7) | Completion command | 1.14 | 3.12 | removed |
 | M-10a | Certificate reviews created at completion (a pending review for each valid check-in of a completed event) | Review creation hook | 6.12 | 6.4 | removed (cd227f694fdf71d10504db4406d13a3694941cbb) |
 | M-10b | Review queue and the approve and decline decisions | Review queue and decisions | 6.12 | 6.6 | open |
 | M-11a | Certificate issuance (number from the demo store, nothing retained) | Issuance pipeline and retained file | 6.12 | 6.7 | open |
 | M-11b | Officer PDF view and download (rendered in memory with the real template) | Authorized download of the retained file | 6.12 | 6.8 | open |
 | M-12 | Member certificate history and download links - `IMyCertificatesService`, `DemoMyCertificatesService`, `UnavailableMyCertificatesService`; shared `DemoCertificateDocuments` | Owner-scoped certificate query | 6.13 | 6.9 | open |
-| M-13a | Report summary: status counts, Confirmed and Valid attendees, rate | Report summary queries | 7.4 | 7.1 | removed; demo attendance source remains under M-05/M-07 |
-| M-13b | Report no-shows and course/year breakdowns | No-show and distribution queries | 7.4 | 7.2 | removed; demo attendance source remains under M-05/M-07 |
+| M-13a | Report summary: status counts, Confirmed and Valid attendees, rate | Report summary queries | 7.4 | 7.1 | removed |
+| M-13b | Report no-shows and course/year breakdowns | No-show and distribution queries | 7.4 | 7.2 | removed |
 | M-13c | Report paged detail rows | Paged detail query | 7.4 | 7.3 | open |
 | M-14a | Account deactivation with reason (the Accounts list shows the new state) — `IAccountAccessCommands.DeactivateAsync`, `DemoAccountAccessCommands` | Account deactivation and cascade | 5.11 | 5.4 | removed |
 | M-14b | Account reactivation with reason — `IAccountAccessCommands.ReactivateAsync`, `DemoAccountAccessCommands` | Account reactivation | 5.11 | 5.5 | removed |
@@ -290,9 +290,7 @@ The M-01 `--demo-pass-token` switch and `DemoStore.GetPassToken` remain until 8.
 | Screen, outcome, lookup and log models | `ASI.Basecode.Services/ServiceModels/CheckInScreenViewModel.cs` |
 | Real scan provider (M-05 removed by 4.3) | `ASI.Basecode.Services/Services/CheckInService.cs`, `ASI.Basecode.Services/Services/AttendanceRecordingService.cs`, `ASI.Basecode.Data/Repositories/AttendanceRepository.cs` |
 | Real lookup and manual check-in provider (M-06 removed by 4.5) | `ASI.Basecode.Services/Services/CheckInLookupService.cs`, `ASI.Basecode.Data/Repositories/RegistrationRepository.cs` |
-| Demo invalidation provider | `ASI.Basecode.WebApp/DemoData/DemoAttendanceInvalidationService.cs` |
-| Switch-off provider | `UnavailableAttendanceInvalidationService.cs` |
-| Check-in surface registration file | `ASI.Basecode.WebApp/DemoData/DemoCheckInRegistration.cs` |
+| Real invalidation provider (M-07 removed by 4.6) | `ASI.Basecode.Services/Services/AttendanceInvalidationService.cs`, `ASI.Basecode.Services/Interfaces/IAttendanceInvalidationHandler.cs`, `ASI.Basecode.Data/Repositories/AttendanceRepository.cs` |
 | Store additions | `DemoStore.GetAttendanceForEvent`, `DemoAttendance.MemberName`/`StudentNumber` |
 | Screen, adapters and decoder | `Controllers/CheckInController.cs`, `Views/CheckIn/Index.cshtml`, `wwwroot/js/features/scanner.js`, `scanner-camera.js`, `scanner-manual.js`, `wwwroot/lib/jsqr/jsQR.js` (Apache-2.0, 1.4.0) |
 
@@ -305,7 +303,7 @@ at 500), filtered by name or student number in memory, and paged at 25; the expl
 `student_number` when the query equals the student number, otherwise `manual_search`. Invalidation
 requires a reason, checks that the registration belongs to the event, refuses an issued certificate,
 and leaves a pending or approved review not eligible with that reason. Searching or viewing never
-records. The manual lookup is real from 4.5; invalidation still writes only the demo store until 4.6.
+records. The manual lookup is real from 4.5; invalidation was the demo store until 4.6.
 
 **Scanner follow-up (#138, after PR #170).** Form-post scan and manual check-in results now
 survive the redirect as an event-scoped, server-rendered outcome panel (identity, student number,
@@ -325,33 +323,43 @@ read-only, registration-scoped SQL read over the selected event's Confirmed regi
 name or student-number substring (`Contains` under the database collation), ordered by member name
 then registration id and paged at 25; the explicit Check in pre-checks the published event and open
 window, reads the row's student number to choose `student_number` or `manual_search`, and delegates
-the validation and write to `AttendanceRecordingService`. 4.6 replaces
-`IAttendanceInvalidationService`, deletes its provider and its line in `DemoCheckInRegistration.cs`,
-and the screen keeps its shape. M-10a is removed by 6.4's real completion hook, which creates
+the validation and write to `AttendanceRecordingService`. 4.6 replaced
+`IAttendanceInvalidationService` with the real `AttendanceInvalidationService`, deleted
+`DemoAttendanceInvalidationService`, `UnavailableAttendanceInvalidationService` and
+`DemoCheckInRegistration`, and removed their registration lines, so the screen keeps its shape in
+both switch states. Invalidation now runs one transaction that locks the participant's `users` row,
+the event and the attendance row, validates the trimmed reason (1–500 characters), invokes every
+`IAttendanceInvalidationHandler` before the write, stamps `invalidated_at`, `invalidated_by` and
+`invalidation_reason` on the retained row and appends one `attendance.invalidated` entry with the
+reason; a repeat invalidation is refused, so the first reason and its audit entry survive, and the
+registration status never changes. M-10a is removed by 6.4's real completion hook, which creates
 reviews from real attendance.
 
 
-## M-08 — demo seam detail (4.12)
+## M-08 — demo seam detail (4.12, removed by 4.7)
 
-**Contract and classes.** The contract is in `ASI.Basecode.Services`; the provider is
-`ASI.Basecode.Services/Services/MyEventsService.cs`, whose `GetAttendanceAsync` returns an empty
-attendance page until 4.7.
+**Removed.** 4.7 replaced the empty `MyEventsService.GetAttendanceAsync` page with the real
+owner-scoped attendance read behind the same `IMyEventsService` contract, so the tab, its partial,
+pager and controller action did not change. The read is
+`IAttendanceRepository.CountMyAttendanceAsync` plus `GetMyAttendanceAsync`: one owner-scoped
+cross-event query joining `attendance → registrations → members` and the event, filtered by
+`members.user_id`, ordered `recorded_at DESC, attendance_id DESC` and paged at 25 in SQL. It
+returns every owned attendance row, including an invalidated one with its stored reason, and the
+method label comes from `CheckInMethodDisplay`. Nothing is written.
 
 | Piece | File |
 |---|---|
 | Read contract `IMyEventsService.GetAttendanceAsync` | `ASI.Basecode.Services/Interfaces/IMyEventsService.cs` |
 | Method label rule `CheckInMethodDisplay` | `ASI.Basecode.Services/ServiceModels/CheckInMethodDisplay.cs` |
-| Real provider (returns an empty page until 4.7) | `ASI.Basecode.Services/Services/MyEventsService.cs` |
+| Real provider | `ASI.Basecode.Services/Services/MyEventsService.cs`, `ASI.Basecode.Data/Repositories/AttendanceRepository.cs` |
 
-**What it composes.** 3.13 removed the M-02 demo and switch-off providers and kept
-`MyEventsService.GetAttendanceAsync` as an empty page. 4.7 replaces that method with the real
-owner-scoped attendance query behind the same contract. The tab stays read-only: no check-in,
-correction, edit or delete control. Until 4.7 the tab shows its empty state.
-
-**Hand-over to 4.7 (register rule 12).** 3.13 removed M-02's `DemoMyEventsService`,
+**Hand-over (register rule 12).** 3.13 removed M-02's `DemoMyEventsService`,
 `EmptyMyEventsService` and `DemoMyEventsRegistration`, and kept `GetAttendanceAsync` on the real
-`MyEventsService` returning an empty page. 4.7 replaces that method with the real owner-scoped
-query instead of deleting a class.
+`MyEventsService` returning an empty page. 4.7 replaced that method with the real owner-scoped
+query; no demo class, provider or registration line remained to delete, so the row needed no
+code removal beyond the method body. Removed in `d3edd37`; the sha is recorded here in the
+follow-up docs commit, as 4.6 did for M-07.
+
 ## M-13a, M-13b and M-13c — participation report detail (7.4)
 
 **M-13a and M-13b are removed.** 7.1 replaced the summary computation and 7.2 replaced the no-show
@@ -381,11 +389,12 @@ the same real service; there is no empty provider.
 
 **Demo overlay.** `DemoParticipationReportService` calls the real service first, then composes
 `IRegistrationRepository.GetReviewQueueAsync` once per registration status (Pending, Confirmed,
-Waitlisted, Cancelled) to overlay the still-open M-13c detail rows. While M-05/M-07 remain open,
-`DemoStore.TryGetAttendance` supplies check-ins and invalidations, and `DemoStore.GetAttendanceForEvent`
-drives the demo valid count, rate, no-shows and breakdowns when it holds attendance for the event
-(rule 12). When the store holds no attendance for the event, the real no-shows and snapshot
-breakdowns stand unchanged. `DemoStore.IsCompleted(eventId)` remains only as a test-only fallback
+Waitlisted, Cancelled) to overlay the still-open M-13c detail rows. Attendance comes from the real
+`IAttendanceRepository.GetForEventAsync`, with `DemoStore.TryGetAttendance` filling only the
+registrations that have no real row, so a real invalidation always wins while the seeded demo event
+stays populated (rule 12). The merged map drives the valid count, rate, no-shows and breakdowns
+whenever it holds a row for the event; otherwise the real no-shows and snapshot breakdowns stand
+unchanged. `DemoStore.IsCompleted(eventId)` remains only as a test-only fallback
 used by the M-10a and participation-report overlay test fixtures; the real Completed status comes
 from SQL. Nothing is written. Because 7.3's paged query does not exist yet, the demo provider reads
 the whole event and slices the detail page in memory; the real read pages in SQL.
@@ -393,15 +402,15 @@ the whole event and slices the detail page in memory; the real read pages in SQL
 - *M-13a summary* — served by `ParticipationReportService` and `ParticipationReportRepository` from
   the SQL dataset: status counts, Confirmed, Valid attendees and the unrounded Valid/Confirmed rate,
   N/A at zero Confirmed, "Not final" until the event is Completed, and N/A for a cancelled event.
-  The demo store's attendance-derived valid count and rate only override this while M-05/M-07 remain
-  open and the store holds attendance for the event.
+  The merged real-and-store attendance map overrides the valid count and rate only while the
+  still-open M-13c overlay holds attendance for the event.
 - *M-13b no-shows and breakdowns* — removed by 7.2. `ParticipationReportRepository.GetNoShowCountAsync`
   counts Confirmed registrations without valid attendance on a Completed event; pending, waitlisted
   and cancelled rows are excluded, and a cancelled event shows no figure. `GetAttendeeDistributionAsync`
   groups valid attendees by their registration signup snapshot, including inactive members, and the
-  service labels, orders and percentages each group's share of the valid attendees. While M-05/M-07
-  remain open, the demo store's attendance still overrides these values when it holds attendance for
-  the event (rule 12).
+  service labels, orders and percentages each group's share of the valid attendees. While the
+  M-13c overlay holds attendance for the event, its merged attendance still overrides these values
+  (rule 12).
 - *M-13c detail rows* — every registration of the event, ordered by member name then registration
   id, 25 per page; totals and breakdowns are computed before the slice. Each row carries the
   registration status label/badge, the attendance label/badge (Checked in, Invalidated, No-show,
@@ -409,7 +418,8 @@ the whole event and slices the detail page in memory; the real read pages in SQL
 
 **Seeded starting state.** The ready-to-complete event seeded by M-01 (up to eight check-ins, the
 last one invalidated) drives the populated report once the demo completes it live: counts, rate,
-no-shows, breakdowns and rows agree with those check-ins. Before completion it shows the not-final
+no-shows, breakdowns and rows agree with those check-ins, and any real attendance row for the same
+registration overrides the seeded one. Before completion it shows the not-final
 markers, as does the check-in-open event, and a cancelled event in the connected database shows
 counts and rows with no no-show figure. Fewer rows degrade gracefully; nothing is written.
 
@@ -418,11 +428,13 @@ computation (M-13b) with `ParticipationReportService` and `ParticipationReportRe
 replaces the paged detail read (M-13c) behind the same contract, so the screen does not change
 visibly. Each ticket sets its row to `removed` with the commit.
 
-**Hand-over (rule 12).** When 4.3 (real check-in) and 4.6 (real invalidation) land, the still-open
-M-13c row reads the real attendance and invalidation source instead of `DemoStore.TryGetAttendance`,
-so the report keeps matching recorded attendance until 7.3 removes the row. The demo provider is
-otherwise only the M-13c overlay; the summary, no-shows and breakdowns come from the real service
-unless the demo store holds attendance for the event (rule 12).
+**Hand-over (rule 12).** 4.3 (real check-in) and 4.6 (real invalidation) landed, so the still-open
+M-13c row reads the real attendance and invalidation source through
+`IAttendanceRepository.GetForEventAsync` instead of `DemoStore.TryGetAttendance`, and a real row
+wins over a seeded store row for the same registration. The report therefore keeps matching recorded
+attendance until 7.3 removes the row. The demo provider is otherwise only the M-13c overlay; the
+summary, no-shows and breakdowns come from the real service unless the merged attendance map holds a
+row for the event (rule 12).
 
 ## M-10a, M-10b, M-11a and M-11b — certificate ledger (6.12)
 

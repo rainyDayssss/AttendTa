@@ -5,9 +5,9 @@ using System.Threading.Tasks;
 namespace ASI.Basecode.Services.Interfaces;
 
 /// <summary>
-/// The member Participation History reads. Registrations use the real owner-scoped cross-event
-/// query; attendance stays an empty page until 4.7 implements its owner-scoped query behind the
-/// same contract, so the controller and views do not change.
+/// The member Participation History reads. Registrations and attendance each use a real
+/// owner-scoped cross-event query behind the same contract, so the controller and views do not
+/// change.
 /// </summary>
 public interface IMyEventsService
 {

@@ -16,3 +16,9 @@
 - source_plan: `_bmad-output/initiative-attendta/tickets/epic-participation-reports/tickets/story-event-selector-and-participation-summary-kpis-plan.md`
   summary: Until 7.3 supplies real detail rows, the switch-off report shows its summary KPIs beside the unchanged view's "No registrations"/"No attendee data" empty-state copy.
   evidence: `ParticipationReportService` returns empty `Rows` and breakdowns by design while 7.2/7.3 remain open, and the accepted intent excludes paged detail rows as 7.3 scope. 7.3 closes it when the detail table is filled.
+- source_plan: `_bmad-output/initiative-attendta/tickets/epic-check-in/tickets/story-member-attendance-view-on-my-events-plan.md`
+  summary: Seeded demo-store check-ins no longer appear in the member Attendance tab after 4.7; only real SQL attendance does.
+  evidence: 4.7's approved intent replaces the demo attendance source with the owner-scoped SQL query, so `DemoSeedService`'s in-memory check-ins remain visible on the scanner log and the report overlay (M-13c seam) but not in `/MyEvents/Attendance`. A check-in made through the real 4.3 engine does appear. The demo store is removed by 8.13; 8.15/8.12 should not expect seeded rows on this tab.
+- source_plan: `_bmad-output/initiative-attendta/tickets/epic-check-in/tickets/story-member-attendance-view-on-my-events-plan.md`
+  summary: `MyEventsController.Attendance` (and `Registrations`) lacks the `ResponseCache(NoStore)` attribute that the sibling `Certificates` action carries.
+  evidence: `docs/CODING_STANDARDS.md` §5 asks sensitive responses to use the agreed no-store policy, and `Certificates` sets `NoStore = true` while `Attendance` and `Registrations` do not. The gap predates 4.7 and the approved intent freezes the controller action, so it is recorded rather than patched; no cache leak was demonstrated.

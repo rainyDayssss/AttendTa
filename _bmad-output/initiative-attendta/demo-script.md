@@ -219,7 +219,7 @@ Sign in as `liza.fernandez@uc.edu.ph`.
 | M3 | Event detail | `/MemberEvents/Details?id=3` | Confirmed registration panel with Cancel; `?id=2` shows the cancelled state; `?id=1` shows the completed state | Status panel stacks under the hero |
 | M4 | Signup | Open the newly published event → Submit registration | "Registration submitted. Your request is pending review."; the panel changes to Pending review | Button and panel fit |
 | M5 | My Events | `/MyEvents/Registrations` | Registrations tab lists the confirmed and cancelled records with View event | Tabs wrap; cards stack |
-| M6 | Attendance | `/MyEvents/Attendance` | **Known limit:** the tab shows its empty state until 4.7 (M-08); the demo store's check-ins appear on the scanner and report | Empty state fits |
+| M6 | Attendance | `/MyEvents/Attendance` | Real owner-scoped history: valid and invalidated records, Manila times, method labels, its own pager (4.7) | Table scrolls; pager reachable |
 | M7 | Certificates | `/MyEvents/Certificates` | Issued Leadership Summit certificate with View/Download PDF; Founders' Week shows Unavailable; no demo sign | Table scrolls; links reachable |
 | M8 | Passes | `/Passes` | Active Founders' Week and Peer Tutoring cards, past Leadership Summit card, QR canvas, Download PNG; no pass for the cancelled registration | One column; QR keeps its quiet zone |
 | M9 | Profile | `/Profile` | Identity strip, active badge, account/academic/membership details, mobile number, View my passes | Record grid collapses to one column |
@@ -235,9 +235,9 @@ Sign in as `liza.fernandez@uc.edu.ph`.
 
 ## 8. Known limits
 
-- **Member attendance history is empty until 4.7.** The demo store records check-ins for the
-  scanner and report, but `MyEventsService.GetAttendanceAsync` is still the real empty read
-  (register M-08). Show the scanner log or the report for attendance during the demo.
+- **Member attendance history is real since 4.7.** `MyEventsService.GetAttendanceAsync` reads the
+  owner-scoped SQL query, so a check-in made through the real scanner appears here. Seeded
+  demo-store check-ins still appear only on the scanner log and the report (register M-08 removed).
 - **Completion is live.** The demo completes Leadership Summit in O3 through the real 3.12
   service, so completion writes SQL and the Activity Log. A restart returns the scenario's
   events to their seeded status and resets the in-memory store.
@@ -263,7 +263,7 @@ Sign in as `liza.fernandez@uc.edu.ph`.
 | 3.17 | My Events host and Registrations tab | M5 | Pass |
 | 4.10 | Pass cards, QR, PNG download | M8 | Pass |
 | 4.11 | Door scanner, camera/manual modes, outcomes, invalidation | O5–O7 | Pass |
-| 4.12 | Member attendance history partial | M6 | Partial: empty until 4.7 (M-08) |
+| 4.12 | Member attendance history partial | M6 | Pass (real owner-scoped query since 4.7) |
 | 5.11 | Account and membership access dialogs | A6 | Pass |
 | 6.12 | Certificate ledger, decisions, issuance, PDF viewer | O8–O9 | Pass |
 | 6.13 | Member certificate history and download links | M7 | Pass |

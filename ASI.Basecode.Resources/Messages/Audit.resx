@@ -32,4 +32,5 @@
   <data name="RegistrationDeclined" xml:space="preserve"><value>Registration declined.</value></data>
   <data name="RegistrationAdminCancelled" xml:space="preserve"><value>Registration administratively cancelled.</value></data>
   <data name="AttendanceRecorded" xml:space="preserve"><value>Attendance recorded.</value></data>
+  <data name="AttendanceInvalidated" xml:space="preserve"><value>Attendance invalidated.</value></data>
 </root>

@@ -13,9 +13,9 @@ using Microsoft.Extensions.Logging;
 namespace ASI.Basecode.WebApp.DemoData;
 
 /// <summary>
-/// Seeds the demo store at start-up from rows already in the connected database (register M-01
-/// and M-07; register rule 5). It only composes existing repository reads and never writes a
-/// SQL row, a stored file or an Activity Log entry. The ready-to-complete event keeps its attendance
+/// Seeds the demo store at start-up from rows already in the connected database (register M-01;
+/// register rule 5). It only composes existing repository reads and never writes a SQL row, a
+/// stored file or an Activity Log entry. The ready-to-complete event keeps its attendance
 /// and certificate data so the demo completes it live through the real service. Missing rows are
 /// logged, not fatal, so the app still starts on a sparsely populated database.
 /// </summary>

@@ -12,11 +12,12 @@ using ASI.Basecode.Services.ServiceModels;
 namespace ASI.Basecode.Services.Services;
 
 /// <summary>
-/// The member Participation History reads. Registrations come from one owner-scoped cross-event
-/// query; attendance stays an empty page until 4.7 supplies the real owner-scoped query.
+/// The member Participation History reads. Registrations and attendance each come from one
+/// owner-scoped cross-event query, paged at the shared page size.
 /// </summary>
 public sealed class MyEventsService(
     IRegistrationRepository registrations,
+    IAttendanceRepository attendance,
     ICurrentActor actor,
     TimeProvider clock) : IMyEventsService
 {
@@ -62,12 +63,40 @@ public sealed class MyEventsService(
         return new PagedResult<MyEventRegistrationCardViewModel>(cards, normalizedPage, totalCount);
     }
 
-    // 4.7 replaces this method with the real owner-scoped attendance query.
-    public Task<PagedResult<MyEventAttendanceRowViewModel>> GetAttendanceAsync(
+    public async Task<PagedResult<MyEventAttendanceRowViewModel>> GetAttendanceAsync(
         int? pageNumber,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult(new PagedResult<MyEventAttendanceRowViewModel>(
-            Array.Empty<MyEventAttendanceRowViewModel>(),
-            1,
-            0));
+        CancellationToken cancellationToken = default)
+    {
+        // The member policy guards the route; the actor is the only source of ownership.
+        var userId = actor.UserId;
+        var totalCount = await attendance.CountMyAttendanceAsync(userId, cancellationToken);
+
+        var pageRequest = new PageRequest(pageNumber);
+        var normalizedPage = pageRequest.NormalizePageNumber(totalCount);
+        var rows = totalCount == 0
+            ? Array.Empty<MyAttendanceRow>()
+            : (await attendance.GetMyAttendanceAsync(
+                userId,
+                pageRequest.GetOffset(normalizedPage),
+                PageRequest.FixedPageSize,
+                cancellationToken)).ToArray();
+
+        var records = new MyEventAttendanceRowViewModel[rows.Length];
+        for (var index = 0; index < rows.Length; index++)
+        {
+            var row = rows[index];
+            records[index] = new MyEventAttendanceRowViewModel
+            {
+                AttendanceId = row.AttendanceId,
+                EventId = row.EventId,
+                EventTitle = row.EventTitle,
+                RecordedAt = row.RecordedAt,
+                CheckInMethodLabel = CheckInMethodDisplay.Label(row.CheckInMethod),
+                IsInvalidated = row.InvalidatedAt is not null,
+                InvalidationReason = row.InvalidationReason
+            };
+        }
+
+        return new PagedResult<MyEventAttendanceRowViewModel>(records, normalizedPage, totalCount);
+    }
 }

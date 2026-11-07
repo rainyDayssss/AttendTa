@@ -79,6 +79,7 @@ public sealed class DemoCheckInWindowFlagTests(SqlServerDatabaseFixture fixture)
 
         Assert.IsType<CheckInService>(scope.ServiceProvider.GetRequiredService<ICheckInService>());
         Assert.IsType<CheckInLookupService>(scope.ServiceProvider.GetRequiredService<ICheckInLookupService>());
+        Assert.IsType<AttendanceInvalidationService>(scope.ServiceProvider.GetRequiredService<IAttendanceInvalidationService>());
     }
 
     [Fact]
@@ -89,6 +90,7 @@ public sealed class DemoCheckInWindowFlagTests(SqlServerDatabaseFixture fixture)
         using var scope = factory.Services.CreateScope();
 
         Assert.IsType<CheckInLookupService>(scope.ServiceProvider.GetRequiredService<ICheckInLookupService>());
+        Assert.IsType<AttendanceInvalidationService>(scope.ServiceProvider.GetRequiredService<IAttendanceInvalidationService>());
     }
 
     private sealed class Actor(int id) : ICurrentActor
