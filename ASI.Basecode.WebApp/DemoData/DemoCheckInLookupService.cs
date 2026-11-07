@@ -89,11 +89,6 @@ public sealed class DemoCheckInLookupService : ICheckInLookupService
             return CheckInOutcomeViewModel.ClosedResult("Check-in is not available for this event.");
         }
 
-        if (_store.IsCompleted(eventId))
-        {
-            return CheckInOutcomeViewModel.ClosedResult("Check-in is closed because the event is completed.");
-        }
-
         if (!_store.IsCheckInOpen(eventId))
         {
             return CheckInOutcomeViewModel.ClosedResult("Check-in is closed for this event. Open it before checking in.");

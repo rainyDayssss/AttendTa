@@ -58,8 +58,7 @@ public sealed class DemoCheckInService : ICheckInService
             .ToList();
 
         var selected = SelectEvent(published, eventId);
-        var isCompleted = _store.IsCompleted(selected.EventId);
-        var isOpen = !isCompleted && _store.IsCheckInOpen(selected.EventId);
+        var isOpen = _store.IsCheckInOpen(selected.EventId);
 
         return new CheckInScreenViewModel
         {
@@ -73,8 +72,7 @@ public sealed class DemoCheckInService : ICheckInService
             EventId = selected.EventId,
             EventTitle = selected.Title,
             IsCheckInOpen = isOpen,
-            IsCompleted = isCompleted,
-            CanChangeWindow = !isCompleted,
+            CanChangeWindow = true,
             RecentResults = RecentResults(selected.EventId)
         };
     }
@@ -92,11 +90,6 @@ public sealed class DemoCheckInService : ICheckInService
         if (eventItem == null)
         {
             return CheckInOutcomeViewModel.ClosedResult("Check-in is not available for this event.");
-        }
-
-        if (_store.IsCompleted(eventId))
-        {
-            return CheckInOutcomeViewModel.ClosedResult("Check-in is closed because the event is completed.");
         }
 
         if (!_store.IsCheckInOpen(eventId))
@@ -201,5 +194,5 @@ public sealed class DemoCheckInService : ICheckInService
         return published.FirstOrDefault(eventItem => IsOpen(eventItem.EventId)) ?? published[0];
     }
 
-    private bool IsOpen(int eventId) => !_store.IsCompleted(eventId) && _store.IsCheckInOpen(eventId);
+    private bool IsOpen(int eventId) => _store.IsCheckInOpen(eventId);
 }

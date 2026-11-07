@@ -1,4 +1,3 @@
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Data.Interfaces;
@@ -10,21 +9,19 @@ using ASI.Basecode.Services.Interfaces;
 namespace ASI.Basecode.WebApp.DemoData;
 
 /// <summary>
-/// Demo check-in window and completion commands (register M-04 and M-09). Every command reloads the
-/// real event and applies the same refusal rules 4.2 and 3.12 will, then changes only the in-memory
-/// store: no SQL row, no stored file and no Activity Log entry (register rules 4 and 8).
+/// Demo check-in window commands (register M-04). Every command reloads the real event and applies
+/// the same refusal rules 4.2 will, then changes only the in-memory store: no SQL row, no stored
+/// file and no Activity Log entry (register rules 4 and 8).
 /// </summary>
 public sealed class DemoEventStateCommands : IEventStateCommands
 {
     private readonly IEventRepository _events;
     private readonly DemoStore _store;
-    private readonly TimeProvider _timeProvider;
 
-    public DemoEventStateCommands(IEventRepository events, DemoStore store, TimeProvider timeProvider)
+    public DemoEventStateCommands(IEventRepository events, DemoStore store)
     {
         _events = events;
         _store = store;
-        _timeProvider = timeProvider;
     }
 
     public async Task OpenCheckInAsync(int eventId, CancellationToken cancellationToken = default)
@@ -47,22 +44,6 @@ public sealed class DemoEventStateCommands : IEventStateCommands
         }
 
         _store.SetCheckInOpen(eventItem.EventId, false);
-    }
-
-    public async Task CompleteAsync(int eventId, CancellationToken cancellationToken = default)
-    {
-        var eventItem = await RequirePublishedAsync(eventId, cancellationToken);
-        if (_store.IsCompleted(eventItem.EventId))
-        {
-            throw new DomainException(OutcomeCode.Invalid, "This event is already completed.");
-        }
-
-        if (_timeProvider.GetUtcNow().UtcDateTime < eventItem.StartsAt)
-        {
-            throw new DomainException(OutcomeCode.Invalid, "An event cannot be completed before it starts.");
-        }
-
-        _store.MarkCompleted(eventItem.EventId);
     }
 
     private async Task<Event> RequirePublishedAsync(int eventId, CancellationToken cancellationToken)

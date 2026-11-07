@@ -28,7 +28,7 @@ namespace ASI.Basecode.IntegrationTests;
 public sealed class MemberEventBrowsingFlowTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
 {
     [Fact]
-    public async Task MemberBrowsesOnlyPublishedEventsInStableOrderWithManilaTimesAndPaging()
+    public async Task MemberBrowsesPublishedAndCompletedEventsInStableOrderWithManilaTimesAndPaging()
     {
         var ct = TestContext.Current.CancellationToken;
         var suffix = Guid.NewGuid().ToString("N");
@@ -80,10 +80,8 @@ public sealed class MemberEventBrowsingFlowTests(SqlServerDatabaseFixture fixtur
         Assert.Contains("2099-12-01 09:00 Asia/Manila", firstPage, StringComparison.Ordinal);
         Assert.DoesNotContain("Draft event", firstPage, StringComparison.Ordinal);
         Assert.DoesNotContain("Cancelled event", firstPage, StringComparison.Ordinal);
-        Assert.DoesNotContain("Completed event", firstPage, StringComparison.Ordinal);
         Assert.DoesNotContain($"data-event-id=\"{draft.EventId}\"", firstPage, StringComparison.Ordinal);
         Assert.DoesNotContain($"data-event-id=\"{cancelled.EventId}\"", firstPage, StringComparison.Ordinal);
-        Assert.DoesNotContain($"data-event-id=\"{completed.EventId}\"", firstPage, StringComparison.Ordinal);
         Assert.Contains(">Events</a>", firstPage, StringComparison.Ordinal);
         Assert.Contains("aria-current=\"page\"", firstPage, StringComparison.Ordinal);
 
@@ -95,9 +93,11 @@ public sealed class MemberEventBrowsingFlowTests(SqlServerDatabaseFixture fixtur
 
         var secondPage = await client.GetStringAsync("/Events?page=2", ct);
         Assert.Contains("Page 2 of 2", secondPage, StringComparison.Ordinal);
-        Assert.Equal(2, EventIds(secondPage).Length);
+        Assert.Equal(3, EventIds(secondPage).Length);
         Assert.Contains("Closed event", secondPage, StringComparison.Ordinal);
         Assert.Contains("Signup closed", secondPage, StringComparison.Ordinal);
+        Assert.Contains($"data-event-id=\"{completed.EventId}\"", secondPage, StringComparison.Ordinal);
+        Assert.Contains("Completed", secondPage, StringComparison.Ordinal);
 
         foreach (var invalidPage in new[] { "0", "-1", "not-a-number" })
         {
@@ -106,8 +106,9 @@ public sealed class MemberEventBrowsingFlowTests(SqlServerDatabaseFixture fixtur
         }
 
         var pastEnd = await client.GetStringAsync("/Events?page=999999999", ct);
-        Assert.Equal(2, EventIds(pastEnd).Length);
+        Assert.Equal(3, EventIds(pastEnd).Length);
         Assert.Contains($"data-event-id=\"{closed.EventId}\"", pastEnd, StringComparison.Ordinal);
+        Assert.Contains($"data-event-id=\"{completed.EventId}\"", pastEnd, StringComparison.Ordinal);
     }
 
     private static int[] EventIds(string html) =>

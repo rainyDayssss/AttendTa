@@ -4,8 +4,9 @@ using ASI.Basecode.Data.Models.Lookups;
 namespace ASI.Basecode.Data.Models;
 
 /// <summary>
-/// Read projection for a single published event. Drafts and other states never match this query,
-/// and the private cover path is reduced to a boolean.
+/// Read projection for a single member-visible event. The published-only query matches Published
+/// rows; the member-visible query also matches Completed rows. Drafts, cancelled and other states
+/// never match, and the private cover path is reduced to a boolean.
 /// </summary>
 public sealed class PublishedEventDetail
 {

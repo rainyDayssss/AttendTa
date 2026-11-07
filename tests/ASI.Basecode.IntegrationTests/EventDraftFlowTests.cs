@@ -546,7 +546,8 @@ internal static class EventDraftTestSupport
             .AddInterceptors(interceptors).Options);
 
     public static EventLifecycleService Service(AsiBasecodeDBContext context, int actorId, TimeProvider? clock = null,
-        Func<IActivityLogWriter, IActivityLogWriter>? wrapAudit = null)
+        Func<IActivityLogWriter, IActivityLogWriter>? wrapAudit = null,
+        IEnumerable<IEventCompletionHandler>? completionHandlers = null)
     {
         var unitOfWork = new UnitOfWork(context);
         var actor = new Actor(actorId);
@@ -565,6 +566,7 @@ internal static class EventDraftTestSupport
             new VenueRepository(unitOfWork),
             registrations,
             new RegistrationCancellationService(registrations, events, unitOfWork, actor, audit, timeProvider),
+            completionHandlers ?? Array.Empty<IEventCompletionHandler>(),
             unitOfWork,
             Mapper,
             timeProvider,

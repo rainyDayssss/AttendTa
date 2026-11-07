@@ -3,7 +3,7 @@ using ASI.Basecode.Data.Models.Lookups;
 
 namespace ASI.Basecode.Services.ServiceModels;
 
-/// <summary>Participant-facing published event detail and its signup state.</summary>
+/// <summary>Participant-facing published or completed event detail and its signup state.</summary>
 public sealed class MemberEventDetailViewModel
 {
     public int EventId { get; set; }

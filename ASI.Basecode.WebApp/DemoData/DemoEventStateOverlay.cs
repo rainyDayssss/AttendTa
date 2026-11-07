@@ -5,9 +5,9 @@ using ASI.Basecode.Services.ServiceModels;
 namespace ASI.Basecode.WebApp.DemoData;
 
 /// <summary>
-/// The demo overlay (register M-04 and M-09). Applied after the real read in the controller, never
-/// as a repository decorator, because the demo-completed event is still a real Published row and
-/// only its label and check-in flag change (register rule 7).
+/// The demo overlay (register M-04). Applied after the real read in the controller, never as a
+/// repository decorator, because only the check-in open flag changes (register rule 7). Event
+/// completion is the real service, so the real read already reports Completed.
 /// </summary>
 public sealed class DemoEventStateOverlay : IEventStateOverlay
 {
@@ -25,14 +25,9 @@ public sealed class DemoEventStateOverlay : IEventStateOverlay
             return null;
         }
 
-        if (_store.IsCheckInOpen(model.EventId))
+        if (model.EventStatusId != EventStatusCode.Completed && _store.IsCheckInOpen(model.EventId))
         {
             model.IsCheckInOpen = true;
-        }
-
-        if (_store.IsCompleted(model.EventId))
-        {
-            model.EventStatusId = EventStatusCode.Completed;
         }
 
         return model;
@@ -45,14 +40,9 @@ public sealed class DemoEventStateOverlay : IEventStateOverlay
             return null;
         }
 
-        if (_store.IsCheckInOpen(model.EventId))
+        if (model.EventStatusId != EventStatusCode.Completed && _store.IsCheckInOpen(model.EventId))
         {
             model.IsCheckInOpen = true;
-        }
-
-        if (_store.IsCompleted(model.EventId))
-        {
-            model.EventStatusId = EventStatusCode.Completed;
         }
 
         return model;
@@ -65,14 +55,9 @@ public sealed class DemoEventStateOverlay : IEventStateOverlay
             return null;
         }
 
-        if (_store.IsCheckInOpen(model.EventId))
+        if (model.EventStatusId != EventStatusCode.Completed && _store.IsCheckInOpen(model.EventId))
         {
             model.IsCheckInOpen = true;
-        }
-
-        if (_store.IsCompleted(model.EventId))
-        {
-            model.EventStatusId = EventStatusCode.Completed;
         }
 
         return model;

@@ -4,7 +4,8 @@ using ASI.Basecode.Data.Models.Lookups;
 namespace ASI.Basecode.Data.Models;
 
 /// <summary>
-/// Read projection for the participant-facing published event feed. The private cover path is
+/// Read projection for the participant-facing event feed. The published-only query matches
+/// Published rows; the member-visible query also matches Completed rows. The private cover path is
 /// reduced to a boolean so views never receive a storage key.
 /// </summary>
 public sealed class PublishedEventListItem

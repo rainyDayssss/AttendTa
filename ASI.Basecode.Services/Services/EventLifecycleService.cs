@@ -18,8 +18,9 @@ using System.Threading.Tasks;
 namespace ASI.Basecode.Services.Services
 {
     /// <summary>
-    /// Draft Event creation and editing. Every write locks the Event Type, then the Venue, then the
-    /// Event, in the order AD-4 requires, and never converts time zones (AD-11).
+    /// Event lifecycle use cases: draft creation and editing, publish, cancel, complete, and cover
+    /// management. Every write locks the Event Type, then the Venue, then the Event, in the order
+    /// AD-4 requires, and never converts time zones (AD-11).
     /// </summary>
     public class EventLifecycleService : IEventLifecycleService
     {
@@ -28,6 +29,7 @@ namespace ASI.Basecode.Services.Services
         private readonly IVenueRepository _venues;
         private readonly IRegistrationRepository _registrations;
         private readonly IRegistrationCancellationService _cancellations;
+        private readonly IEnumerable<IEventCompletionHandler> _completionHandlers;
         private readonly IUnitOfWork _unitOfWork;
         private readonly TimeProvider _timeProvider;
         private readonly IMapper _mapper;
@@ -44,6 +46,7 @@ namespace ASI.Basecode.Services.Services
             IVenueRepository venues,
             IRegistrationRepository registrations,
             IRegistrationCancellationService cancellations,
+            IEnumerable<IEventCompletionHandler> completionHandlers,
             IUnitOfWork unitOfWork,
             IMapper mapper,
             TimeProvider timeProvider,
@@ -57,6 +60,7 @@ namespace ASI.Basecode.Services.Services
             _venues = venues;
             _registrations = registrations;
             _cancellations = cancellations;
+            _completionHandlers = completionHandlers ?? Array.Empty<IEventCompletionHandler>();
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _timeProvider = timeProvider;
@@ -337,6 +341,79 @@ namespace ASI.Basecode.Services.Services
             }, cancellationToken);
         }
 
+        public async Task CompleteAsync(int eventId, CancellationToken cancellationToken = default)
+        {
+            var actorUserId = RequireManagementActor();
+            var discovered = await _events.GetEventAsync(eventId, cancellationToken);
+            if (discovered == null)
+            {
+                throw new DomainException(OutcomeCode.NotFound, "Event not found.");
+            }
+
+            if (discovered.EventStatusId != EventStatusCode.Published)
+            {
+                throw new DomainException(OutcomeCode.Invalid, "Only a published event can be completed.");
+            }
+
+            await _unitOfWork.ExecuteInTransactionAsync(async ct =>
+            {
+                // AD-4: completion takes only the event lock.
+                var eventItem = await _events.LockEventAsync(eventId, ct);
+                if (eventItem == null)
+                {
+                    throw new DomainException(OutcomeCode.NotFound, "Event not found.");
+                }
+
+                if (eventItem.EventStatusId != discovered.EventStatusId)
+                {
+                    throw new DomainException(OutcomeCode.Stale, "The event changed while it was being completed.");
+                }
+
+                if (eventItem.EventStatusId != EventStatusCode.Published)
+                {
+                    throw new DomainException(OutcomeCode.Invalid, "Only a published event can be completed.");
+                }
+
+                // Capture request time after the row is locked so the cutoff guard, the stored
+                // metadata and the audit agree.
+                var now = _timeProvider.GetUtcNow().UtcDateTime;
+                if (!ParticipationFacts.StartCutoffPassed(now).Compile()(eventItem))
+                {
+                    throw new DomainException(OutcomeCode.Invalid, "An event cannot be completed before it starts.");
+                }
+
+                var oldValues = new EventCompletionAuditValues(
+                    eventItem.EventStatusId, eventItem.IsCheckInOpen, eventItem.CompletedBy, eventItem.CompletedAt);
+
+                eventItem.EventStatusId = EventStatusCode.Completed;
+                eventItem.CompletedBy = actorUserId;
+                eventItem.CompletedAt = now;
+                if (eventItem.IsCheckInOpen)
+                {
+                    eventItem.CheckInClosedBy = actorUserId;
+                    eventItem.CheckInClosedAt = now;
+                }
+
+                eventItem.IsCheckInOpen = false;
+                eventItem.UpdatedBy = actorUserId;
+                eventItem.UpdatedAt = now;
+                await _events.UpdateEventAsync(eventItem, ct);
+                _audit.Append(new AuditEntry(AuditActions.EventCompleted, "events", eventItem.EventId,
+                    OldValues: oldValues,
+                    NewValues: new EventCompletionAuditValues(
+                        eventItem.EventStatusId, eventItem.IsCheckInOpen, eventItem.CompletedBy, eventItem.CompletedAt)));
+                await _unitOfWork.SaveChangesAsync(ct);
+
+                // Hooks run after the completion row is saved but inside the caller's transaction, so
+                // they observe Completed and a throw rolls the whole completion back (AD-2, AD-3).
+                var context = new EventCompletionContext(eventItem.EventId, actorUserId, now);
+                foreach (var handler in _completionHandlers)
+                {
+                    await handler.HandleAsync(context, ct);
+                }
+            }, cancellationToken);
+        }
+
         public async Task<EventCoverViewModel> GetCoverManagementAsync(int eventId, CancellationToken cancellationToken = default)
         {
             RequireManagementActor();
@@ -365,7 +442,7 @@ namespace ASI.Basecode.Services.Services
             }
 
             var eventItem = await _events.GetEventAsync(eventId, cancellationToken);
-            if (eventItem == null || (!isManagement && eventItem.EventStatusId != EventStatusCode.Published))
+            if (eventItem == null || (!isManagement && eventItem.EventStatusId is not (EventStatusCode.Published or EventStatusCode.Completed)))
             {
                 throw new DomainException(OutcomeCode.NotFound, "Event cover not found.");
             }
@@ -614,6 +691,12 @@ namespace ASI.Basecode.Services.Services
             int? CancelledBy,
             DateTime? CancelledAt,
             string CancellationReason) : IAuditValues;
+
+        private sealed record EventCompletionAuditValues(
+            EventStatusCode Status,
+            bool IsCheckInOpen,
+            int? CompletedBy,
+            DateTime? CompletedAt) : IAuditValues;
 
         private int ActorUserId()
         {

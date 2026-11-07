@@ -267,7 +267,7 @@ namespace ASI.Basecode.WebApp.Controllers
         {
             try
             {
-                await _eventStateCommands.CompleteAsync(id, cancellationToken);
+                await _eventService.CompleteAsync(id, cancellationToken);
                 TempData["SuccessMessage"] = "Event completed.";
             }
             catch (DomainException exception)

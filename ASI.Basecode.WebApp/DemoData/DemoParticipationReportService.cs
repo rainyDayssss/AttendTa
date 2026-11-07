@@ -14,9 +14,9 @@ namespace ASI.Basecode.WebApp.DemoData;
 /// <summary>
 /// Demo overlay for the per-event participation report (register M-13b and M-13c). The real
 /// <see cref="ParticipationReportService"/> answers the 7.1 summary first; this provider then adds
-/// the still-open demo rows, breakdowns and no-shows, and keeps the demo store's effective Completed
-/// status and attendance-derived valid count and rate while M-05, M-07 and M-09 remain open. It
-/// never writes.
+/// the still-open demo rows, breakdowns and no-shows, and keeps the attendance-derived valid count
+/// and rate while M-05 and M-07 remain open. The event status comes from SQL; the store's completed
+/// fallback is only a test fixture. It never writes.
 /// </summary>
 public sealed class DemoParticipationReportService : IParticipationReportService
 {

@@ -191,6 +191,22 @@ public sealed class EventCoverServiceTests
     }
 
     [Fact]
+    public async Task MemberCanOpenACompletedEventCoverAndStillCannotOpenADraftCover()
+    {
+        var harness = new Harness(EventStatusCode.Completed, "uploads/events/0123456789abcdef0123456789abcdef.jpg", role: RoleCodes.Member);
+        harness.Files.ReadBytes = ImageBytes();
+
+        var cover = await harness.Service.OpenCoverAsync(15, TestContext.Current.CancellationToken);
+        Assert.Equal("image/jpeg", cover.ContentType);
+        Assert.Equal(ImageBytes(), await ReadAllAsync(cover.Content));
+
+        harness.Events.Item.EventStatusId = EventStatusCode.Draft;
+        var error = await Assert.ThrowsAsync<DomainException>(() =>
+            harness.Service.OpenCoverAsync(15, TestContext.Current.CancellationToken));
+        Assert.Equal(OutcomeCode.NotFound, error.Outcome);
+    }
+
+    [Fact]
     public async Task UnsupportedRoleCannotOpenAnEventCover()
     {
         var harness = new Harness(EventStatusCode.Published, OldCover, role: "auditor");
@@ -255,6 +271,7 @@ public sealed class EventCoverServiceTests
                 new MemoryVenues(this),
                 new UnusedRegistrations(),
                 new UnusedCancellations(),
+                Array.Empty<IEventCompletionHandler>(),
                 UnitOfWork,
                 new MapperConfiguration(_ => { }).CreateMapper(),
                 Clock,
@@ -360,6 +377,9 @@ public sealed class EventCoverServiceTests
         public Task<int> CountPublishedAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<PublishedEventListItem>> GetPublishedPageAsync(int skip, int take, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<PublishedEventDetail> GetPublishedEventAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<int> CountMemberVisibleAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<PublishedEventListItem>> GetMemberVisiblePageAsync(int skip, int take, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<PublishedEventDetail> GetMemberVisibleEventAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private sealed class MemoryEventTypes(Harness harness) : IEventTypeRepository

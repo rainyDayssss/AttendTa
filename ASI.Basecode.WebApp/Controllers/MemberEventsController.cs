@@ -14,9 +14,10 @@ using System.Threading.Tasks;
 namespace ASI.Basecode.WebApp.Controllers;
 
 /// <summary>
-/// Participant-facing published event feed, registration submission and member self-cancellation.
-/// Every action is authenticated; registration additionally requires an eligible member profile in
-/// the service, and cancellation only ever touches the actor's own registration.
+/// Participant-facing member-visible event feed (published or completed), registration submission
+/// and member self-cancellation. Every action is authenticated; registration additionally requires
+/// an eligible member profile in the service, and cancellation only ever touches the actor's own
+/// registration.
 /// </summary>
 [Authorize]
 [AutoValidateAntiforgeryToken]

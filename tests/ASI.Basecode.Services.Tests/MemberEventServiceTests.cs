@@ -898,9 +898,28 @@ public sealed class MemberEventServiceTests
         public Task<int> CountPublishedAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(Items.Count(item => item.EventStatusId == EventStatusCode.Published));
 
+        public Task<int> CountMemberVisibleAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(Items.Count(item => IsMemberVisible(item, includeCompleted: true)));
+
         public Task<IReadOnlyList<PublishedEventListItem>> GetPublishedPageAsync(int skip, int take, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<PublishedEventListItem>>(Items
-                .Where(item => item.EventStatusId == EventStatusCode.Published)
+            Task.FromResult<IReadOnlyList<PublishedEventListItem>>(Page(skip, take, includeCompleted: false));
+
+        public Task<IReadOnlyList<PublishedEventListItem>> GetMemberVisiblePageAsync(int skip, int take, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<PublishedEventListItem>>(Page(skip, take, includeCompleted: true));
+
+        public Task<PublishedEventDetail> GetPublishedEventAsync(int eventId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Detail(eventId, includeCompleted: false));
+
+        public Task<PublishedEventDetail> GetMemberVisibleEventAsync(int eventId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Detail(eventId, includeCompleted: true));
+
+        private static bool IsMemberVisible(Event item, bool includeCompleted) =>
+            item.EventStatusId == EventStatusCode.Published
+            || (includeCompleted && item.EventStatusId == EventStatusCode.Completed);
+
+        private List<PublishedEventListItem> Page(int skip, int take, bool includeCompleted) =>
+            Items
+                .Where(item => IsMemberVisible(item, includeCompleted))
                 .OrderBy(item => item.StartsAt)
                 .ThenBy(item => item.EventId)
                 .Skip(skip)
@@ -918,12 +937,12 @@ public sealed class MemberEventServiceTests
                     HasCover = item.ImagePath != null && item.ImagePath.StartsWith("uploads/events/"),
                     EventStatusId = item.EventStatusId
                 })
-                .ToList());
+                .ToList();
 
-        public Task<PublishedEventDetail> GetPublishedEventAsync(int eventId, CancellationToken cancellationToken = default)
+        private PublishedEventDetail Detail(int eventId, bool includeCompleted)
         {
-            var item = Items.FirstOrDefault(row => row.EventId == eventId && row.EventStatusId == EventStatusCode.Published);
-            return Task.FromResult(item == null ? null! : new PublishedEventDetail
+            var item = Items.FirstOrDefault(row => row.EventId == eventId && IsMemberVisible(row, includeCompleted));
+            return item == null ? null! : new PublishedEventDetail
             {
                 EventId = item.EventId,
                 Title = item.Title,
@@ -936,7 +955,7 @@ public sealed class MemberEventServiceTests
                 ConfirmedCount = ConfirmedCount(item.EventId),
                 HasCover = item.ImagePath != null && item.ImagePath.StartsWith("uploads/events/"),
                 EventStatusId = item.EventStatusId
-            });
+            };
         }
     }
 

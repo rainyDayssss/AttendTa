@@ -14,10 +14,11 @@ using System.Threading.Tasks;
 namespace ASI.Basecode.Services.Services
 {
     /// <summary>
-    /// Published event browsing, registration submission and member self-cancellation. Registration
-    /// and cancellation lock the owner's <c>users</c> row and then the event, recheck the canonical
-    /// facts against the locked rows, and let the database uniqueness key remain the final duplicate
-    /// guard (AD-4, AD-5, AD-6).
+    /// Member-facing event browsing, registration submission and member self-cancellation. The feed
+    /// and detail show published and completed events; registration and cancellation still require
+    /// a published event. Registration and cancellation lock the owner's <c>users</c> row and then
+    /// the event, recheck the canonical facts against the locked rows, and let the database
+    /// uniqueness key remain the final duplicate guard (AD-4, AD-5, AD-6).
     /// </summary>
     public sealed class MemberEventService : IMemberEventService
     {
@@ -57,10 +58,10 @@ namespace ASI.Basecode.Services.Services
         {
             RequireAuthenticatedActor();
 
-            var totalCount = await _events.CountPublishedAsync(cancellationToken);
+            var totalCount = await _events.CountMemberVisibleAsync(cancellationToken);
             var pageRequest = new PageRequest(pageNumber);
             var normalizedPage = pageRequest.NormalizePageNumber(totalCount);
-            var rows = await _events.GetPublishedPageAsync(
+            var rows = await _events.GetMemberVisiblePageAsync(
                 pageRequest.GetOffset(normalizedPage),
                 PageRequest.FixedPageSize,
                 cancellationToken);
@@ -82,7 +83,7 @@ namespace ASI.Basecode.Services.Services
         {
             var actorUserId = RequireAuthenticatedActor();
 
-            var row = await _events.GetPublishedEventAsync(eventId, cancellationToken);
+            var row = await _events.GetMemberVisibleEventAsync(eventId, cancellationToken);
             if (row == null)
             {
                 return null;
