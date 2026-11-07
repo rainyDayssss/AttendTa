@@ -11,6 +11,12 @@ This is the base code that will be used during the bridge and jumpstart program.
 3.  Set `ASI.Basecode.WebApp` as the Startup project.
 4.  Clean and ReBuild the solution.
 
+## Demo quick start
+
+From a fresh clone to the running demo build: see [docs/demo-quickstart.md](docs/demo-quickstart.md).
+The presenter beats and the rehearsal evidence are in
+`_bmad-output/initiative-attendta/demo-script.md` and `demo-rehearsal-findings.md`.
+
 ## Code Structure
 
 - `ASI.Basecode.Data`
