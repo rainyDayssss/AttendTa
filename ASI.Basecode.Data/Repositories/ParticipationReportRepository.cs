@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -12,8 +13,10 @@ using Microsoft.EntityFrameworkCore;
 namespace ASI.Basecode.Data.Repositories;
 
 /// <summary>
-/// Read-only participation report repository. Each read composes the canonical facts; it filters
-/// before counting, so the values cover the full event dataset rather than a page.
+/// Read-only participation report repository. The summary, no-show and distribution reads compose
+/// the canonical facts; the detail reads join the event's registrations to their member and
+/// attendance. Each read filters before counting, so the values cover the full event dataset rather
+/// than a page.
 /// </summary>
 public sealed class ParticipationReportRepository : BaseRepository, IParticipationReportRepository
 {
@@ -92,6 +95,58 @@ public sealed class ParticipationReportRepository : BaseRepository, IParticipati
         return new ParticipationReportDistributionFacts(
             courses.Select(row => new CourseDistributionRow(row.Course, row.Count)).ToList(),
             years.Select(row => new YearDistributionRow(row.YearLevel, row.Count)).ToList());
+    }
+
+    public Task<int> CountDetailRowsAsync(int eventId, CancellationToken cancellationToken = default) =>
+        GetDbSet<Registration>()
+            .AsNoTracking()
+            .CountAsync(registration => registration.EventId == eventId, cancellationToken);
+
+    public async Task<IReadOnlyList<ParticipationReportDetailRow>> GetDetailPageAsync(
+        int eventId,
+        int skip,
+        int take,
+        CancellationToken cancellationToken = default)
+    {
+        // Every registration of the event, all four statuses, joined to the member's name and student
+        // number. Attendance is left-joined because attendance.registration_id is UNIQUE, so it can
+        // never multiply a row; a null CheckedInAt is the only "no attendance row" signal.
+        var rows = await (
+            from registration in GetDbSet<Registration>().AsNoTracking()
+            join member in GetDbSet<Member>().AsNoTracking() on registration.MemberId equals member.MemberId
+            join user in GetDbSet<User>().AsNoTracking() on member.UserId equals user.Id
+            join attendance in GetDbSet<Attendance>().AsNoTracking()
+                on registration.RegistrationId equals attendance.RegistrationId into attendanceRows
+            from attendance in attendanceRows.DefaultIfEmpty()
+            where registration.EventId == eventId
+            orderby user.Name, registration.RegistrationId
+            select new
+            {
+                registration.RegistrationId,
+                MemberName = user.Name,
+                member.StudentNumber,
+                Course = registration.CourseSnapshot,
+                YearLevel = registration.YearLevelSnapshot,
+                Status = registration.RegistrationStatusId,
+                CheckedInAt = (DateTime?)attendance.RecordedAt,
+                IsAttendanceInvalidated = attendance != null && attendance.InvalidatedAt != null
+            })
+            .Skip(skip)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+
+        // Materialize the anonymous projection first so EF never has to construct the record.
+        return rows
+            .Select(row => new ParticipationReportDetailRow(
+                row.RegistrationId,
+                row.MemberName,
+                row.StudentNumber,
+                row.Course,
+                row.YearLevel,
+                row.Status,
+                row.CheckedInAt,
+                row.IsAttendanceInvalidated))
+            .ToList();
     }
 
     private static IQueryable<int> ValidAttendeeIds(

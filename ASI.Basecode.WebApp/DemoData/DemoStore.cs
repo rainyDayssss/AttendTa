@@ -74,10 +74,10 @@ public sealed class DemoStore
     }
 
     /// <summary>
-    /// Marks the event completed. This is only the participation-report overlay test fixture now;
-    /// the app completes events through the real <c>IEventLifecycleService</c>, and the real
-    /// completion hook creates the certificate reviews. Reviews for the demo ledger are seeded
-    /// explicitly through <see cref="SeedPendingReviewsForEvent"/>.
+    /// Marks the event completed. This is only the certificate-ledger demo and test fixture now; the
+    /// app completes events through the real <c>IEventLifecycleService</c>, and the real completion
+    /// hook creates the certificate reviews. Reviews for the demo ledger are seeded explicitly
+    /// through <see cref="SeedPendingReviewsForEvent"/>.
     /// </summary>
     public void MarkCompleted(int eventId)
     {
@@ -122,27 +122,11 @@ public sealed class DemoStore
     }
 
     /// <summary>
-    /// The event's seeded attendance rows, newest first. The report overlay now reads real
-    /// attendance first and uses the store only to fill registrations without a real row; this
-    /// per-event read stays part of the demo seam until 8.13 removes the store.
-    /// </summary>
-    public IReadOnlyList<DemoAttendance> GetAttendanceForEvent(int eventId)
-    {
-        lock (_gate)
-        {
-            return _attendance.Values
-                .Where(record => record.EventId == eventId)
-                .OrderByDescending(record => record.RecordedAt)
-                .ThenBy(record => record.RegistrationId)
-                .ToList();
-        }
-    }
-
-    /// <summary>
     /// Invalidates a seeded attendance with a reason. The app invalidates through the real
     /// <c>IAttendanceInvalidationService</c>; this helper only builds the start-up seed and the
-    /// demo tests. Refused when the registration's certificate is already issued; otherwise a
-    /// pending or approved review becomes not eligible with that reason.
+    /// demo tests. Refused when the registration's certificate is already issued. The review flip
+    /// is owned by the real <c>CertificateReviewInvalidationHandler</c> (6.5), so this helper only
+    /// stamps the attendance.
     /// </summary>
     public DemoAttendance InvalidateAttendance(int registrationId, string reason, DateTime invalidatedAt)
     {
@@ -166,18 +150,6 @@ public sealed class DemoStore
 
             var invalidated = record with { InvalidatedAt = invalidatedAt, InvalidationReason = trimmedReason };
             _attendance[registrationId] = invalidated;
-
-            if (_reviews.TryGetValue(registrationId, out var review)
-                && review.Status is CertificateStatusCode.PendingApproval or CertificateStatusCode.Eligible)
-            {
-                _reviews[registrationId] = review with
-                {
-                    Status = CertificateStatusCode.NotEligible,
-                    Reason = trimmedReason,
-                    UpdatedAt = invalidatedAt
-                };
-            }
-
             return invalidated;
         }
     }

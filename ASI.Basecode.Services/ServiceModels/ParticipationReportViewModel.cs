@@ -17,7 +17,7 @@ public sealed class ParticipationReportViewModel : IPagedResult
     public string EventTitle { get; init; }
     public DateTime? StartsAt { get; init; }
 
-    /// <summary>The effective lifecycle status; a demo-completed event reads as Completed here.</summary>
+    /// <summary>The event's lifecycle status from SQL; the report never overrides it.</summary>
     public EventStatusCode? EventStatusId { get; init; }
 
     public string EventStatusLabel { get; init; }

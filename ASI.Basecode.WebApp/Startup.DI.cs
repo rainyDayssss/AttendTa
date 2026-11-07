@@ -66,6 +66,11 @@ namespace ASI.Basecode.WebApp
             // its transaction; each handler shares the caller's unit of work.
             this._services.AddScoped<IEventCompletionHandler, CertificateReviewCompletionHandler>();
 
+            // Attendance invalidation hooks (AD-2). The invalidation use case invokes every
+            // registered handler inside its transaction after the event lock is held; each handler
+            // shares the caller's unit of work.
+            this._services.AddScoped<IAttendanceInvalidationHandler, CertificateReviewInvalidationHandler>();
+
             // Repositories
             this._services.AddScoped<IUserRepository, UserRepository>();
             this._services.AddScoped<IAccountRequestRepository, AccountRequestRepository>();

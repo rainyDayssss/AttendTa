@@ -1,12 +1,15 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using ASI.Basecode.Data.Models.Lookups;
 
 namespace ASI.Basecode.Data.Interfaces;
 
 /// <summary>
 /// Read-only participation report facts for one event. Counts, no-shows, distributions and the rate
 /// are derived from the canonical <see cref="ASI.Basecode.Data.Queries.ParticipationFacts"/>; the
+/// paged detail rows are the event's registrations joined to their member and attendance. The
 /// report never mutates participation records.
 /// </summary>
 public interface IParticipationReportRepository
@@ -28,6 +31,19 @@ public interface IParticipationReportRepository
     /// signup. It never joins users or members, so inactive history stays visible.
     /// </summary>
     Task<ParticipationReportDistributionFacts> GetAttendeeDistributionAsync(int eventId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the number of detail rows for one event: every registration in every status, so the
+    /// pager's total covers the full dataset rather than the requested page.
+    /// </summary>
+    Task<int> CountDetailRowsAsync(int eventId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns one page of detail rows for one event, ordered by participant name and then
+    /// <c>registration_id</c> so page boundaries are stable. A null <c>CheckedInAt</c> means the
+    /// registration has no attendance row.
+    /// </summary>
+    Task<IReadOnlyList<ParticipationReportDetailRow>> GetDetailPageAsync(int eventId, int skip, int take, CancellationToken cancellationToken = default);
 }
 
 /// <summary>The canonical summary values for one event, before any presentation rounding.</summary>
@@ -49,3 +65,18 @@ public sealed record CourseDistributionRow(string Course, int Count);
 
 /// <summary>One year-level snapshot group, before presentation labels, ordering and percentages.</summary>
 public sealed record YearDistributionRow(int YearLevel, int Count);
+
+/// <summary>
+/// One participant detail row, before presentation labels. <see cref="CheckedInAt"/> is null when the
+/// registration has no attendance row; <see cref="IsAttendanceInvalidated"/> separates an invalidated
+/// check-in from a valid one.
+/// </summary>
+public sealed record ParticipationReportDetailRow(
+    int RegistrationId,
+    string MemberName,
+    string StudentNumber,
+    string Course,
+    int YearLevel,
+    RegistrationStatusCode Status,
+    DateTime? CheckedInAt,
+    bool IsAttendanceInvalidated);

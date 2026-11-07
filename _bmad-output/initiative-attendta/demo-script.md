@@ -201,7 +201,11 @@ Sign in as `rafael.santos@uc.edu.ph`.
 | O7 | Invalidation | Recorded check-ins → Invalidate | Dialog names the participant and requires a reason; Cancel leaves the check-in intact | Dialog fits |
 | O8 | Certificate review | `/Certificates?eventId=1` | Pending reviews; approve one; decline another with a required reason; the declined row shows "Decision final" | Table scrolls; dialogs fit |
 | O9 | Certificate issue and PDF | Eligibility Review → Issue certificate → Issued Registry → View PDF | "Certificate issued."; the registry lists the new number; the landscape A4 PDF opens with the configured signatory | Viewer is usable; the download link is reachable |
-| O10 | Report | `/Reports/Participation?eventId=1` and `?eventId=2` | Event 1 (completed in O3): 8 confirmed, 7 valid, 87.5%, 1 no-show, course/year breakdowns; Event 2 (cancelled): no final rate and no no-shows | Summary cards stack; tables scroll |
+| O10 | Report | `/Reports/Participation?eventId=1` and `?eventId=2` | Event 1 (completed in O3): 8 confirmed, 0 valid, 0%, 8 no-shows, no course/year breakdowns, every row "No-show"; Event 2 (cancelled): no final rate and no no-shows | Summary cards stack; tables scroll |
+
+The report reads real SQL attendance only since 7.3. The seeded demo-store check-ins for
+Leadership Summit feed the certificate ledger, not the report, so O10 shows no valid attendees
+and every confirmed row as a no-show.
 
 The member's pass token for Founders' Week can be read from the pass page. The operator can
 also print the same value with
@@ -237,7 +241,8 @@ Sign in as `liza.fernandez@uc.edu.ph`.
 
 - **Member attendance history is real since 4.7.** `MyEventsService.GetAttendanceAsync` reads the
   owner-scoped SQL query, so a check-in made through the real scanner appears here. Seeded
-  demo-store check-ins still appear only on the scanner log and the report (register M-08 removed).
+  demo-store check-ins now feed the certificate-ledger demo only; the participation report reads
+  real SQL attendance since 7.3 (register M-08 and M-13c removed).
 - **Completion is live.** The demo completes Leadership Summit in O3 through the real 3.12
   service, so completion writes SQL and the Activity Log. A restart returns the scenario's
   events to their seeded status and resets the in-memory store.
@@ -267,7 +272,7 @@ Sign in as `liza.fernandez@uc.edu.ph`.
 | 5.11 | Account and membership access dialogs | A6 | Pass |
 | 6.12 | Certificate ledger, decisions, issuance, PDF viewer | O8–O9 | Pass |
 | 6.13 | Member certificate history and download links | M7 | Pass |
-| 7.4 | Per-event participation report | O10 | Pass |
+| 7.4 | Per-event participation report | O10 | Pass (real SQL reads since 7.3; seeded store check-ins do not appear) |
 | 3.18 | Member feed/detail alignment and registration states | M2–M3 | Partial: waitlisted/cutoff and self-cancellation not exercised (8.12) |
 | 4.13 | Profile action to My Passes | M9 | Partial: inactive-member login and certificate access not exercised (8.12) |
 | 2.12 | Shared dialog and Event Type editor | A4 | Partial: create/edit, duplicate-name retention, focus and 390px not exercised (8.12) |

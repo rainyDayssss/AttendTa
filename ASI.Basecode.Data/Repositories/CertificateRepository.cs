@@ -33,6 +33,9 @@ public sealed class CertificateRepository : BaseRepository, ICertificateReposito
             .ToListAsync(ct);
     }
 
+    public Task<Certificate> GetByRegistrationIdAsync(int registrationId, CancellationToken ct = default) =>
+        GetDbSet<Certificate>().SingleOrDefaultAsync(row => row.RegistrationId == registrationId, ct);
+
     public Task AddRangeAsync(IReadOnlyList<Certificate> certificates, CancellationToken ct = default)
     {
         GetDbSet<Certificate>().AddRange(certificates);

@@ -5,9 +5,9 @@ using ASI.Basecode.Services.ServiceModels;
 namespace ASI.Basecode.Services.Interfaces;
 
 /// <summary>
-/// Per-event participation report read. 7.1 and 7.2 are real; only the M-13c detail-row overlay
-/// remains with the demo provider, and 7.3 removes it behind the same contract. Reads only: the
-/// report never mutates participation records.
+/// Per-event participation report read. 7.1, 7.2 and 7.3 are all real: the summary, no-shows,
+/// attendee distributions and paged detail rows come from canonical SQL, with no demo provider.
+/// Reads only: the report never mutates participation records.
 /// </summary>
 public interface IParticipationReportService
 {

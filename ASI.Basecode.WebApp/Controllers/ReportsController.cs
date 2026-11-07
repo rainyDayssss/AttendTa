@@ -13,8 +13,8 @@ using Microsoft.Extensions.Logging;
 namespace ASI.Basecode.WebApp.Controllers;
 
 /// <summary>
-/// Officer reports. The per-event participation report is a read-only Management surface; the
-/// service contract hides whether the demo provider or the real 7.1–7.3 reads answer it.
+/// Officer reports. The per-event participation report is a read-only Management surface; the real
+/// <see cref="IParticipationReportService"/> answers it from canonical SQL in both demo switch states.
 /// </summary>
 [Authorize(Policy = Policies.Management)]
 public sealed class ReportsController : ControllerBase<ReportsController>

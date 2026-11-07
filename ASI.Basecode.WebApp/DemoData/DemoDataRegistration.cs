@@ -9,8 +9,8 @@ namespace ASI.Basecode.WebApp.DemoData;
 /// <c>Startup.DI.cs</c> behind <c>DemoData:Enabled</c>; it calls one registration file per surface.
 /// With the switch off it registers nothing beyond the certificate providers, so the normal screens
 /// are untouched. Check-in by scan, the manual lookup, attendance invalidation, both account
-/// commands and both membership commands are the real services registered by DI in both switch
-/// states.
+/// commands, both membership commands and the participation report are the real services registered
+/// by DI in both switch states.
 /// </summary>
 internal static class DemoDataRegistration
 {
@@ -25,7 +25,5 @@ internal static class DemoDataRegistration
         services.Configure<DemoDataOptions>(configuration.GetSection(DemoDataOptions.SectionName));
         services.AddSingleton<DemoStore>();
         services.AddHostedService<DemoSeedService>();
-
-        DemoReportsRegistration.AddDemoReports(services);
     }
 }

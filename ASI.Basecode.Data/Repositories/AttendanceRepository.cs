@@ -69,18 +69,6 @@ public sealed class AttendanceRepository : BaseRepository, IAttendanceRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<EventAttendanceRow>> GetForEventAsync(int eventId, CancellationToken cancellationToken = default) =>
-        await (from attendance in GetDbSet<Attendance>().AsNoTracking()
-               join registration in GetDbSet<Registration>().AsNoTracking() on attendance.RegistrationId equals registration.RegistrationId
-               where registration.EventId == eventId
-               orderby attendance.RegistrationId
-               select new EventAttendanceRow(
-                   attendance.RegistrationId,
-                   attendance.RecordedAt,
-                   attendance.InvalidatedAt,
-                   attendance.InvalidationReason))
-            .ToListAsync(cancellationToken);
-
     public async Task<IReadOnlyList<int>> GetValidAttendedRegistrationIdsAsync(int eventId, CancellationToken cancellationToken = default)
     {
         var validAttendance = ParticipationFacts.ValidAttendances(GetDbSet<Attendance>().AsNoTracking());

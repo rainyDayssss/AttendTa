@@ -15,7 +15,7 @@ namespace ASI.Basecode.Services.Tests;
 public sealed class ParticipationReportServiceTests
 {
     [Fact]
-    public async Task CompletedEventMapsSummaryFactsAndLeavesDetailFieldsEmpty()
+    public async Task CompletedEventMapsSummaryFactsAndEmptyRepositoryReturnsNoRows()
     {
         var events = new FakeEvents { EventItem = Event(1, EventStatusCode.Completed) };
         events.Items.Add(new EventListItem { EventId = 1, Title = "Completed" });
@@ -205,6 +205,177 @@ public sealed class ParticipationReportServiceTests
         Assert.Equal(5m / 6m, report.AttendanceRate);
     }
 
+    [Fact]
+    public async Task DetailRowsPageInRepositoryOrderWhileTotalsStayFullDataset()
+    {
+        var events = new FakeEvents { EventItem = Event(1, EventStatusCode.Completed) };
+        events.Items.Add(new EventListItem { EventId = 1, Title = "Paged" });
+        var facts = new FakeReportFacts(new ParticipationReportSummaryFacts(0, 26, 0, 0, 20, 20m / 26m));
+        for (var index = 1; index <= 26; index++)
+        {
+            facts.DetailRows.Add(DetailRow(index, $"Participant {index:D2}"));
+        }
+
+        var service = new ParticipationReportService(events, facts);
+
+        var first = await service.GetReportAsync(1, 1, TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, first.PageNumber);
+        Assert.Equal(26, first.TotalCount);
+        Assert.Equal(25, first.Rows.Count);
+        Assert.Equal(Enumerable.Range(1, 25), first.Rows.Select(row => row.RegistrationId));
+        Assert.Equal(0, facts.LastSkip);
+        Assert.Equal(PageRequest.FixedPageSize, facts.LastTake);
+
+        var second = await service.GetReportAsync(1, 2, TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, second.PageNumber);
+        Assert.Equal(26, second.TotalCount);
+        var lastRow = Assert.Single(second.Rows);
+        Assert.Equal(26, lastRow.RegistrationId);
+        Assert.Equal(PageRequest.FixedPageSize, facts.LastSkip);
+
+        // No row is repeated or skipped across the boundary.
+        Assert.Empty(first.Rows.Select(row => row.RegistrationId)
+            .Intersect(second.Rows.Select(row => row.RegistrationId)));
+
+        // The summary still covers the full dataset on both pages.
+        Assert.Equal(26, second.ConfirmedCount);
+        Assert.Equal(20, second.ValidAttendeeCount);
+        Assert.Equal(20m / 26m, second.AttendanceRate);
+    }
+
+    [Theory]
+    [InlineData(null, 1, 0)]
+    [InlineData(0, 1, 0)]
+    [InlineData(-4, 1, 0)]
+    [InlineData(9, 2, 25)]
+    public async Task InvalidPageRequestsNormalizeToTheFirstOrLastPage(int? page, int expectedPage, int expectedSkip)
+    {
+        var events = new FakeEvents { EventItem = Event(1, EventStatusCode.Completed) };
+        events.Items.Add(new EventListItem { EventId = 1, Title = "Paged" });
+        var facts = new FakeReportFacts(new ParticipationReportSummaryFacts(0, 26, 0, 0, 20, 20m / 26m));
+        for (var index = 1; index <= 26; index++)
+        {
+            facts.DetailRows.Add(DetailRow(index, $"Participant {index:D2}"));
+        }
+
+        var service = new ParticipationReportService(events, facts);
+
+        var report = await service.GetReportAsync(1, page, TestContext.Current.CancellationToken);
+
+        Assert.Equal(expectedPage, report.PageNumber);
+        Assert.Equal(expectedSkip, facts.LastSkip);
+        Assert.Equal(26, report.TotalCount);
+        Assert.Equal(expectedPage == 2 ? 1 : 25, report.Rows.Count);
+    }
+
+    [Fact]
+    public async Task DetailRowsMapStatusAndAttendanceLabelsForACompletedEvent()
+    {
+        var now = new DateTime(2026, 3, 10, 9, 0, 0, DateTimeKind.Utc);
+        var events = new FakeEvents { EventItem = Event(1, EventStatusCode.Completed) };
+        events.Items.Add(new EventListItem { EventId = 1, Title = "Completed" });
+        var facts = new FakeReportFacts(new ParticipationReportSummaryFacts(0, 3, 1, 1, 1, 1m / 3m));
+        facts.DetailRows.Add(DetailRow(1, "Checked", checkedInAt: now));
+        facts.DetailRows.Add(DetailRow(2, "Invalidated", checkedInAt: now, invalidated: true));
+        facts.DetailRows.Add(DetailRow(3, "Absent"));
+        facts.DetailRows.Add(DetailRow(4, "Pending", status: RegistrationStatusCode.Pending));
+        facts.DetailRows.Add(DetailRow(5, "Cancelled", status: RegistrationStatusCode.Cancelled, checkedInAt: now));
+
+        var service = new ParticipationReportService(events, facts);
+
+        var report = await service.GetReportAsync(1, null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(5, report.Rows.Count);
+
+        var checkedIn = report.Rows[0];
+        Assert.True(checkedIn.Attended);
+        Assert.False(checkedIn.IsNoShow);
+        Assert.Equal("Checked in", checkedIn.AttendanceLabel);
+        Assert.Equal("badge-open", checkedIn.AttendanceBadgeClass);
+        Assert.Equal(now, checkedIn.CheckedInAt);
+        Assert.Equal("Confirmed", checkedIn.StatusLabel);
+        Assert.Equal("badge-open", checkedIn.StatusBadgeClass);
+
+        var invalidated = report.Rows[1];
+        Assert.False(invalidated.Attended);
+        Assert.True(invalidated.IsNoShow);
+        Assert.Equal("Invalidated", invalidated.AttendanceLabel);
+        Assert.Equal("badge-inactive", invalidated.AttendanceBadgeClass);
+        Assert.Equal(now, invalidated.CheckedInAt);
+
+        var absent = report.Rows[2];
+        Assert.False(absent.Attended);
+        Assert.True(absent.IsNoShow);
+        Assert.Equal("No-show", absent.AttendanceLabel);
+        Assert.Equal("badge-inactive", absent.AttendanceBadgeClass);
+        Assert.Null(absent.CheckedInAt);
+
+        var pending = report.Rows[3];
+        Assert.False(pending.Attended);
+        Assert.False(pending.IsNoShow);
+        Assert.Equal("—", pending.AttendanceLabel);
+        Assert.Null(pending.AttendanceBadgeClass);
+        Assert.Null(pending.CheckedInAt);
+        Assert.Equal("Pending review", pending.StatusLabel);
+
+        // A non-confirmed row that was checked in still shows its real attendance result.
+        var cancelled = report.Rows[4];
+        Assert.True(cancelled.Attended);
+        Assert.False(cancelled.IsNoShow);
+        Assert.Equal("Checked in", cancelled.AttendanceLabel);
+    }
+
+    [Fact]
+    public async Task NonFinalEventShowsNotCheckedInWithoutANoShow()
+    {
+        var events = new FakeEvents { EventItem = Event(1, EventStatusCode.Published) };
+        events.Items.Add(new EventListItem { EventId = 1, Title = "Published" });
+        var facts = new FakeReportFacts(new ParticipationReportSummaryFacts(0, 1, 0, 0, 0, 0m));
+        facts.DetailRows.Add(DetailRow(1, "Waiting"));
+
+        var service = new ParticipationReportService(events, facts);
+
+        var report = await service.GetReportAsync(1, null, TestContext.Current.CancellationToken);
+
+        var row = Assert.Single(report.Rows);
+        Assert.False(row.Attended);
+        Assert.False(row.IsNoShow);
+        Assert.Equal("Not checked in", row.AttendanceLabel);
+        Assert.Equal("badge-closed", row.AttendanceBadgeClass);
+        Assert.Null(row.CheckedInAt);
+    }
+
+    [Fact]
+    public async Task EmptyEventReturnsNoRowsAndSkipsTheDetailRead()
+    {
+        var events = new FakeEvents { EventItem = Event(1, EventStatusCode.Completed) };
+        events.Items.Add(new EventListItem { EventId = 1, Title = "Empty" });
+        var facts = new FakeReportFacts(new ParticipationReportSummaryFacts(0, 0, 0, 0, 0, null));
+
+        var service = new ParticipationReportService(events, facts);
+
+        var report = await service.GetReportAsync(1, 3, TestContext.Current.CancellationToken);
+
+        Assert.Empty(report.Rows);
+        Assert.Equal(0, report.TotalCount);
+        Assert.Equal(1, report.PageNumber);
+        Assert.Equal(1, facts.CountDetailCalls);
+        Assert.Equal(0, facts.DetailPageCalls);
+    }
+
+    private static ParticipationReportDetailRow DetailRow(
+        int registrationId,
+        string memberName,
+        RegistrationStatusCode status = RegistrationStatusCode.Confirmed,
+        DateTime? checkedInAt = null,
+        bool invalidated = false,
+        string course = "BSIT",
+        int yearLevel = 1,
+        string studentNumber = "S-0001") =>
+        new(registrationId, memberName, studentNumber, course, yearLevel, status, checkedInAt, invalidated);
+
     private static Event Event(int eventId, EventStatusCode status) => new()
     {
         EventId = eventId,
@@ -219,10 +390,15 @@ public sealed class ParticipationReportServiceTests
         IReadOnlyList<CourseDistributionRow>? courses = null,
         IReadOnlyList<YearDistributionRow>? years = null) : IParticipationReportRepository
     {
+        public List<ParticipationReportDetailRow> DetailRows { get; } = [];
         public int Calls { get; private set; }
         public int NoShowCalls { get; private set; }
         public int DistributionCalls { get; private set; }
+        public int CountDetailCalls { get; private set; }
+        public int DetailPageCalls { get; private set; }
         public int? LastEventId { get; private set; }
+        public int? LastSkip { get; private set; }
+        public int? LastTake { get; private set; }
 
         public Task<ParticipationReportSummaryFacts> GetSummaryFactsAsync(int eventId, CancellationToken cancellationToken = default)
         {
@@ -243,6 +419,27 @@ public sealed class ParticipationReportServiceTests
             DistributionCalls++;
             LastEventId = eventId;
             return Task.FromResult(new ParticipationReportDistributionFacts(courses ?? [], years ?? []));
+        }
+
+        public Task<int> CountDetailRowsAsync(int eventId, CancellationToken cancellationToken = default)
+        {
+            CountDetailCalls++;
+            LastEventId = eventId;
+            return Task.FromResult(DetailRows.Count);
+        }
+
+        public Task<IReadOnlyList<ParticipationReportDetailRow>> GetDetailPageAsync(
+            int eventId,
+            int skip,
+            int take,
+            CancellationToken cancellationToken = default)
+        {
+            DetailPageCalls++;
+            LastEventId = eventId;
+            LastSkip = skip;
+            LastTake = take;
+            return Task.FromResult<IReadOnlyList<ParticipationReportDetailRow>>(
+                DetailRows.Skip(skip).Take(take).ToList());
         }
     }
 

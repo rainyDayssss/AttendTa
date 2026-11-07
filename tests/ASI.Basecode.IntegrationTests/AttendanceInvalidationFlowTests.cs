@@ -1,4 +1,5 @@
 using ASI.Basecode.Data;
+using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Data.Repositories;
@@ -8,6 +9,7 @@ using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.Services.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace ASI.Basecode.IntegrationTests;
@@ -241,11 +243,182 @@ public sealed class AttendanceInvalidationFlowTests(SqlServerDatabaseFixture fix
         await AssertUntouchedAsync(setup, 0);
     }
 
+    [Fact]
+    public async Task PendingReviewBecomesNotEligibleWithTheCorrectionReason()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var setup = await SeedAsync();
+        var certificateId = await SeedCertificateAsync(setup, CertificateStatusCode.PendingApproval);
+        await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var service = Service(context, setup.OfficerId, RoleCodes.Officer, handlerFactory: CertificateHandlerFactory);
+
+        await service.InvalidateAsync(setup.EventId, setup.RegistrationId, Reason, ct);
+
+        await using var observer = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var certificate = await observer.Certificates.AsNoTracking()
+            .SingleAsync(row => row.CertificateId == certificateId, ct);
+        Assert.Equal(CertificateStatusCode.NotEligible, certificate.CertificateStatusId);
+        Assert.Equal(Reason, certificate.ReviewNotes);
+        Assert.Equal(setup.OfficerId, certificate.UpdatedBy);
+        Assert.Equal(Now, certificate.UpdatedAt);
+
+        var attendance = await observer.AttendanceRecords.AsNoTracking()
+            .SingleAsync(row => row.AttendanceId == setup.AttendanceId, ct);
+        Assert.Equal(Now, attendance.InvalidatedAt);
+        Assert.Equal(setup.OfficerId, attendance.InvalidatedBy);
+        Assert.Equal(Reason, attendance.InvalidationReason);
+        Assert.Equal(1, await observer.ActivityLogs.AsNoTracking()
+            .CountAsync(row => row.EntityType == "attendance" && row.EntityId == setup.AttendanceId
+                && row.Action == AuditActions.AttendanceInvalidated, ct));
+    }
+
+    [Fact]
+    public async Task EligibleReviewBecomesNotEligibleWithTheCorrectionReason()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var setup = await SeedAsync();
+        var originalReviewedAt = Now.AddHours(-2);
+        var certificateId = await SeedCertificateAsync(
+            setup, CertificateStatusCode.Eligible, reviewedBy: setup.OfficerId, reviewedAt: originalReviewedAt);
+        await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var service = Service(context, setup.OfficerId, RoleCodes.Officer, handlerFactory: CertificateHandlerFactory);
+
+        await service.InvalidateAsync(setup.EventId, setup.RegistrationId, Reason, ct);
+
+        await using var observer = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var certificate = await observer.Certificates.AsNoTracking()
+            .SingleAsync(row => row.CertificateId == certificateId, ct);
+        Assert.Equal(CertificateStatusCode.NotEligible, certificate.CertificateStatusId);
+        Assert.Equal(Reason, certificate.ReviewNotes);
+        Assert.Equal(setup.OfficerId, certificate.ReviewedBy);
+        Assert.Equal(originalReviewedAt, certificate.ReviewedAt);
+        Assert.Equal(setup.OfficerId, certificate.UpdatedBy);
+        Assert.Equal(Now, certificate.UpdatedAt);
+
+        var attendance = await observer.AttendanceRecords.AsNoTracking()
+            .SingleAsync(row => row.AttendanceId == setup.AttendanceId, ct);
+        Assert.Equal(Now, attendance.InvalidatedAt);
+        Assert.Equal(Reason, attendance.InvalidationReason);
+        Assert.Equal(1, await observer.ActivityLogs.AsNoTracking()
+            .CountAsync(row => row.EntityType == "attendance" && row.EntityId == setup.AttendanceId
+                && row.Action == AuditActions.AttendanceInvalidated, ct));
+    }
+
+    [Fact]
+    public async Task IssuedCertificateRefusesTheInvalidationAndLeavesTheAttendanceValid()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var setup = await SeedAsync();
+        var certificateId = await SeedCertificateAsync(setup, CertificateStatusCode.Issued, "Issued.");
+        await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var service = Service(context, setup.OfficerId, RoleCodes.Officer, handlerFactory: CertificateHandlerFactory);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => service.InvalidateAsync(setup.EventId, setup.RegistrationId, Reason, ct));
+
+        Assert.Equal(OutcomeCode.Forbidden, exception.Outcome);
+        Assert.Equal("A certificate has already been issued for this attendance.", exception.Message);
+        await AssertUntouchedAsync(setup, 0);
+
+        await using var observer = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var certificate = await observer.Certificates.AsNoTracking()
+            .SingleAsync(row => row.CertificateId == certificateId, ct);
+        Assert.Equal(CertificateStatusCode.Issued, certificate.CertificateStatusId);
+        Assert.Equal("Issued.", certificate.ReviewNotes);
+    }
+
+    [Fact]
+    public async Task MissingReviewRowCommitsWithoutCreatingOne()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var setup = await SeedAsync();
+        await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var service = Service(context, setup.OfficerId, RoleCodes.Officer, handlerFactory: CertificateHandlerFactory);
+
+        await service.InvalidateAsync(setup.EventId, setup.RegistrationId, Reason, ct);
+
+        await using var observer = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var attendance = await observer.AttendanceRecords.AsNoTracking()
+            .SingleAsync(row => row.AttendanceId == setup.AttendanceId, ct);
+        Assert.Equal(Now, attendance.InvalidatedAt);
+        Assert.Equal(Reason, attendance.InvalidationReason);
+        Assert.Equal(0, await observer.Certificates.AsNoTracking()
+            .CountAsync(row => row.RegistrationId == setup.RegistrationId, ct));
+        Assert.Equal(1, await observer.ActivityLogs.AsNoTracking()
+            .CountAsync(row => row.EntityType == "attendance" && row.EntityId == setup.AttendanceId
+                && row.Action == AuditActions.AttendanceInvalidated, ct));
+    }
+
+    [Fact]
+    public async Task AlreadyNotEligibleReviewKeepsItsOriginalReason()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var setup = await SeedAsync();
+        const string originalReason = "Participation requirements not met.";
+        var certificateId = await SeedCertificateAsync(setup, CertificateStatusCode.NotEligible, originalReason);
+        await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var service = Service(context, setup.OfficerId, RoleCodes.Officer, handlerFactory: CertificateHandlerFactory);
+
+        await service.InvalidateAsync(setup.EventId, setup.RegistrationId, Reason, ct);
+
+        await using var observer = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var certificate = await observer.Certificates.AsNoTracking()
+            .SingleAsync(row => row.CertificateId == certificateId, ct);
+        Assert.Equal(CertificateStatusCode.NotEligible, certificate.CertificateStatusId);
+        Assert.Equal(originalReason, certificate.ReviewNotes);
+        Assert.Null(certificate.UpdatedBy);
+        Assert.Null(certificate.UpdatedAt);
+
+        var attendance = await observer.AttendanceRecords.AsNoTracking()
+            .SingleAsync(row => row.AttendanceId == setup.AttendanceId, ct);
+        Assert.Equal(Now, attendance.InvalidatedAt);
+        Assert.Equal(1, await observer.ActivityLogs.AsNoTracking()
+            .CountAsync(row => row.EntityType == "attendance" && row.EntityId == setup.AttendanceId
+                && row.Action == AuditActions.AttendanceInvalidated, ct));
+    }
+
+    [Fact]
+    public async Task LaterHandlerFailureRollsBackTheReviewChange()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var setup = await SeedAsync();
+        var certificateId = await SeedCertificateAsync(setup, CertificateStatusCode.PendingApproval);
+        await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var service = Service(context, setup.OfficerId, RoleCodes.Officer,
+            handlerFactory: unitOfWork => new IAttendanceInvalidationHandler[]
+            {
+                new CertificateReviewInvalidationHandler(new CertificateRepository(unitOfWork), unitOfWork),
+                new ThrowingHandler()
+            });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.InvalidateAsync(setup.EventId, setup.RegistrationId, Reason, ct));
+
+        await AssertUntouchedAsync(setup, 0);
+        await using var observer = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var certificate = await observer.Certificates.AsNoTracking()
+            .SingleAsync(row => row.CertificateId == certificateId, ct);
+        Assert.Equal(CertificateStatusCode.PendingApproval, certificate.CertificateStatusId);
+        Assert.Null(certificate.ReviewNotes);
+        Assert.Null(certificate.UpdatedBy);
+        Assert.Null(certificate.UpdatedAt);
+    }
+
+    [Fact]
+    public void ApplicationRegistersTheCertificateReviewInvalidationHandler()
+    {
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var scope = factory.Services.CreateScope();
+        var handlers = scope.ServiceProvider.GetServices<IAttendanceInvalidationHandler>();
+        Assert.Contains(handlers, handler => handler is CertificateReviewInvalidationHandler);
+    }
+
     private static AttendanceInvalidationService Service(
         AsiBasecodeDBContext context,
         int actorId,
         string role,
-        IEnumerable<IAttendanceInvalidationHandler>? handlers = null)
+        IEnumerable<IAttendanceInvalidationHandler>? handlers = null,
+        Func<IUnitOfWork, IEnumerable<IAttendanceInvalidationHandler>>? handlerFactory = null)
     {
         var unitOfWork = new UnitOfWork(context);
         var actor = new Actor(actorId, role);
@@ -258,9 +431,15 @@ public sealed class AttendanceInvalidationFlowTests(SqlServerDatabaseFixture fix
             unitOfWork,
             actor,
             new ActivityLogWriter(context, actor, clock),
-            handlers ?? Array.Empty<IAttendanceInvalidationHandler>(),
+            handlerFactory?.Invoke(unitOfWork) ?? handlers ?? Array.Empty<IAttendanceInvalidationHandler>(),
             clock);
     }
+
+    private static Func<IUnitOfWork, IEnumerable<IAttendanceInvalidationHandler>> CertificateHandlerFactory =>
+        unitOfWork => new IAttendanceInvalidationHandler[]
+        {
+            new CertificateReviewInvalidationHandler(new CertificateRepository(unitOfWork), unitOfWork)
+        };
 
     private async Task<InvalidationSetup> SeedAsync()
     {
@@ -306,6 +485,30 @@ public sealed class AttendanceInvalidationFlowTests(SqlServerDatabaseFixture fix
         }
     }
 
+    private async Task<int> SeedCertificateAsync(
+        InvalidationSetup setup,
+        CertificateStatusCode status,
+        string? reviewNotes = null,
+        int? reviewedBy = null,
+        DateTime? reviewedAt = null)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var writer = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var certificate = new Certificate
+        {
+            RegistrationId = setup.RegistrationId,
+            CertificateStatusId = status,
+            ReviewNotes = reviewNotes,
+            ReviewedBy = reviewedBy,
+            ReviewedAt = reviewedAt,
+            CreatedBy = setup.OfficerId,
+            CreatedAt = Now.AddHours(-1)
+        };
+        writer.Certificates.Add(certificate);
+        await writer.SaveChangesAsync(ct);
+        return certificate.CertificateId;
+    }
+
     private async Task AssertUntouchedAsync(InvalidationSetup setup, int expectedAuditCount)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -343,6 +546,12 @@ public sealed class AttendanceInvalidationFlowTests(SqlServerDatabaseFixture fix
     {
         public Task HandleAsync(AttendanceInvalidationContext context, CancellationToken cancellationToken = default) =>
             throw new DomainException(OutcomeCode.Forbidden, "A certificate has already been issued for this attendance.");
+    }
+
+    private sealed class ThrowingHandler : IAttendanceInvalidationHandler
+    {
+        public Task HandleAsync(AttendanceInvalidationContext context, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("simulated later handler failure");
     }
 
     private sealed class FixedClock(DateTime now) : TimeProvider
