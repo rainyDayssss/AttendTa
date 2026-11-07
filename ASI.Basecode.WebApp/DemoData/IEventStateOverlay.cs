@@ -4,9 +4,8 @@ namespace ASI.Basecode.WebApp.DemoData;
 
 /// <summary>
 /// Overlays demo event state onto the three existing event reads after the real read has run
-/// (register rule 7). Only the event status shown as Completed and the check-in open flag change,
-/// and only for records a demo command changed. Nothing else from the real read is altered.
-/// (Register M-04, M-09.)
+/// (register rule 7). Only the check-in open flag changes, and only for records a demo command
+/// changed. Nothing else from the real read is altered. (Register M-04.)
 /// </summary>
 public interface IEventStateOverlay
 {

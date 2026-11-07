@@ -7,6 +7,7 @@ public static class AuditActions
     public const string EventUpdated = "event.updated";
     public const string EventPublished = "event.published";
     public const string EventCancelled = "event.cancelled";
+    public const string EventCompleted = "event.completed";
     public const string RegistrationCancelled = "registration.cancelled";
     public const string RegistrationApproved = "registration.approved";
     public const string RegistrationPromoted = "registration.promoted";
@@ -17,10 +18,13 @@ public static class AuditActions
     public const string EventTypeStatusChanged = "event_type.status_changed";
     public const string UserRoleAssigned = "user.role_assigned";
     public const string UserDeactivated = "user.deactivated";
+    public const string UserReactivated = "user.reactivated";
     public const string VenueCreated = "venue.created";
     public const string VenueEdited = "venue.edited";
     public const string VenueStatusChanged = "venue.status_changed";
     public const string MemberCreated = "member.created";
     public const string MemberEdited = "member.edited";
     public const string MemberStudentNumberCorrected = "member.student_number_corrected";
+    public const string MemberMembershipDeactivated = "member.membership_deactivated";
+    public const string MemberMembershipReactivated = "member.membership_reactivated";
 }

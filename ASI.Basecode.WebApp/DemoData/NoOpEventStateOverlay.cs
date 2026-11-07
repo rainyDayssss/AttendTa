@@ -4,7 +4,7 @@ namespace ASI.Basecode.WebApp.DemoData;
 
 /// <summary>
 /// Registered when <c>DemoData:Enabled</c> is off so the controllers have the same shape and the
-/// switch-off path is untouched (register rule 2). (Register M-04, M-09.)
+/// switch-off path is untouched (register rule 2). (Register M-04.)
 /// </summary>
 public sealed class NoOpEventStateOverlay : IEventStateOverlay
 {

@@ -28,6 +28,25 @@ public interface IRegistrationRepository
     /// </summary>
     Task<IReadOnlyList<MyEventRegistrationRow>> GetMyRegistrationsAsync(int userId, int skip, int take, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Reads the actor's own door passes in one owner-scoped query: Confirmed registrations on
+    /// Published events whose <c>qr_token</c> is set, with the event, type, venue and holder facts
+    /// the pass card needs. Another member's registration never matches.
+    /// </summary>
+    Task<IReadOnlyList<MyPassRow>> GetMyPassRowsAsync(int userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reads one registration by id and owner only. Another member's id and an unknown id both
+    /// return <c>null</c>, so the caller cannot tell them apart.
+    /// </summary>
+    Task<OwnedPassRow> GetOwnedPassAsync(int registrationId, int userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Finds the confirmed registration of the event whose <c>qr_token</c> equals the scanned value.
+    /// A null, blank or non-hex value never matches.
+    /// </summary>
+    Task<int?> FindConfirmedRegistrationIdByTokenAsync(int eventId, string token, CancellationToken cancellationToken = default);
+
     /// <summary>Counts confirmed seats for the event using the canonical seat fact.</summary>
     Task<int> CountConfirmedAsync(int eventId, CancellationToken cancellationToken = default);
 
@@ -56,6 +75,8 @@ public sealed record MemberRegistrationRow(int RegistrationId, int MemberId, int
 public sealed record RegistrationReviewIdentity(int UserId, int MemberId, int EventId);
 public sealed record RegistrationPromotionCandidate(int RegistrationId, int UserId, int MemberId, int EventId, DateTime? ReviewedAt);
 public sealed record MyEventRegistrationRow(int RegistrationId, int EventId, string EventTitle, string TypeName, string VenueName, DateTime StartsAt, ASI.Basecode.Data.Models.Lookups.EventStatusCode EventStatusId, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status);
+public sealed record MyPassRow(int RegistrationId, int EventId, string EventTitle, string EventTypeName, string VenueName, DateTime StartsAt, string HolderName, string StudentNumber, string QrToken);
+public sealed record OwnedPassRow(int RegistrationId, int EventId, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status, ASI.Basecode.Data.Models.Lookups.EventStatusCode EventStatus, string QrToken);
 public sealed record RegistrationReviewRow(int RegistrationId, int EventId, string EventTitle, string MemberName, string StudentNumber, DateTime SubmittedAt, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status)
 {
     /// <summary>The course captured at signup, used by the participation report breakdowns.</summary>

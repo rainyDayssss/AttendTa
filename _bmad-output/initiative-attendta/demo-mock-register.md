@@ -42,11 +42,8 @@ class, so a search for the id finds every line to delete.
    provider is not registered. A failing real service shows its real error; it never falls back
    to demo data.
 7. **Overlay only named fields.** Demo state may change only these fields of an existing real
-   read, and only for records a demo command changed: the event status shown as Completed and
-   the check-in open flag on the officer event list, member feed and event detail (M-04, M-09),
-   and the account and membership status on the Accounts and Members lists (M-14b, M-15a,
-   M-15b).
-   Nothing else from a real read is altered.
+   read, and only for records a demo command changed: the check-in open flag on the officer event
+   list, member feed and event detail (M-04). Nothing else from a real read is altered.
 8. **Same refusals as the real command.** Every demo command reloads the real record's current
    state and applies the real ticket's refusal rules, so an invalid action fails on screen the
    way it will after integration:
@@ -54,13 +51,10 @@ class, so a search for the id finds every line to delete.
    | Demo command | Allowed only when | Real rule |
    |---|---|---|
    | Open or close check-in | The event is Published (not unpublished, cancelled or completed) | 4.2 |
-   | Complete event | The event is Published, not cancelled, and its start time has passed | 3.12 |
    | Check in (scan or manual) | The token or registration matches this event, check-in is open, the real registration status is Confirmed and its attendance is not invalidated; a repeat returns the original time | 4.3, 4.5 |
    | Invalidate attendance | A reason is given and the registration's certificate is not issued; a pending or approved review becomes not eligible with that reason | 4.6, 6.5 |
    | Approve or decline review | The review is pending and its attendance is valid; decline needs a reason | 6.6 |
    | Issue certificate | The review is approved, the event is Completed and no certificate is issued yet | 6.7 |
-   | Deactivate or reactivate an account | A reason is given; deactivating the last active Administrator is refused | 5.4, 5.5 |
-   | Deactivate or reactivate a membership | A reason is given | 5.6, 5.7 |
 
    A registration cancelled through the real service therefore stops its pass from scanning,
    and a cancelled event cannot be completed or opened for check-in.
@@ -88,15 +82,15 @@ into lettered rows.
 
 | Id | Surface | Missing backend today | Added by | Removed by | State |
 |---|---|---|---|---|---|
-| M-01 | Demo seam: `DemoData:Enabled`, the startup database guard, `DemoData:TokenKey`, the demo store (event check-in and completed state, pass tokens, attendance, certificate reviews and issues, account and membership status), the registration method and the start-up seed | — (infrastructure) | 1.14 | 8.13 | open |
+| M-01 | Demo seam: `DemoData:Enabled`, the startup database guard, `DemoData:TokenKey`, the demo store (event check-in state, pass tokens, attendance, certificate reviews and issues; the completed-state fixture serves only the M-10a/M-13b tests), the registration method and the start-up seed | — (infrastructure) | 1.14 | 8.13 | open |
 | M-02 | My Events: all of a member's registrations across events, with status and cutoff labels | Cross-event owner query (only per-event and upcoming-only reads exist) | 3.17 | 3.13 | removed |
-| M-03 | Pass card QR image and PNG download (rule 10 token, QR drawn by a locally served browser library) | QR library, token read, authorized PNG endpoint | 4.10 | 4.1 | open |
+| M-03 | Pass card QR image and PNG download (rule 10 token, QR drawn by a locally served browser library) | QR library, token read, authorized PNG endpoint | 4.10 | 4.1 | removed |
 | M-04 | Check-in window open/close command, the shared control partial, and the open flag overlaid on event reads (rule 7) | Open/close command | 1.14 | 4.2 | open |
 | M-05 | Check-in by scan: outcome (success, repeat, invalid, closed) and the attendance record | Validation engine and attendance write | 4.11 | 4.3 | open |
 | M-06 | Manual lookup of confirmed participants by name or student number, and manual check-in | Registration-scoped search and manual check-in | 4.11 | 4.5 | open |
 | M-07 | Attendance invalidation with reason, and its effect on the review (rule 8) | Invalidation command | 4.11 | 4.6 | open |
 | M-08 | Member attendance history | Owner-scoped attendance query | 4.12 | 4.7 | open |
-| M-09 | Event completion command and the Completed status overlaid on event reads (rule 7) | Completion command | 1.14 | 3.12 | open |
+| M-09 | Event completion command and the Completed status overlaid on event reads (rule 7) | Completion command | 1.14 | 3.12 | removed |
 | M-10a | Certificate reviews created at completion (a pending review for each valid check-in of a completed event) | Review creation hook | 6.12 | 6.4 | open |
 | M-10b | Review queue and the approve and decline decisions | Review queue and decisions | 6.12 | 6.6 | open |
 | M-11a | Certificate issuance (number from the demo store, nothing retained) | Issuance pipeline and retained file | 6.12 | 6.7 | open |
@@ -106,9 +100,9 @@ into lettered rows.
 | M-13b | Report no-shows and course/year breakdowns | No-show and distribution queries | 7.4 | 7.2 | open |
 | M-13c | Report paged detail rows | Paged detail query | 7.4 | 7.3 | open |
 | M-14a | Account deactivation with reason (the Accounts list shows the new state) — `IAccountAccessCommands.DeactivateAsync`, `DemoAccountAccessCommands` | Account deactivation and cascade | 5.11 | 5.4 | removed |
-| M-14b | Account reactivation with reason — `IAccountAccessCommands.ReactivateAsync`, `DemoAccountAccessCommands` | Account reactivation | 5.11 | 5.5 | open |
-| M-15a | Membership deactivation with reason (the Members list shows the new state) — `IMembershipAccessCommands.DeactivateAsync`, `DemoMembershipAccessCommands` | Membership deactivation and cascade | 5.11 | 5.6 | open |
-| M-15b | Membership reactivation with reason — `IMembershipAccessCommands.ReactivateAsync`, `DemoMembershipAccessCommands` | Membership reactivation | 5.11 | 5.7 | open |
+| M-14b | Account reactivation with reason — `IAccountAccessCommands.ReactivateAsync`, `DemoAccountAccessCommands` | Account reactivation | 5.11 | 5.5 | removed |
+| M-15a | Membership deactivation with reason (the Members list shows the new state) — `IMembershipAccessCommands.DeactivateAsync`, `DemoMembershipAccessCommands` | Membership deactivation and cascade | 5.11 | 5.6 | removed |
+| M-15b | Membership reactivation with reason — `IMembershipAccessCommands.ReactivateAsync`, `DemoMembershipAccessCommands` | Membership reactivation | 5.11 | 5.7 | removed |
 
 6.5 removes no row; its invalidation guard must be in place before 6.7 removes M-11a. 4.4
 removes no row; it verifies the 4.11 camera against the real engine after 4.3.
@@ -131,7 +125,7 @@ in `ASI.Basecode.Services`.
 
 | Piece | File |
 |---|---|
-| Command contract `IEventStateCommands` (`OpenCheckInAsync`, `CloseCheckInAsync`, `CompleteAsync`) | `ASI.Basecode.Services/Interfaces/IEventStateCommands.cs` |
+| Command contract `IEventStateCommands` (`OpenCheckInAsync`, `CloseCheckInAsync`) | `ASI.Basecode.Services/Interfaces/IEventStateCommands.cs` |
 | Overlay contract `IEventStateOverlay` | `ASI.Basecode.WebApp/DemoData/IEventStateOverlay.cs` |
 | Options (`Enabled`, `AllowDatabase`, `TokenKey`) | `ASI.Basecode.WebApp/DemoData/DemoDataOptions.cs` |
 | Startup guard | `ASI.Basecode.WebApp/DemoData/DemoDataStartupGuard.cs` |
@@ -146,9 +140,7 @@ in `ASI.Basecode.Services`.
 | Shared check-in control and its model | `Views/Shared/_CheckInControl.cshtml`, `ASI.Basecode.Services/ServiceModels/CheckInControlViewModel.cs` |
 | Operator pass-token switch | `ASI.Basecode.WebApp/Program.cs` (`--demo-pass-token <registrationId>`) |
 
-**Store.** One singleton keyed by real ids: check-in-open event ids, completed event ids,
-attendance by registration id, certificate review and issue state, and account and membership
-status for 5.11. `InvalidateAttendance` requires a reason, is refused once a certificate is
+**Store.** One singleton keyed by real ids: check-in-open event ids, attendance by registration id, certificate review and issue state. `MarkCompleted` and `IsCompleted` remain only as the M-10a/M-13b test fixture; the app completes events through the real service. `InvalidateAttendance` requires a reason, is refused once a certificate is
 issued, and turns a pending or approved review not eligible with that reason. `GetPassToken` is
 the lowercase hex HMAC-SHA256 of the invariant registration id under `DemoData:TokenKey`; the
 `--demo-pass-token` switch prints the same value and writes nothing.
@@ -156,13 +148,13 @@ the lowercase hex HMAC-SHA256 of the invariant registration id under `DemoData:T
 **Seeded starting state (for `demo-script.md`).** The seed composes `IEventRepository.GetPageAsync`
 and `IRegistrationRepository.GetReviewQueueAsync(Confirmed)`; it never writes.
 
-- *Completed event* — the started published event with the most confirmed registrations (ties on
-  the lowest event id). Check-in is closed, up to eight confirmed registrations are checked in,
-  the last one is invalidated with "Pass could not be verified at the door." and its review is not
-  eligible with that reason, the first remaining valid check-in has an issued certificate
-  (`AT-<year>-<registrationId:D6>`), the second is pending review, and the third is declined (not
-  eligible with a review reason). Fewer registrations degrade in that order.
-- *Ready to complete* — the next started published event, unchanged in SQL.
+- *Ready to complete* — the started published event with the most confirmed registrations (ties on
+  the lowest event id). It stays Published in SQL so the demo completes it live through the real
+  service. Up to eight confirmed registrations are checked in, the last one is invalidated with
+  "Pass could not be verified at the door." and its review is not eligible with that reason, the
+  first remaining valid check-in has an issued certificate (`AT-<year>-<registrationId:D6>`), the
+  second is pending review, and the third is declined (not eligible with a review reason). Fewer
+  registrations degrade in that order.
 - *Check-in open* — the next published event not used above, with the store's check-in window open.
 - Fewer rows degrade gracefully: missing scenarios are skipped and the active register ids are
   logged at start-up. No SQL row, stored file or Activity Log entry is written.
@@ -171,59 +163,64 @@ and `IRegistrationRepository.GetReviewQueueAsync(Confirmed)`; it never writes.
 
 | Screen | Real read / command | Demo source | Files |
 |---|---|---|---|
-| Officer event list | `IEventLifecycleService.GetPageAsync`; `OpenCheckIn`/`CloseCheckIn`/`Complete` POST | `IEventStateOverlay` after the read; `IEventStateCommands` | `Controllers/EventController.cs`, `Views/Event/Index.cshtml` |
+| Officer event list | `IEventLifecycleService.GetPageAsync`; `OpenCheckIn`/`CloseCheckIn` POST (`IEventStateCommands`); `Complete` POST (`IEventLifecycleService.CompleteAsync`) | `IEventStateOverlay` after the read | `Controllers/EventController.cs`, `Views/Event/Index.cshtml` |
 | Member event feed | `IMemberEventService.GetFeedAsync` | `IEventStateOverlay` after the read | `Controllers/MemberEventsController.cs`, `Views/MemberEvents/Index.cshtml` |
 | Member event detail | `IMemberEventService.GetDetailAsync` | `IEventStateOverlay` after the read | `Controllers/MemberEventsController.cs`, `Views/MemberEvents/Details.cshtml` |
 | Check-in control | — | Posts to `IEventStateCommands` | `Views/Shared/_CheckInControl.cshtml` (reused by 3.16 and 4.11) |
 
-The overlay changes only `EventStatusId` (shown as Completed) and `IsCheckInOpen`, and only for
-ids the store marks. Real reads run first; a failing real read is never replaced by demo data.
-Refusal rules: open/close check-in only on a Published event that is not demo-completed; complete
-only on a Published event that is not demo-completed and whose start time has passed.
+The overlay changes only `IsCheckInOpen`, and only for ids the store marks. Real reads run first; a
+failing real read is never replaced by demo data. Refusal rules: open/close check-in only on a
+Published event. Completion is the real `EventLifecycleService.CompleteAsync` (Management only,
+Published only, at or after the start) and the Completed label comes from SQL, so the member feed
+and detail read Published or Completed events and no overlay hides the real completion.
 
 ## M-14a, M-14b, M-15a and M-15b — account and membership access detail (5.11)
 
-**Contracts and classes.** All demo code is in `ASI.Basecode.WebApp/DemoData/`; the contracts are
-in `ASI.Basecode.Services`.
+**M-14a, M-14b, M-15a and M-15b are removed.** 5.4 deleted the demo account deactivation, 5.5 the
+demo account reactivation, 5.6 the demo membership deactivation, and 5.7 the demo membership
+reactivation. `DemoAccountAccessCommands`, `DemoMembershipAccessCommands`, `UnavailableAccessCommands`,
+the access overlay and its registration file no longer exist. Both `IAccountAccessCommands` commands
+are the real `AccountAccessService`, and both `IMembershipAccessCommands` commands are the real
+`MembershipAccessService`. The account list and its access dialog therefore read the real `users` row
+with no overlay, and the Members list shows the real `members.membership_status_id` row after either
+command.
+
+**Contracts and classes.** The contracts are in `ASI.Basecode.Services`; no access demo code remains
+in `ASI.Basecode.WebApp/DemoData/`.
 
 | Piece | File |
 |---|---|
 | Account command contract `IAccountAccessCommands` (`DeactivateAsync`, `ReactivateAsync`) | `ASI.Basecode.Services/Interfaces/IAccountAccessCommands.cs` |
 | Membership command contract `IMembershipAccessCommands` (`DeactivateAsync`, `ReactivateAsync`) | `ASI.Basecode.Services/Interfaces/IMembershipAccessCommands.cs` |
 | Dialog composition `IAccessDialogService` / `AccessDialogService` (real read + real 5.3 preview + last-admin count) | `ASI.Basecode.Services/Interfaces/IAccessDialogService.cs`, `ASI.Basecode.Services/Services/AccessDialogService.cs` |
-| Real account deactivation (M-14a removed by 5.4) | `ASI.Basecode.Services/Services/AccountAccessService.cs` |
-| Overlay contract `IAccessStateOverlay` | `ASI.Basecode.WebApp/DemoData/IAccessStateOverlay.cs` |
-| Demo commands | `ASI.Basecode.WebApp/DemoData/DemoAccountAccessCommands.cs` (real deactivation delegation + M-14b reactivation), `DemoMembershipAccessCommands.cs` |
-| Switch-off membership commands (standard refusal) | `ASI.Basecode.WebApp/DemoData/UnavailableAccessCommands.cs` |
-| Demo overlay | `ASI.Basecode.WebApp/DemoData/DemoAccessStateOverlay.cs` |
-| Switch-off overlay | `ASI.Basecode.WebApp/DemoData/NoOpAccessStateOverlay.cs` |
-| Access surface registration file | `ASI.Basecode.WebApp/DemoData/DemoAccessRegistration.cs` |
+| Real account deactivation and reactivation (M-14a removed by 5.4, M-14b by 5.5) | `ASI.Basecode.Services/Services/AccountAccessService.cs` |
+| Real membership deactivation and reactivation (M-15a removed by 5.6, M-15b by 5.7) | `ASI.Basecode.Services/Services/MembershipAccessService.cs` |
 
-**Source and store use.** Account deactivation (M-14a, removed by 5.4) is the real
-`AccountAccessService`: one transaction, the last-administrator app lock and `users` row lock, the
-`IRegistrationCancellationService` cascade, and one `user.deactivated` audit row. The demo wrapper
-delegates that command and clears any demo status entry so `DemoAccessStateOverlay` does not mask
-the real inactive state. Account reactivation (M-14b, 5.5) still reads and writes
-`DemoStore.TryGetAccountStatus` and `SetAccountActive`; membership commands read and write
-`TryGetMembershipStatus` and `SetMembershipStatus`. The store's shape is unchanged. Every demo
-command reloads the real row, then reads the effective state (the store value when a demo command
-already changed it) so the second step is not refused by the untouched SQL row. A blank reason is
-refused before any state changes; deactivating the last active Administrator is refused by the
-real command from `IAccountAdministrationRepository.CountActiveAdministratorsAsync`.
+**Source and store use.** Account access is the real `AccountAccessService` for both commands. Each
+runs in one transaction that locks the `users` row and appends one audit row: deactivation also takes
+the last-administrator application lock and cascades through `IRegistrationCancellationService`,
+while reactivation restores login access only and touches no registration, seat, QR token or
+certificate. Membership access is the real `MembershipAccessService` for both commands. Deactivation
+locks the member's `users` row, sets `members.membership_status_id` to inactive, cancels the member's
+upcoming registrations through `IRegistrationCancellationService` with the `MembershipDeactivated`
+cause, and appends one `member.membership_deactivated` audit row; reactivation locks the same row,
+sets the status active, and appends one `member.membership_reactivated` audit row while restoring
+eligibility only. Neither takes the last-administrator lock or changes `users.is_active`, so the
+linked account keeps signing in. A blank reason is refused before any state changes. Deactivating the
+last active Administrator is refused by the real account command from
+`IAccountAdministrationRepository.CountActiveAdministratorsAsync`.
 
-**Seeded starting state.** None. Both lists open on the real rows; a changed status lasts until the
-app restarts.
+**Seeded starting state.** None. Both lists open on the real rows.
 
 **Screens, real source and demo source.**
 
 | Screen | Real read / command | Demo source | Files |
 |---|---|---|---|
-| Accounts list | `IAccountAdministrationService.GetPageAsync`; `Deactivate`/`Reactivate` POST | `IAccessStateOverlay` after the read; `IAccountAccessCommands` | `Controllers/AdminAccountsController.cs`, `Views/AdminAccounts/Index.cshtml`, `_AccessActions.cshtml`, `_AccessDialog.cshtml` |
-| Members list | `IMemberService.GetPageAsync`; `Deactivate`/`Reactivate` POST | `IAccessStateOverlay` after the read; `IMembershipAccessCommands` | `Controllers/MemberController.cs`, `Views/Member/Index.cshtml`, `_AccessActions.cshtml`, `_AccessDialog.cshtml` |
+| Accounts list | `IAccountAdministrationService.GetPageAsync`; `Deactivate`/`Reactivate` POST | none — the real row is authoritative | `Controllers/AdminAccountsController.cs`, `Views/AdminAccounts/Index.cshtml`, `_AccessActions.cshtml`, `_AccessDialog.cshtml` |
+| Members list | `IMemberService.GetPageAsync`; `Deactivate`/`Reactivate` POST | none — the real row is authoritative | `Controllers/MemberController.cs`, `Views/Member/Index.cshtml`, `_AccessActions.cshtml`, `_AccessDialog.cshtml` |
 
-The overlay changes only the account and membership status, and only for ids the store marks.
 Account access stays separate from membership eligibility: deactivating an account never changes
-the member's status, and deactivating a membership never changes the linked account.
+the member's status, and changing a membership never changes the linked account.
 
 ## M-02 — demo seam detail (3.17, removed by 3.13)
 
@@ -262,8 +259,16 @@ waitlisted and cancelled registrations, and cancelled or unpublished events, pro
 encodes only the 64-character token; the browser draws it with a 4-module quiet zone and saves it as
 PNG. Nothing rendered names the data as demo data, including the download file name.
 
-**Removal (4.1).** Replace the demo provider behind the same `IPassService` contract, and replace
-`QrToken` with the server-rendered `QrImageUrl` and the authorized `DownloadUrl`.
+**Removal (4.1).** 4.1 replaced the demo provider behind the same `IPassService` contract with the
+real owner-scoped `PassService` over `IRegistrationRepository.GetMyPassRowsAsync`, and replaced
+`QrToken` with the server-rendered `QrImageUrl` and the authorized `DownloadUrl`. It deleted
+`DemoPassService`, `UnavailablePassService`, `DemoPassesRegistration`, `wwwroot/lib/qrcode/` and
+`wwwroot/js/features/passes.js`, so `IPassService` is the real service in both switch states. The QR
+PNG is rendered in `WebApp/Rendering/QrPassPngRenderer` with `Net.Codecrete.QrCodeGenerator` and
+streamed from `Passes/Qr/{id}` (the same GET serves the inline image and `?download=true`). Every
+unavailable request is one 403 with `This pass is unavailable.` The demo scanner now matches the
+real `registrations.qr_token` through `FindConfirmedRegistrationIdByTokenAsync` (register rule 12).
+The M-01 `--demo-pass-token` switch and `DemoStore.GetPassToken` remain until 8.13 removes the store.
 
 ## M-05, M-06 and M-07 — door scanner detail (4.11)
 
@@ -354,7 +359,8 @@ Waitlisted, Cancelled) to overlay the still-open M-13b/M-13c rows, breakdowns an
 the signup snapshot rather than the member's current course. While M-05/M-07 remain open,
 `DemoStore.TryGetAttendance` supplies check-ins and invalidations, and `DemoStore.GetAttendanceForEvent`
 drives the demo valid count and rate when it holds attendance for the event (rule 12).
-`DemoStore.IsCompleted(eventId)` supplies the effective Completed status while M-09 remains open.
+`DemoStore.IsCompleted(eventId)` remains only for the M-13b test fixture; the real Completed status
+now comes from SQL.
 Nothing is written. Because 7.3's paged query does not exist yet, the demo provider reads the whole
 event and slices the detail page in memory; the real read pages in SQL.
 
@@ -372,11 +378,11 @@ event and slices the detail page in memory; the real read pages in SQL.
   registration status label/badge, the attendance label/badge (Checked in, Invalidated, No-show,
   Not checked in) and the Manila check-in time.
 
-**Seeded starting state.** The completed event seeded by M-01 (up to eight check-ins, the last one
-invalidated) drives the populated report: counts, rate, no-shows, breakdowns and rows agree with
-those check-ins. The ready-to-complete and check-in-open events show the not-final markers, and a
-cancelled event in the connected database shows counts and rows with no no-show figure. Fewer rows
-degrade gracefully; nothing is written.
+**Seeded starting state.** The ready-to-complete event seeded by M-01 (up to eight check-ins, the
+last one invalidated) drives the populated report once the demo completes it live: counts, rate,
+no-shows, breakdowns and rows agree with those check-ins. Before completion it shows the not-final
+markers, as does the check-in-open event, and a cancelled event in the connected database shows
+counts and rows with no no-show figure. Fewer rows degrade gracefully; nothing is written.
 
 **Removal.** 7.1 has replaced the summary computation (M-13a) with `ParticipationReportService` and
 `ParticipationReportRepository`; 7.2 replaces the no-show and breakdown computation (M-13b) and 7.3
@@ -400,7 +406,7 @@ All three classes live under `ASI.Basecode.WebApp/DemoData/`.
 
 | Row | Implementation and handoff |
 |---|---|
-| M-10a / removed by 6.4 | `DemoStore.MarkCompleted` creates pending reviews for every valid stored check-in through `EnsureCertificateReviews`; the query also ensures reviews for seeded or real completed events. Existing decisions are never overwritten. Replace the creation call/adapter with the completion hook and real attendance facts. |
+| M-10a / removed by 6.4 | `DemoStore.MarkCompleted` creates pending reviews for every valid stored check-in through `EnsureCertificateReviews`; the query also ensures reviews for real completed events. Existing decisions are never overwritten. Replace the creation call/adapter with the completion hook and real attendance facts. |
 | M-10b / removed by 6.6 | `DemoCertificateLedgerService.GetPageAsync` composes existing event and confirmed-registration repository reads with shared review state; `DecideAsync` reloads participation/event state and calls guarded `DemoStore.DecideCertificate`. Pending/valid attendance is required; decline needs a trimmed reason of 1–1,000 characters. Actor and time come from the authenticated request and server clock. |
 | M-11a / removed by 6.7 | `IssueAsync` requires completion, confirmation, valid attendance and approval, creates a unique `AT-<year>-<registrationId:D6>` number and snapshot, calls the real `RenderSnapshotAsync`, rechecks real participation, then atomically publishes via `DemoStore.PublishCertificate`. Invalidation and duplicate issues are rechecked inside the store gate. Render failure publishes nothing. No SQL, private storage or audit write occurs. |
 | M-11b / removed by 6.8 | `GetViewerAsync`/`GetPdfAsync` require Management and issued state; the controller streams `application/pdf` with no-store caching and an optional attachment name. A seeded issue renders its captured snapshot on first download, then reuses those bytes. No caller-supplied path is accepted. Replace with authorized retained-file retrieval, not current-data regeneration. |
@@ -454,14 +460,16 @@ than continuing to regenerate documents (register rule 12).
 
 ## Known limits of the demo
 
-- Account deactivation is now the real command, so the next request of a deactivated session is
-  refused. Demo reactivation does not restore sign-in until 5.5, because it changes only the
-  overlay.
-- Deactivation applies the real last-active-Administrator rule. Demo reactivation still changes
-  only the overlay, so a demo-reactivated Administrator whose real row is inactive can open a form
-  the real deactivation then refuses.
-- The Members status filter is applied in SQL before the demo overlay, so a membership a demo
-  command changed can still appear under the tab that matches its real status.
+- Account deactivation and reactivation are both the real command, so a deactivated session's next
+  request is refused and a reactivated account can sign in again.
+- Deactivation applies the real last-active-Administrator rule; reactivation restores login access
+  only and touches no registration, seat, QR token or certificate.
+- Membership deactivation and reactivation are both the real command: deactivation writes
+  `members.membership_status_id`, cancels the member's upcoming registrations and appends
+  `member.membership_deactivated`, while reactivation restores eligibility only and appends
+  `member.membership_reactivated`. The linked account keeps signing in in both cases, and cancelled
+  registrations stay Cancelled.
 - Check-ins, review decisions and issued certificates last only until the app restarts; passes
   keep scanning.
-- A pass scanned in the demo is matched against rule 10 tokens, not `registrations.qr_token`.
+- A pass scanned in the demo is matched against the real `registrations.qr_token`, the same value
+  the server-rendered PNG encodes, so a cancelled registration's cleared token stops scanning.

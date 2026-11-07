@@ -2,7 +2,6 @@ using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
-using ASI.Basecode.WebApp.DemoData;
 using ASI.Basecode.WebApp.Mvc;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
@@ -22,7 +21,6 @@ namespace ASI.Basecode.WebApp.Controllers
         private readonly IMemberService _memberService;
         private readonly IAccessDialogService _accessDialogService;
         private readonly IMembershipAccessCommands _membershipAccessCommands;
-        private readonly IAccessStateOverlay _accessStateOverlay;
 
         private bool IsRecordDialog => Request.Headers["X-Record-Dialog"] == "true";
 
@@ -44,13 +42,11 @@ namespace ASI.Basecode.WebApp.Controllers
                                 IMapper mapper,
                                 IMemberService memberService,
                                 IAccessDialogService accessDialogService,
-                                IMembershipAccessCommands membershipAccessCommands,
-                                IAccessStateOverlay accessStateOverlay) : base(httpContextAccessor, loggerFactory, configuration, mapper)
+                                IMembershipAccessCommands membershipAccessCommands) : base(httpContextAccessor, loggerFactory, configuration, mapper)
         {
             _memberService = memberService;
             _accessDialogService = accessDialogService;
             _membershipAccessCommands = membershipAccessCommands;
-            _accessStateOverlay = accessStateOverlay;
         }
 
         [HttpGet]
@@ -64,7 +60,7 @@ namespace ASI.Basecode.WebApp.Controllers
             try
             {
                 var members = await _memberService.GetPageAsync(search, status, page, HttpContext.RequestAborted);
-                return View(_accessStateOverlay.Apply(members));
+                return View(members);
             }
             catch (DomainException exception)
             {
@@ -89,7 +85,7 @@ namespace ASI.Basecode.WebApp.Controllers
             try
             {
                 var model = await _accessDialogService.GetMembershipAccessAsync(id, HttpContext.RequestAborted);
-                return PartialView("_AccessDialog", _accessStateOverlay.Apply(model));
+                return PartialView("_AccessDialog", model);
             }
             catch (DomainException exception) when (exception.Outcome == OutcomeCode.NotFound)
             {

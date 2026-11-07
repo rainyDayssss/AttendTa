@@ -14,9 +14,10 @@ namespace ASI.Basecode.WebApp.DemoData;
 
 /// <summary>
 /// Seeds the demo store at start-up from rows already in the connected database (register M-01,
-/// M-04 and M-09; register rule 5). It only composes existing repository reads and never writes a
-/// SQL row, a stored file or an Activity Log entry. Missing rows are logged, not fatal, so the app
-/// still starts on a sparsely populated database.
+/// M-04 and M-05; register rule 5). It only composes existing repository reads and never writes a
+/// SQL row, a stored file or an Activity Log entry. The ready-to-complete event keeps its attendance
+/// and certificate data so the demo completes it live through the real service. Missing rows are
+/// logged, not fatal, so the app still starts on a sparsely populated database.
 /// </summary>
 public sealed class DemoSeedService : IHostedService
 {
@@ -75,19 +76,18 @@ public sealed class DemoSeedService : IHostedService
                 .ToDictionary(group => group.Key, group => group.OrderBy(row => row.RegistrationId).ToList());
             var started = published.Where(row => row.StartsAt <= now).ToList();
 
-            // The completed event is the started one with the most confirmed registrations so the
-            // certificate screens open populated; ties break on the lowest event id.
-            var completed = started
+            // The ready-to-complete event is the started one with the most confirmed registrations so
+            // the attendance and certificate screens open populated; ties break on the lowest event
+            // id. It stays Published in SQL so the demo completes it live through the real service.
+            var readyToComplete = started
                 .OrderByDescending(row => confirmedByEvent.TryGetValue(row.EventId, out var list) ? list.Count : 0)
                 .ThenBy(row => row.EventId)
                 .FirstOrDefault();
-            var readyToComplete = started.FirstOrDefault(row => row.EventId != completed?.EventId);
-            var checkInOpen = published.FirstOrDefault(row =>
-                row.EventId != completed?.EventId && row.EventId != readyToComplete?.EventId);
+            var checkInOpen = published.FirstOrDefault(row => row.EventId != readyToComplete?.EventId);
 
-            if (completed != null)
+            if (readyToComplete != null)
             {
-                SeedCompletedEvent(completed.EventId, completed.Title, completed.StartsAt, confirmedByEvent);
+                SeedReadyToCompleteEvent(readyToComplete.EventId, readyToComplete.Title, readyToComplete.StartsAt, confirmedByEvent);
             }
 
             if (checkInOpen != null)
@@ -96,11 +96,10 @@ public sealed class DemoSeedService : IHostedService
             }
 
             _logger.LogInformation(
-                "Demo data active (M-01, M-04, M-05, M-06, M-07, M-09). Check-in open event {CheckInOpenEventId}; "
-                + "ready to complete event {ReadyToCompleteEventId}; completed event {CompletedEventId}.",
+                "Demo data active (M-01, M-04, M-05, M-06, M-07). Check-in open event {CheckInOpenEventId}; "
+                + "ready to complete event {ReadyToCompleteEventId}.",
                 checkInOpen?.EventId,
-                readyToComplete?.EventId,
-                completed?.EventId);
+                readyToComplete?.EventId);
         }
         catch (OperationCanceledException)
         {
@@ -117,13 +116,12 @@ public sealed class DemoSeedService : IHostedService
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
-    private void SeedCompletedEvent(
+    private void SeedReadyToCompleteEvent(
         int eventId,
         string eventTitle,
         DateTime startsAt,
         IReadOnlyDictionary<int, List<RegistrationReviewRow>> confirmedByEvent)
     {
-        _store.MarkCompleted(eventId);
         if (!confirmedByEvent.TryGetValue(eventId, out var confirmed) || confirmed.Count == 0)
         {
             return;

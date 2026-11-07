@@ -25,5 +25,17 @@ namespace ASI.Basecode.Data.Interfaces
 
         /// <summary>Returns a published event, or <c>null</c> when it does not exist or is not published.</summary>
         Task<PublishedEventDetail> GetPublishedEventAsync(int eventId, CancellationToken cancellationToken = default);
+
+        /// <summary>Counts the events a member may see: published or completed.</summary>
+        Task<int> CountMemberVisibleAsync(CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Returns one member-visible event page (published or completed) ordered by start then event
+        /// id. The published-only reads stay in place for check-in.
+        /// </summary>
+        Task<IReadOnlyList<PublishedEventListItem>> GetMemberVisiblePageAsync(int skip, int take, CancellationToken cancellationToken = default);
+
+        /// <summary>Returns a published or completed event, or <c>null</c> when it is not member-visible.</summary>
+        Task<PublishedEventDetail> GetMemberVisibleEventAsync(int eventId, CancellationToken cancellationToken = default);
     }
 }

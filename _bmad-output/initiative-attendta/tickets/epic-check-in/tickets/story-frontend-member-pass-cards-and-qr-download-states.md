@@ -9,7 +9,8 @@ hitl: false
 risk: low
 tracker_id: "144"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/144"
-tracker_status: backlog
+tracker_status: done
+assignee: "FivePesos"
 ---
 
 # Frontend member pass cards and QR download states

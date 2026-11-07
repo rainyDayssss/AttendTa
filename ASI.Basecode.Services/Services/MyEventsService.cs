@@ -55,7 +55,7 @@ public sealed class MyEventsService(
                 StartsAt = row.StartsAt,
                 StatusLabel = RegistrationStatusDisplay.Label(row.Status, cutoffPassed),
                 StatusBadgeClass = RegistrationStatusDisplay.BadgeClass(row.Status, cutoffPassed),
-                CanViewEvent = row.EventStatusId == EventStatusCode.Published
+                CanViewEvent = row.EventStatusId is EventStatusCode.Published or EventStatusCode.Completed
             };
         }
 

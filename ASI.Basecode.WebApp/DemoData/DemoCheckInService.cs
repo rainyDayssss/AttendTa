@@ -13,9 +13,9 @@ namespace ASI.Basecode.WebApp.DemoData;
 
 /// <summary>
 /// Demo door scanner (register M-05). The screen composes the existing published-event read and the
-/// in-memory store; a scan matches the register rule-10 token of a confirmed registration, reloads
-/// the real registration status, and applies the same refusal rules 4.3 will (register rule 8).
-/// Nothing here writes SQL, a stored file or the Activity Log.
+/// in-memory store; a scan matches the real <c>registrations.qr_token</c> of a confirmed registration,
+/// reloads the real registration status, and applies the same refusal rules 4.3 will (register
+/// rule 8). Nothing here writes SQL, a stored file or the Activity Log.
 /// </summary>
 public sealed class DemoCheckInService : ICheckInService
 {
@@ -58,8 +58,7 @@ public sealed class DemoCheckInService : ICheckInService
             .ToList();
 
         var selected = SelectEvent(published, eventId);
-        var isCompleted = _store.IsCompleted(selected.EventId);
-        var isOpen = !isCompleted && _store.IsCheckInOpen(selected.EventId);
+        var isOpen = _store.IsCheckInOpen(selected.EventId);
 
         return new CheckInScreenViewModel
         {
@@ -73,8 +72,7 @@ public sealed class DemoCheckInService : ICheckInService
             EventId = selected.EventId,
             EventTitle = selected.Title,
             IsCheckInOpen = isOpen,
-            IsCompleted = isCompleted,
-            CanChangeWindow = !isCompleted,
+            CanChangeWindow = true,
             RecentResults = RecentResults(selected.EventId)
         };
     }
@@ -94,34 +92,31 @@ public sealed class DemoCheckInService : ICheckInService
             return CheckInOutcomeViewModel.ClosedResult("Check-in is not available for this event.");
         }
 
-        if (_store.IsCompleted(eventId))
-        {
-            return CheckInOutcomeViewModel.ClosedResult("Check-in is closed because the event is completed.");
-        }
-
         if (!_store.IsCheckInOpen(eventId))
         {
             return CheckInOutcomeViewModel.ClosedResult("Check-in is closed for this event. Open it before scanning.");
         }
 
-        // The rule-10 token is the HMAC of the registration id, so the event's confirmed rows are
-        // the candidate set. A token from another event or an unknown token never matches.
-        var candidates = await _registrations.GetReviewQueueAsync(
-            RegistrationStatusCode.Confirmed, eventId, 0, LookupLimit, cancellationToken);
-        var match = candidates.FirstOrDefault(row =>
-            string.Equals(_store.GetPassToken(row.RegistrationId), normalizedToken, StringComparison.Ordinal));
-        if (match == null)
+        // The pass PNG encodes the real registrations.qr_token, so the scan matches that stored
+        // value for a confirmed registration of this event (register rule 12 hand-over from M-03).
+        var matchId = await _registrations.FindConfirmedRegistrationIdByTokenAsync(eventId, normalizedToken, cancellationToken);
+        if (matchId is not int registrationId)
         {
             return CheckInOutcomeViewModel.InvalidResult("This pass is not valid for this event.");
         }
 
         // Reload the real status so a registration cancelled after the pass was printed is refused.
-        if (!await _registrations.IsConfirmedAsync(match.RegistrationId, cancellationToken))
+        if (!await _registrations.IsConfirmedAsync(registrationId, cancellationToken))
         {
             return CheckInOutcomeViewModel.InvalidResult("This registration is not confirmed for this event.");
         }
 
-        return Record(match.RegistrationId, eventId, match.MemberName, match.StudentNumber, CheckInMethodCode.QrCode);
+        // Identity for the outcome panel and the log comes from the same confirmed row.
+        var row = (await _registrations.GetReviewQueueAsync(
+                RegistrationStatusCode.Confirmed, eventId, 0, LookupLimit, cancellationToken))
+            .First(candidate => candidate.RegistrationId == registrationId);
+
+        return Record(row.RegistrationId, eventId, row.MemberName, row.StudentNumber, CheckInMethodCode.QrCode);
     }
 
     private CheckInOutcomeViewModel Record(
@@ -199,5 +194,5 @@ public sealed class DemoCheckInService : ICheckInService
         return published.FirstOrDefault(eventItem => IsOpen(eventItem.EventId)) ?? published[0];
     }
 
-    private bool IsOpen(int eventId) => !_store.IsCompleted(eventId) && _store.IsCheckInOpen(eventId);
+    private bool IsOpen(int eventId) => _store.IsCheckInOpen(eventId);
 }

@@ -362,6 +362,7 @@ Cross-module writes:
 | AutoMapper | 14.0.0 [ADOPTED; flat maps only] |
 | Konscious.Security.Cryptography.Argon2 | 1.3.1 [ASSUMPTION] |
 | Microsoft.Playwright (Chromium) | 1.64.1 |
+| Net.Codecrete.QrCodeGenerator (pass QR PNG; no `System.Drawing`) | 3.2.1 |
 | @tailwindcss/cli | 4.3.4 |
 | Serilog | 4.3.0 [ADOPTED] |
 | xunit.v3 | 4.0.2 |

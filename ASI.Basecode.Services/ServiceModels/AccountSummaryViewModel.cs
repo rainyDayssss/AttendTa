@@ -9,6 +9,6 @@ public sealed class AccountSummaryViewModel
     public string RoleCode { get; init; }
     public string RoleLabel { get; init; }
 
-    /// <summary>Settable so the demo overlay can show the state a command changed (register rule 7).</summary>
+    /// <summary>The account's real <c>users.is_active</c> state.</summary>
     public bool IsActive { get; set; }
 }

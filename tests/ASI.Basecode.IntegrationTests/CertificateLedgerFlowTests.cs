@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Cryptography;
 using ASI.Basecode.Data.Models.Lookups;
+using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.WebApp.DemoData;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -14,7 +15,7 @@ namespace ASI.Basecode.IntegrationTests;
 public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
 {
     [Fact]
-    public async Task OfficerCanReviewIssueAndViewWithRealRendererWithoutPersistingAnything()
+    public async Task OfficerCanReviewIssueAndViewWithRealRendererWithoutPersistingCertificateRows()
     {
         var ct = TestContext.Current.CancellationToken;
         var password = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)) + "aA1!";
@@ -58,6 +59,20 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         Assert.Contains("AccessDenied", MemberEventTestSupport.LocationPath(await memberClient.GetAsync($"/Certificates/Pdf/{registrationIds[0]}", ct)), StringComparison.Ordinal);
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/CertificateLedger/Approve",
             new FormUrlEncodedContent(new Dictionary<string, string> { ["id"] = registrationIds[1].ToString() }), ct)).StatusCode);
+
+        // The test seeds this event as Published; the demo seed populates its attendance and
+        // certificate data, and the demo completes it live through the real service, which is what
+        // makes it appear in the certificate ledger.
+        var completeToken = await MemberEventTestSupport.AntiforgeryTokenAsync(client, "/Event", ct);
+        using (var completed = await client.PostAsync($"/Event/Complete?id={eventItem.EventId}",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["id"] = eventItem.EventId.ToString(),
+                ["__RequestVerificationToken"] = completeToken
+            }), ct))
+        {
+            Assert.Equal(HttpStatusCode.Redirect, completed.StatusCode);
+        }
 
         var html = await client.GetStringAsync("/Certificates", ct);
         Assert.Contains("Campus Leadership Summit", html, StringComparison.Ordinal);
@@ -152,10 +167,13 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         await page.CloseAsync();
         await using var observer = MemberEventTestSupport.Context(fixture.ConnectionString);
         Assert.Empty(await observer.Certificates.ToListAsync(ct));
-        Assert.Empty(await observer.ActivityLogs.ToListAsync(ct));
+        var logs = await observer.ActivityLogs.ToListAsync(ct);
+        var completion = Assert.Single(logs);
+        Assert.Equal(AuditActions.EventCompleted, completion.Action);
+        Assert.Equal(eventItem.EventId, completion.EntityId);
         Assert.False(Directory.Exists(Path.Combine(factory.SetupRoot, "certificates"))
             && Directory.EnumerateFiles(Path.Combine(factory.SetupRoot, "certificates"), "*", SearchOption.AllDirectories).Any());
-        Assert.Equal(EventStatusCode.Published, (await observer.Events.SingleAsync(row => row.EventId == eventItem.EventId, ct)).EventStatusId);
+        Assert.Equal(EventStatusCode.Completed, (await observer.Events.SingleAsync(row => row.EventId == eventItem.EventId, ct)).EventStatusId);
 
         async Task PostAsync(string action, int id, string reason = "")
         {

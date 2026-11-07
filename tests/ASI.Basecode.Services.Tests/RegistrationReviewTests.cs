@@ -315,6 +315,10 @@ public sealed class RegistrationReviewTests
                 ? new RegistrationPromotionCandidate(ReviewHarness.RegistrationId, ReviewHarness.ActorUserId, ReviewHarness.MemberId, ReviewHarness.EventId, harness.Registration.ReviewedAt)
                 : null!);
 
+        public Task<IReadOnlyList<MyPassRow>> GetMyPassRowsAsync(int userId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<OwnedPassRow> GetOwnedPassAsync(int registrationId, int userId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<int?> FindConfirmedRegistrationIdByTokenAsync(int eventId, string token, CancellationToken ct = default) => throw new NotSupportedException();
+
         public Task<Registration> GetForCancellationAsync(int id, CancellationToken ct = default) =>
             Task.FromResult(id == ReviewHarness.RegistrationId ? harness.Registration : null!);
 
@@ -379,6 +383,9 @@ public sealed class RegistrationReviewTests
         public Task<int> CountPublishedAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<PublishedEventListItem>> GetPublishedPageAsync(int skip, int take, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<PublishedEventDetail> GetPublishedEventAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<int> CountMemberVisibleAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<PublishedEventListItem>> GetMemberVisiblePageAsync(int skip, int take, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<PublishedEventDetail> GetMemberVisibleEventAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private sealed class FakeCancellation(ReviewHarness harness) : IRegistrationCancellationService

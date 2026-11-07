@@ -23,7 +23,7 @@ public sealed class AccountAccessViewModel
 
     public string RoleLabel { get; init; }
 
-    /// <summary>Settable so the demo overlay can show the state a command changed (register rule 7).</summary>
+    /// <summary>The account's real <c>users.is_active</c> state, set when the dialog is composed.</summary>
     public bool IsActive { get; set; }
 
     /// <summary>True when this active Administrator is the only active Administrator.</summary>

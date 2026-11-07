@@ -812,6 +812,41 @@ public class EventLifecycleServiceTests
         AssertUnchangedAfterRollback(harness, id, commits);
     }
 
+    [Theory]
+    [InlineData(0, false, RoleCodes.Officer)]
+    [InlineData(7, true, RoleCodes.Member)]
+    [InlineData(0, true, RoleCodes.Officer)]
+    public async Task CompleteRejectsAnonymousMemberAndInvalidActorsBeforeTakingLocks(int userId, bool authenticated, string role)
+    {
+        var harness = new Harness(actor: new FixedActor(userId, authenticated, role));
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.CompleteAsync(1, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Forbidden, error.Outcome);
+        Assert.Empty(harness.Locks);
+        Assert.Empty(harness.Audit.Entries);
+    }
+
+    [Fact]
+    public async Task CompleteRejectsAStatusChangeBeforeTheLockAsStale()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var harness = new Harness();
+        var eventType = harness.AddType("Workshop", isActive: true);
+        var venue = harness.AddVenue("Room A", capacity: 30, isActive: true);
+        var id = await harness.Service.CreateDraftAsync(Model("Orientation", eventType.TypeId, venue.VenueId), ct);
+        var row = Assert.Single(harness.Events.Items);
+        row.EventStatusId = EventStatusCode.Published;
+        row.StartsAt = Start.AddHours(-1);
+        harness.Events.BeforeLock = item => item.EventStatusId = EventStatusCode.Completed;
+        harness.Locks.Clear();
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.CompleteAsync(id, ct));
+
+        Assert.Equal(OutcomeCode.Stale, error.Outcome);
+        Assert.Empty(harness.Audit.Entries);
+    }
+
     private static void AssertUnchangedAfterRollback(Harness harness, int eventId, int expectedCommits)
     {
         var row = Assert.Single(harness.Events.Items);
@@ -885,6 +920,7 @@ public class EventLifecycleServiceTests
                 Venues,
                 Registrations,
                 Cancellations,
+                CompletionHandlers,
                 UnitOfWork,
                 Mapper,
                 Clock,
@@ -899,6 +935,7 @@ public class EventLifecycleServiceTests
         public MemoryVenues Venues { get; }
         public MemoryRegistrations Registrations { get; }
         public RecordingCancellations Cancellations { get; }
+        public List<IEventCompletionHandler> CompletionHandlers { get; } = [];
         public RecordingAudit Audit { get; }
         public TransactionUnitOfWork UnitOfWork { get; }
         public ICurrentActor Actor { get; }
@@ -978,6 +1015,9 @@ public class EventLifecycleServiceTests
             Task.FromResult(IssuedCertificateForEvent);
 
         public Task<RegistrationReviewIdentity> DiscoverReviewAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<MyPassRow>> GetMyPassRowsAsync(int userId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<OwnedPassRow> GetOwnedPassAsync(int registrationId, int userId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<int?> FindConfirmedRegistrationIdByTokenAsync(int eventId, string token, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<MemberRegistrationRow> GetMemberRegistrationAsync(int eventId, int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<int> CountMyRegistrationsAsync(int userId, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<MyEventRegistrationRow>> GetMyRegistrationsAsync(int userId, int skip, int take, CancellationToken ct = default) => throw new NotSupportedException();
@@ -1142,6 +1182,10 @@ public class EventLifecycleServiceTests
                 EventStatusId = item.EventStatusId
             });
         }
+
+        public Task<int> CountMemberVisibleAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<PublishedEventListItem>> GetMemberVisiblePageAsync(int skip, int take, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<PublishedEventDetail> GetMemberVisibleEventAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private sealed class MemoryEventTypes(Harness harness) : IEventTypeRepository

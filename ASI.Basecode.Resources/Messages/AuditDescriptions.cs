@@ -14,6 +14,7 @@ public static class AuditDescriptions
         AuditActions.EventUpdated => Templates.GetString("EventUpdated") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.EventPublished => Templates.GetString("EventPublished") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.EventCancelled => Templates.GetString("EventCancelled") ?? throw new InvalidOperationException("Missing audit template."),
+        AuditActions.EventCompleted => Templates.GetString("EventCompleted") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.RegistrationCancelled => Templates.GetString("RegistrationCancelled") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.RegistrationApproved => Templates.GetString("RegistrationApproved") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.RegistrationPromoted => Templates.GetString("RegistrationPromoted") ?? throw new InvalidOperationException("Missing audit template."),
@@ -24,12 +25,15 @@ public static class AuditDescriptions
         AuditActions.EventTypeStatusChanged => Templates.GetString("EventTypeStatusChanged") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.UserRoleAssigned => Templates.GetString("UserRoleAssigned") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.UserDeactivated => Templates.GetString("UserDeactivated") ?? throw new InvalidOperationException("Missing audit template."),
+        AuditActions.UserReactivated => Templates.GetString("UserReactivated") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.VenueCreated => Templates.GetString("VenueCreated") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.VenueEdited => Templates.GetString("VenueEdited") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.VenueStatusChanged => Templates.GetString("VenueStatusChanged") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.MemberCreated => Templates.GetString("MemberCreated") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.MemberEdited => Templates.GetString("MemberEdited") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.MemberStudentNumberCorrected => Templates.GetString("MemberStudentNumberCorrected") ?? throw new InvalidOperationException("Missing audit template."),
+        AuditActions.MemberMembershipDeactivated => Templates.GetString("MemberMembershipDeactivated") ?? throw new InvalidOperationException("Missing audit template."),
+        AuditActions.MemberMembershipReactivated => Templates.GetString("MemberMembershipReactivated") ?? throw new InvalidOperationException("Missing audit template."),
         _ => throw new ArgumentException("Unsupported audit action.", nameof(action))
     };
 }
