@@ -14,7 +14,8 @@ namespace ASI.Basecode.Services.Services;
 /// Administrator-only account access commands. Deactivation runs in one transaction that takes the
 /// <c>attendta:last-admin</c> application lock before the <c>users</c> row lock whenever the target
 /// is an active Administrator, then cancels the account's upcoming registrations and records one
-/// <c>user.deactivated</c> audit row. Reactivation belongs to 5.5 and stays unavailable here.
+/// <c>user.deactivated</c> audit row. Reactivation runs in one transaction that locks the
+/// <c>users</c> row, restores login access only, and records one <c>user.reactivated</c> audit row.
 /// </summary>
 public sealed class AccountAccessService : IAccountAccessCommands
 {
@@ -122,8 +123,40 @@ public sealed class AccountAccessService : IAccountAccessCommands
     }
 
     /// <inheritdoc />
-    public Task ReactivateAsync(int accountId, string reason, CancellationToken cancellationToken = default) =>
-        Task.FromException(new DomainException(OutcomeCode.Invalid, "This action is not available on this deployment."));
+    public async Task ReactivateAsync(int accountId, string reason, CancellationToken cancellationToken = default)
+    {
+        var actorUserId = RequireAdministratorActor();
+        var normalizedReason = RequiredReason(reason);
+
+        await _unitOfWork.ExecuteInTransactionAsync(async ct =>
+        {
+            var user = await _userRepository.LockUserAsync(accountId, ct);
+            if (user is null)
+            {
+                throw new DomainException(OutcomeCode.NotFound, "Account not found.");
+            }
+
+            if (user.IsActive)
+            {
+                throw new DomainException(OutcomeCode.Invalid, "This account is already active.");
+            }
+
+            user.IsActive = true;
+            user.UpdatedById = actorUserId;
+            user.UpdatedTime = _timeProvider.GetUtcNow().UtcDateTime;
+            await _unitOfWork.SaveChangesAsync(ct);
+
+            _activityLogWriter.Append(new AuditEntry(
+                AuditActions.UserReactivated,
+                "users",
+                user.Id,
+                Reason: normalizedReason,
+                OldValues: new ActivationAuditValues(false),
+                NewValues: new ActivationAuditValues(true)));
+
+            await _unitOfWork.SaveChangesAsync(ct);
+        }, cancellationToken);
+    }
 
     private static string RequiredReason(string reason)
     {

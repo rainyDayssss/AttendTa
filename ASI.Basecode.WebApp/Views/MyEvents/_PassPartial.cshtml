@@ -28,19 +28,11 @@
             <div class="pass-code">
                 @if (!string.IsNullOrWhiteSpace(Model.QrImageUrl))
                 {
-                    <img class="pass-qr" src="@Model.QrImageUrl" alt="Pass code for @Model.EventTitle" />
-                }
-                else if (!string.IsNullOrWhiteSpace(Model.QrToken))
-                {
-                    <canvas class="pass-qr" width="168" height="168" data-pass-token="@Model.QrToken" role="img" aria-label="Pass code for @Model.EventTitle"></canvas>
+                    <img class="pass-qr" src="@Model.QrImageUrl" alt="Pass code for @Model.EventTitle" width="168" height="168" />
                 }
                 @if (!string.IsNullOrWhiteSpace(Model.DownloadUrl))
                 {
                     <a class="button button-secondary" href="@Model.DownloadUrl">Download pass</a>
-                }
-                else if (!string.IsNullOrWhiteSpace(Model.QrToken))
-                {
-                    <button type="button" class="button button-secondary" data-pass-download data-pass-file="@Model.DownloadFileName">Download PNG</button>
                 }
             </div>
         </div>

@@ -63,6 +63,60 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
             .Take(take)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<MyPassRow>> GetMyPassRowsAsync(int userId, CancellationToken cancellationToken = default) =>
+        await (from registration in GetDbSet<Registration>().AsNoTracking()
+               join member in GetDbSet<Member>().AsNoTracking() on registration.MemberId equals member.MemberId
+               join user in GetDbSet<User>().AsNoTracking() on member.UserId equals user.Id
+               join eventItem in GetDbSet<Event>().AsNoTracking() on registration.EventId equals eventItem.EventId
+               join eventType in GetDbSet<EventType>().AsNoTracking() on eventItem.TypeId equals eventType.TypeId
+               join venue in GetDbSet<Venue>().AsNoTracking() on eventItem.VenueId equals venue.VenueId
+               where member.UserId == userId
+                   && registration.RegistrationStatusId == RegistrationStatusCode.Confirmed
+                   && eventItem.EventStatusId == EventStatusCode.Published
+                   && registration.QrToken != null
+               orderby eventItem.StartsAt, registration.RegistrationId
+               select new MyPassRow(
+                   registration.RegistrationId,
+                   eventItem.EventId,
+                   eventItem.Title,
+                   eventType.TypeName,
+                   venue.RoomName,
+                   eventItem.StartsAt,
+                   user.Name,
+                   member.StudentNumber,
+                   registration.QrToken))
+            .ToListAsync(cancellationToken);
+
+    public Task<OwnedPassRow> GetOwnedPassAsync(int registrationId, int userId, CancellationToken cancellationToken = default) =>
+        (from registration in GetDbSet<Registration>().AsNoTracking()
+         join member in GetDbSet<Member>().AsNoTracking() on registration.MemberId equals member.MemberId
+         join eventItem in GetDbSet<Event>().AsNoTracking() on registration.EventId equals eventItem.EventId
+         where registration.RegistrationId == registrationId && member.UserId == userId
+         select new OwnedPassRow(registration.RegistrationId, registration.EventId, registration.RegistrationStatusId, eventItem.EventStatusId, registration.QrToken))
+        .SingleOrDefaultAsync(cancellationToken);
+
+    public Task<int?> FindConfirmedRegistrationIdByTokenAsync(int eventId, string token, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return Task.FromResult<int?>(null);
+        }
+
+        // The canonical token is 64 lowercase hex characters; anything else cannot match a stored row.
+        var normalized = token.Trim().ToLowerInvariant();
+        if (normalized.Length != 64 || !normalized.All(Uri.IsHexDigit))
+        {
+            return Task.FromResult<int?>(null);
+        }
+
+        return GetDbSet<Registration>().AsNoTracking()
+            .Where(registration => registration.EventId == eventId
+                && registration.RegistrationStatusId == RegistrationStatusCode.Confirmed
+                && registration.QrToken == normalized)
+            .Select(registration => (int?)registration.RegistrationId)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public Task<int> CountConfirmedAsync(int eventId, CancellationToken cancellationToken = default) =>
         ParticipationFacts.SeatHolders(GetDbSet<Registration>().AsNoTracking())
             .CountAsync(registration => registration.EventId == eventId, cancellationToken);

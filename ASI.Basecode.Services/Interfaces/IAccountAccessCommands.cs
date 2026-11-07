@@ -4,10 +4,9 @@ using System.Threading.Tasks;
 namespace ASI.Basecode.Services.Interfaces;
 
 /// <summary>
-/// Account access commands for the Administrator accounts list. Deactivation is the real
-/// transactional command; reactivation stays demo-only until 5.5 replaces it. Both raise the same
-/// <see cref="ASI.Basecode.Resources.DomainException"/> outcomes as the screen expects.
-/// Account access is separate from membership eligibility.
+/// Account access commands for the Administrator accounts list. Both deactivation and reactivation
+/// are real transactional commands and raise the same <see cref="ASI.Basecode.Resources.DomainException"/>
+/// outcomes as the screen expects. Account access is separate from membership eligibility.
 /// </summary>
 public interface IAccountAccessCommands
 {

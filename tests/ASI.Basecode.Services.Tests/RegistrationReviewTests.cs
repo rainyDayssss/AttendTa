@@ -315,6 +315,10 @@ public sealed class RegistrationReviewTests
                 ? new RegistrationPromotionCandidate(ReviewHarness.RegistrationId, ReviewHarness.ActorUserId, ReviewHarness.MemberId, ReviewHarness.EventId, harness.Registration.ReviewedAt)
                 : null!);
 
+        public Task<IReadOnlyList<MyPassRow>> GetMyPassRowsAsync(int userId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<OwnedPassRow> GetOwnedPassAsync(int registrationId, int userId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<int?> FindConfirmedRegistrationIdByTokenAsync(int eventId, string token, CancellationToken ct = default) => throw new NotSupportedException();
+
         public Task<Registration> GetForCancellationAsync(int id, CancellationToken ct = default) =>
             Task.FromResult(id == ReviewHarness.RegistrationId ? harness.Registration : null!);
 

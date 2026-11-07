@@ -362,6 +362,9 @@ public sealed class RegistrationCancellationTests(SqlServerDatabaseFixture fixtu
         public Task<bool> HasIssuedCertificateForEventAsync(int eventId, CancellationToken ct = default) => inner.HasIssuedCertificateForEventAsync(eventId, ct);
         public Task<int> CountReviewQueueAsync(RegistrationStatusCode status, int? eventId, CancellationToken ct = default) => inner.CountReviewQueueAsync(status, eventId, ct);
         public Task<IReadOnlyList<RegistrationReviewRow>> GetReviewQueueAsync(RegistrationStatusCode status, int? eventId, int offset, int limit, CancellationToken ct = default) => inner.GetReviewQueueAsync(status, eventId, offset, limit, ct);
+        public Task<IReadOnlyList<MyPassRow>> GetMyPassRowsAsync(int userId, CancellationToken ct = default) => inner.GetMyPassRowsAsync(userId, ct);
+        public Task<OwnedPassRow> GetOwnedPassAsync(int registrationId, int userId, CancellationToken ct = default) => inner.GetOwnedPassAsync(registrationId, userId, ct);
+        public Task<int?> FindConfirmedRegistrationIdByTokenAsync(int eventId, string token, CancellationToken ct = default) => inner.FindConfirmedRegistrationIdByTokenAsync(eventId, token, ct);
         public IReadOnlyList<int> Discovered { get; private set; } = [];
         public async Task<IReadOnlyList<int>> DiscoverOpenEventIdsForUserAsync(int id, CancellationToken ct = default)
         {

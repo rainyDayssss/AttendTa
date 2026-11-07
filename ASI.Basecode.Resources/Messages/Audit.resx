@@ -14,12 +14,15 @@
   <data name="EventTypeStatusChanged" xml:space="preserve"><value>Event type status changed.</value></data>
   <data name="UserRoleAssigned" xml:space="preserve"><value>User role assigned.</value></data>
   <data name="UserDeactivated" xml:space="preserve"><value>User account deactivated.</value></data>
+  <data name="UserReactivated" xml:space="preserve"><value>User account reactivated.</value></data>
   <data name="VenueCreated" xml:space="preserve"><value>Venue created.</value></data>
   <data name="VenueEdited" xml:space="preserve"><value>Venue edited.</value></data>
   <data name="VenueStatusChanged" xml:space="preserve"><value>Venue status changed.</value></data>
   <data name="MemberCreated" xml:space="preserve"><value>Member profile created.</value></data>
   <data name="MemberEdited" xml:space="preserve"><value>Member profile edited.</value></data>
   <data name="MemberStudentNumberCorrected" xml:space="preserve"><value>Member student number corrected.</value></data>
+  <data name="MemberMembershipDeactivated" xml:space="preserve"><value>Member membership deactivated.</value></data>
+  <data name="MemberMembershipReactivated" xml:space="preserve"><value>Member membership reactivated.</value></data>
   <data name="RegistrationCancelled" xml:space="preserve"><value>Registration cancelled.</value></data>
   <data name="RegistrationApproved" xml:space="preserve"><value>Registration reviewed and approved.</value></data>
   <data name="RegistrationPromoted" xml:space="preserve"><value>Registration promoted from the waitlist.</value></data>

@@ -9,7 +9,8 @@ hitl: true
 risk: medium
 tracker_id: "44"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/44"
-tracker_status: backlog
+tracker_status: review
+assignee: "FivePesos"
 ---
 
 # On-demand QR Pass PNG rendering and download

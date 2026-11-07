@@ -122,9 +122,8 @@ public sealed class MyEventRegistrationCardViewModel
 }
 
 /// <summary>
-/// Pass card. The demo provider fills the event metadata, holder identity and rule-10 token;
-/// 4.1 supplies <see cref="QrImageUrl"/> and <see cref="DownloadUrl"/> when the real renderer and
-/// authorized PNG endpoint exist.
+/// Pass card. The service fills the event metadata, holder identity and the links the server
+/// renders; the QR image and its download are authorized GETs, so the token never reaches the view.
 /// </summary>
 public sealed class PassViewModel
 {
@@ -141,17 +140,12 @@ public sealed class PassViewModel
     /// <summary>The visual event accent class for the card's top rule. Decorative only.</summary>
     public string AccentClass { get; init; }
 
-    /// <summary>
-    /// The demo pass token the browser draws into the QR. It is not personal data and is never
-    /// logged; 4.1 replaces it with a server-rendered PNG.
-    /// </summary>
-    public string QrToken { get; init; }
-
-    /// <summary>The file name used when the browser saves the QR as a PNG.</summary>
-    public string DownloadFileName { get; init; }
-
     public string GateCode { get; init; }
+
+    /// <summary>The authorized URL of the server-rendered QR PNG.</summary>
     public string QrImageUrl { get; init; }
+
+    /// <summary>The authorized URL that streams the same PNG as a download.</summary>
     public string DownloadUrl { get; init; }
 
     /// <summary>True only when a scannable pass exists for the registration.</summary>
@@ -159,6 +153,13 @@ public sealed class PassViewModel
 
     public static PassViewModel Empty() => new();
 }
+
+/// <summary>
+/// The authorized result of one pass request. It carries the token the PNG encodes and the file
+/// name the download uses; the WebApp renders the bytes, so Services never depends on an imaging
+/// library and the token never reaches a view or a log.
+/// </summary>
+public sealed record PassDownload(string QrToken, string FileName);
 
 /// <summary>My Attendance tab. Filled by the attendance-history surface ticket.</summary>
 public sealed class MyEventsAttendanceTabViewModel : MyEventsTabPage

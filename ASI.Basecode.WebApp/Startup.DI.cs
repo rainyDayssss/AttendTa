@@ -43,6 +43,8 @@ namespace ASI.Basecode.WebApp
             this._services.AddScoped<IAccessDialogService, AccessDialogService>();
             this._services.AddScoped<AccountAccessService>();
             this._services.AddScoped<IAccountAccessCommands, AccountAccessService>();
+            this._services.AddScoped<MembershipAccessService>();
+            this._services.AddScoped<IMembershipAccessCommands, MembershipAccessService>();
             this._services.AddScoped<IMemberService, MemberService>();
             this._services.AddScoped<IEventTypeService, EventTypeService>();
             this._services.AddScoped<IVenueService, VenueService>();
@@ -52,6 +54,7 @@ namespace ASI.Basecode.WebApp
             this._services.AddScoped<IRegistrationReviewService, RegistrationReviewService>();
             this._services.AddScoped<ICertificateTracerService, CertificateTracerService>();
             this._services.AddScoped<IMyEventsService, MyEventsService>();
+            this._services.AddScoped<IPassService, PassService>();
             this._services.AddScoped<ParticipationReportService>();
             this._services.AddScoped<IParticipationReportService>(services => services.GetRequiredService<ParticipationReportService>());
 
@@ -70,6 +73,7 @@ namespace ASI.Basecode.WebApp
             // Shared server-local storage for private images, certificates and renderer files.
             this._services.AddScoped<IPrivateFileStore, PrivateFileStore>();
             this._services.AddScoped<ICertificatePdfRenderer, PlaywrightCertificatePdfRenderer>();
+            this._services.AddSingleton<IQrPassPngRenderer, QrPassPngRenderer>();
 
             this._services.AddOptions<CertificateSignatoryOptions>()
                 .Bind(this.Configuration.GetSection(CertificateSignatoryOptions.SectionName))

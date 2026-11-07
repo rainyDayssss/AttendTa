@@ -6,7 +6,6 @@ using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
-using ASI.Basecode.WebApp.DemoData;
 using ASI.Basecode.WebApp.Mvc;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
@@ -29,7 +28,6 @@ namespace ASI.Basecode.WebApp.Controllers
         private readonly IAccountRoleService _accountRoleService;
         private readonly IAccessDialogService _accessDialogService;
         private readonly IAccountAccessCommands _accountAccessCommands;
-        private readonly IAccessStateOverlay _accessStateOverlay;
 
         public AdminAccountsController(
             IHttpContextAccessor httpContextAccessor,
@@ -39,14 +37,12 @@ namespace ASI.Basecode.WebApp.Controllers
             IAccountAdministrationService accountAdministrationService,
             IAccountRoleService accountRoleService,
             IAccessDialogService accessDialogService,
-            IAccountAccessCommands accountAccessCommands,
-            IAccessStateOverlay accessStateOverlay) : base(httpContextAccessor, loggerFactory, configuration, mapper)
+            IAccountAccessCommands accountAccessCommands) : base(httpContextAccessor, loggerFactory, configuration, mapper)
         {
             _accountAdministrationService = accountAdministrationService;
             _accountRoleService = accountRoleService;
             _accessDialogService = accessDialogService;
             _accountAccessCommands = accountAccessCommands;
-            _accessStateOverlay = accessStateOverlay;
         }
 
         [HttpGet]
@@ -55,7 +51,7 @@ namespace ASI.Basecode.WebApp.Controllers
         {
             ViewBag.Search = search;
             var result = await _accountAdministrationService.GetPageAsync(search, page, HttpContext.RequestAborted);
-            return View(_accessStateOverlay.Apply(result));
+            return View(result);
         }
 
         [HttpGet]
@@ -65,7 +61,7 @@ namespace ASI.Basecode.WebApp.Controllers
             try
             {
                 var model = await _accessDialogService.GetAccountAccessAsync(id, HttpContext.RequestAborted);
-                return PartialView("_AccessDialog", _accessStateOverlay.Apply(model));
+                return PartialView("_AccessDialog", model);
             }
             catch (DomainException exception) when (exception.Outcome == OutcomeCode.NotFound)
             {
