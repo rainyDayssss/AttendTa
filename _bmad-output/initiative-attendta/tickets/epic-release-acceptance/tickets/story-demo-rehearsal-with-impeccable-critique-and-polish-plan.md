@@ -98,6 +98,7 @@ context:
 - Matrix audit: rows 2 and 4 are covered by `DemoDataStartupGuardTests` and `CertificateTracerFlowTests` (both ran and passed). Row 3 gained a missing-TokenKey guard test in the same 1.14 test class (342 integration tests pass). Rows 1, 5 and 6 are covered by the demo-off suites and the rehearsal's manual checks; the demo-phase rule adds no automated tests beyond 1.14's guard test.
 - Left open and recorded: 4.12 is partial because the member attendance read is empty until 4.7 (M-08); the create-event Publish action, the redundant event-row links, the report Show step and the generic publish refusal go to 8.12. None blocks the demo script.
 - Post-merge adaptation (PR #187, 3.12): the merged `DemoSeedService` no longer marks an event completed at startup. The seed now leaves Leadership Summit ready to complete (completed live in O3) and marks Community Outreach cancelled; the script and findings were updated, and the merged build re-verified (286 services + 361 integration tests).
+- Verify-line audit: the six demo-polish tickets (3.18, 4.13, 2.12, 2.13, 2.14, 2.10) now have their own rows in the findings and the coverage map. Each is Partial because the rehearsal opened the surface but did not run the full Verify line; each is recorded against its ticket for 8.12, and 8.15's result names them.
 
 ## Review Triage Log
 

@@ -268,8 +268,13 @@ Sign in as `liza.fernandez@uc.edu.ph`.
 | 6.12 | Certificate ledger, decisions, issuance, PDF viewer | O8–O9 | Pass |
 | 6.13 | Member certificate history and download links | M7 | Pass |
 | 7.4 | Per-event participation report | O10 | Pass |
+| 3.18 | Member feed/detail alignment and registration states | M2–M3 | Partial: waitlisted/cutoff and self-cancellation not exercised (8.12) |
+| 4.13 | Profile action to My Passes | M9 | Partial: inactive-member login and certificate access not exercised (8.12) |
+| 2.12 | Shared dialog and Event Type editor | A4 | Partial: create/edit, duplicate-name retention, focus and 390px not exercised (8.12) |
+| 2.13 | Member editor in the shared dialog | A4 | Partial: correction reason, inline errors, cancel focus and phone width not exercised (8.12) |
+| 2.14 | Venue editor in the shared dialog | A4 | Partial: create/edit, photo, invalid upload recovery and keyboard cancel not exercised (8.12) |
+| 2.10 | List filters, counts and loading/error states | A3, A4 | Partial: delayed/failed request, retry, no-records vs no-matches not re-triggered (8.12) |
 | 8.15 | This rehearsal | All | Pass with the recorded limits |
 
-Demo-polish rows (3.18, 4.13, 2.12, 2.13, 2.14, 2.10) are not separate demo beats. The shared
-record dialogs (A4) and the list loading/error/retry states were exercised during the admin
-walk; the member feed alignment and the profile-to-passes action were exercised in M2–M9.
+The six demo-polish rows are Partial: the rehearsal opened their surfaces but did not run their
+full Verify lines. They are recorded against their tickets and go to 8.12.
