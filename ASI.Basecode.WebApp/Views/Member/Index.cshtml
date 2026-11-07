@@ -1,8 +1,11 @@
 @model PagedResult<MemberViewModel>
+@using Microsoft.AspNetCore.Http.Extensions
 @{
     ViewData["Title"] = "Organization Members";
+    ViewData["Feature"] = "record-dialog";
     var statusFilter = ViewBag.Status as string;
     var searchTerm = ViewBag.Search as string;
+    var listError = ViewData["ListError"] as string;
 }
 
 <div class="page-heading">
@@ -26,9 +29,36 @@
     <a class="filter-tab" asp-action="Index" asp-route-search="@searchTerm" asp-route-status="inactive" aria-current="@(statusFilter == "inactive" ? "page" : null)">Inactive</a>
 </nav>
 
-@if (Model.Items.Count == 0)
+<p class="muted" data-list-status role="status" data-list-busy-label="Loading members…"></p>
+
+@if (!string.IsNullOrEmpty(listError))
 {
-    <div class="table-scroll" role="region" aria-label="Member table" tabindex="0">
+    <div class="notice notice-error" role="alert">
+        <p>@listError</p>
+        <a href="@Context.Request.GetEncodedPathAndQuery()">Try again</a>
+    </div>
+    <div class="table-scroll" role="region" aria-label="Member table" tabindex="0" data-list-region>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th scope="col">Student Number</th>
+                    <th scope="col">Full Name</th>
+                    <th scope="col">Email</th>
+                    <th scope="col">Course</th>
+                    <th scope="col">Year</th>
+                    <th scope="col">Section</th>
+                    <th scope="col">Mobile</th>
+                    <th scope="col">Membership Type</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" class="actions">Actions</th>
+                </tr>
+            </thead>
+        </table>
+    </div>
+}
+else if (Model.Items.Count == 0)
+{
+    <div class="table-scroll" role="region" aria-label="Member table" tabindex="0" data-list-region>
         <table class="data-table">
             <thead>
                 <tr>
@@ -67,7 +97,7 @@
 }
 else
 {
-    <div class="table-scroll" role="region" aria-label="Member table" tabindex="0">
+    <div class="table-scroll" role="region" aria-label="Member table" tabindex="0" data-list-region>
         <table class="data-table">
             <thead>
                 <tr>
@@ -98,7 +128,7 @@ else
                         <td><span class="badge @(member.Status == "active" ? "badge-active" : "badge-inactive")">@(member.Status == "active" ? "Active" : "Inactive")</span></td>
                         <td class="actions">
                             <div class="row-actions">
-                                <a asp-action="Edit" asp-route-id="@member.MemberId" class="button button-small button-secondary">Edit</a>
+                                <a asp-action="Edit" asp-route-id="@member.MemberId" class="button button-small button-secondary" data-record-open="edit-member-@member.MemberId" data-record-title="Edit Member">Edit</a>
                                 <partial name="_AccessActions" model="MembershipAccessViewModel.For(member)" />
                             </div>
                         </td>
@@ -112,3 +142,8 @@ else
 }
 
 <partial name="_ResultCount" model="Model" />
+<partial name="_RecordDialog" />
+
+@section Scripts {
+    <script src="~/js/features/list-feedback.js" asp-append-version="true"></script>
+}

@@ -2,6 +2,7 @@
 /* Per-surface feature styles, imported once. Tailwind's resolver does not expand globs, so each
    surface file is listed here; a surface ticket edits only its own file. */
 @import "./features/my-events.css";
+@import "./features/browse-events.css";
 @import "./features/passes.css";
 @import "./features/attendance-history.css";
 @import "./features/certificate-history.css";
@@ -11,10 +12,12 @@
 @import "./features/reports.css";
 @import "./features/access-dialogs.css";
 @import "./features/event-selector.css";
+@import "./features/record-dialog.css";
+@import "./features/list-feedback.css";
 @source "../Views/**/*.cshtml";
 @source "../wwwroot/js/**/*.js";
 /* Dynamic status and shell classes are enumerated so they survive source scanning. */
-@source inline("authenticated public-shell public-wide management-header notice-error notice-success badge-closed badge-open badge-inactive badge-completed badge-member badge-checkin-open badge-checkin-closed");
+@source inline("authenticated public-shell public-wide management-header notice-error notice-success badge-closed badge-open badge-inactive badge-completed badge-member badge-full badge-checkin-open badge-checkin-closed");
 @theme {
   --color-ink-primary: #090d16;
   --color-ink-secondary: #334155;
@@ -117,6 +120,7 @@
   .profile-details > div { min-width: 0; padding: .75rem; border-radius: 10px; background: #f8fafc; }
   .profile-details dt { color: #334155; font-size: .9rem; font-weight: 600; }
   .profile-details dd { margin: .25rem 0 0; overflow-wrap: anywhere; }
+  .profile-action { display: flex; margin-top: 1rem; }
   .notice { margin-bottom: 1rem; padding: 1rem; border-radius: 10px; overflow-wrap: anywhere; } .notice-error { color: #991b1b; background: #fef2f2; } .notice-success { color: #065f46; background: #ecfdf5; }
   .app-dialog { width: min(100% - 2rem, 32rem); max-height: calc(100% - 2rem); overflow-y: auto; padding: 1.5rem; border: 1px solid #e2e8f0; border-radius: 10px; background: white; color: #090d16; box-shadow: 0 24px 48px -12px #0f172a66; }
   .app-dialog::backdrop { background: #0f172acc; }
@@ -166,6 +170,10 @@
   .event-card-actions { padding: 0 1rem 1rem; }
   .event-detail-cover { width: 100%; max-height: 24rem; object-fit: cover; border-radius: 10px; margin-bottom: 1rem; }
   .event-details { margin-bottom: 1.5rem; }
+  /* The dossier roster has a different column order from the member directory. */
+  .dossier-roster th:nth-child(3), .dossier-roster td:nth-child(3),
+  .dossier-roster th:last-child, .dossier-roster td:last-child { position: static; box-shadow: none; }
+  .dossier-roster td { overflow-wrap: anywhere; min-width: 8rem; }
   .event-registration { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e2e8f0; }
   @media (min-width: 640px) { .event-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (min-width: 1280px) { .event-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

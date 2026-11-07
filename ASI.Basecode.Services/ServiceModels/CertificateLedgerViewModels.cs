@@ -19,6 +19,7 @@ public sealed class CertificateLedgerViewModel
     public int EligibilityCount { get; init; }
     public int IssuedCount { get; init; }
     public IReadOnlyList<CertificateLedgerRowViewModel> Rows { get; init; } = Array.Empty<CertificateLedgerRowViewModel>();
+    public PagedResult<CertificateLedgerRowViewModel> Page { get; init; } = new(Array.Empty<CertificateLedgerRowViewModel>(), 1, 0);
 
     public static CertificateLedgerViewModel Empty() => new();
 }
@@ -38,9 +39,10 @@ public sealed class CertificateLedgerRowViewModel
     public string CertificateNumber { get; init; }
     public DateTime? IssuedAt { get; init; }
     public string ViewerUrl { get; init; }
+    public string Reason { get; init; }
 }
 
-/// <summary>Certificate viewer shell. The PDF link stays empty until the ledger ticket supplies it.</summary>
+/// <summary>Issued certificate metadata for the authorized PDF viewer.</summary>
 public sealed class CertificateViewerViewModel
 {
     public int CertificateId { get; init; }
@@ -48,6 +50,9 @@ public sealed class CertificateViewerViewModel
     public string MemberName { get; init; }
     public string CertificateNumber { get; init; }
     public string PdfUrl { get; init; }
+    public int EventId { get; init; }
 
     public static CertificateViewerViewModel Empty(int certificateId = 0) => new() { CertificateId = certificateId };
 }
+
+public sealed record CertificateDocument(byte[] Bytes, string CertificateNumber);

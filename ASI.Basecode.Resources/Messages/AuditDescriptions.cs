@@ -23,6 +23,7 @@ public static class AuditDescriptions
         AuditActions.EventTypeEdited => Templates.GetString("EventTypeEdited") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.EventTypeStatusChanged => Templates.GetString("EventTypeStatusChanged") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.UserRoleAssigned => Templates.GetString("UserRoleAssigned") ?? throw new InvalidOperationException("Missing audit template."),
+        AuditActions.UserDeactivated => Templates.GetString("UserDeactivated") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.VenueCreated => Templates.GetString("VenueCreated") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.VenueEdited => Templates.GetString("VenueEdited") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.VenueStatusChanged => Templates.GetString("VenueStatusChanged") ?? throw new InvalidOperationException("Missing audit template."),

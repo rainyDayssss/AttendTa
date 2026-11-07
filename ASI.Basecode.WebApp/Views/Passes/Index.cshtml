@@ -1,0 +1,50 @@
+@model PassesViewModel
+@{
+    ViewData["Title"] = "Door Passes";
+}
+
+<div class="page-heading">
+    <div>
+        <h1>Door Passes</h1>
+        <p class="muted">Show the code at the door for each event you are confirmed to attend.</p>
+    </div>
+</div>
+
+<section class="passes-section" aria-labelledby="active-passes-heading">
+    <h2 id="active-passes-heading">Active passes</h2>
+    @if (Model.Active.Count == 0)
+    {
+        <p class="empty-state">No active passes. A pass appears here once a registration is confirmed for an upcoming event.</p>
+    }
+    else
+    {
+        <div class="pass-grid">
+            @foreach (var pass in Model.Active)
+            {
+                <partial name="~/Views/MyEvents/_PassPartial.cshtml" model="pass" />
+            }
+        </div>
+    }
+</section>
+
+<section class="passes-section" aria-labelledby="past-passes-heading">
+    <h2 id="past-passes-heading">Past passes</h2>
+    @if (Model.Past.Count == 0)
+    {
+        <p class="empty-state">No past passes yet.</p>
+    }
+    else
+    {
+        <div class="pass-grid">
+            @foreach (var pass in Model.Past)
+            {
+                <partial name="~/Views/MyEvents/_PassPartial.cshtml" model="pass" />
+            }
+        </div>
+    }
+</section>
+
+@section Scripts {
+    <script src="~/lib/qrcode/qrcode.js" asp-append-version="true"></script>
+    <script src="~/js/features/passes.js" asp-append-version="true"></script>
+}

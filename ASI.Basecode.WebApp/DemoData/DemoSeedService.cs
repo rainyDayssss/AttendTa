@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models.Lookups;
+using ASI.Basecode.Services.ServiceModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -86,7 +87,7 @@ public sealed class DemoSeedService : IHostedService
 
             if (completed != null)
             {
-                SeedCompletedEvent(completed.EventId, completed.StartsAt, confirmedByEvent);
+                SeedCompletedEvent(completed.EventId, completed.Title, completed.StartsAt, confirmedByEvent);
             }
 
             if (checkInOpen != null)
@@ -95,7 +96,7 @@ public sealed class DemoSeedService : IHostedService
             }
 
             _logger.LogInformation(
-                "Demo data active (M-01, M-02, M-04, M-09). Check-in open event {CheckInOpenEventId}; "
+                "Demo data active (M-01, M-04, M-05, M-06, M-07, M-09). Check-in open event {CheckInOpenEventId}; "
                 + "ready to complete event {ReadyToCompleteEventId}; completed event {CompletedEventId}.",
                 checkInOpen?.EventId,
                 readyToComplete?.EventId,
@@ -118,6 +119,7 @@ public sealed class DemoSeedService : IHostedService
 
     private void SeedCompletedEvent(
         int eventId,
+        string eventTitle,
         DateTime startsAt,
         IReadOnlyDictionary<int, List<RegistrationReviewRow>> confirmedByEvent)
     {
@@ -133,6 +135,8 @@ public sealed class DemoSeedService : IHostedService
             _store.RecordAttendance(
                 row.RegistrationId,
                 eventId,
+                row.MemberName,
+                row.StudentNumber,
                 startsAt.AddMinutes(5 + index),
                 CheckInMethodCode.QrCode);
             recorded.Add(row.RegistrationId);
@@ -148,6 +152,7 @@ public sealed class DemoSeedService : IHostedService
         }
 
         var valid = recorded.Where(registrationId => registrationId != invalidatedRegistrationId).ToList();
+        _store.EnsureCertificateReviews(eventId, startsAt.AddHours(2));
 
         // A pending, a declined and an issued certificate, so every review state opens populated.
         if (valid.Count >= 1)
@@ -156,7 +161,9 @@ public sealed class DemoSeedService : IHostedService
                 valid[0],
                 eventId,
                 CertificateNumber(startsAt, valid[0]),
-                startsAt.AddDays(1));
+                startsAt.AddDays(1),
+                new CertificatePdfSnapshot(confirmed.First(row => row.RegistrationId == valid[0]).MemberName,
+                    eventTitle, startsAt, startsAt.AddDays(1), CertificateNumber(startsAt, valid[0])));
         }
 
         if (valid.Count >= 2)

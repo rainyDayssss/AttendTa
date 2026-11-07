@@ -36,6 +36,33 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
          select new MemberRegistrationRow(registration.RegistrationId, member.MemberId, registration.EventId, registration.RegistrationStatusId))
         .SingleOrDefaultAsync(cancellationToken);
 
+    public Task<int> CountMyRegistrationsAsync(int userId, CancellationToken cancellationToken = default) =>
+        (from registration in GetDbSet<Registration>().AsNoTracking()
+         join member in GetDbSet<Member>().AsNoTracking() on registration.MemberId equals member.MemberId
+         where member.UserId == userId
+         select registration.RegistrationId).CountAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<MyEventRegistrationRow>> GetMyRegistrationsAsync(int userId, int skip, int take, CancellationToken cancellationToken = default) =>
+        await (from registration in GetDbSet<Registration>().AsNoTracking()
+               join member in GetDbSet<Member>().AsNoTracking() on registration.MemberId equals member.MemberId
+               join eventItem in GetDbSet<Event>().AsNoTracking() on registration.EventId equals eventItem.EventId
+               join eventType in GetDbSet<EventType>().AsNoTracking() on eventItem.TypeId equals eventType.TypeId
+               join venue in GetDbSet<Venue>().AsNoTracking() on eventItem.VenueId equals venue.VenueId
+               where member.UserId == userId
+               orderby eventItem.StartsAt descending, registration.RegistrationId descending
+               select new MyEventRegistrationRow(
+                   registration.RegistrationId,
+                   eventItem.EventId,
+                   eventItem.Title,
+                   eventType.TypeName,
+                   venue.RoomName,
+                   eventItem.StartsAt,
+                   eventItem.EventStatusId,
+                   registration.RegistrationStatusId))
+            .Skip(skip)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+
     public Task<int> CountConfirmedAsync(int eventId, CancellationToken cancellationToken = default) =>
         ParticipationFacts.SeatHolders(GetDbSet<Registration>().AsNoTracking())
             .CountAsync(registration => registration.EventId == eventId, cancellationToken);
@@ -98,7 +125,11 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
         var ordered = status == RegistrationStatusCode.Waitlisted
             ? rows.OrderBy(row => row.r.ReviewedAt).ThenBy(row => row.r.RegistrationId)
             : rows.OrderBy(row => row.r.SubmittedAt).ThenBy(row => row.r.RegistrationId);
-        return ordered.Select(row => new RegistrationReviewRow(row.r.RegistrationId, row.e.EventId, row.e.Title, row.u.Name, row.m.StudentNumber, row.r.SubmittedAt, row.r.RegistrationStatusId));
+        return ordered.Select(row => new RegistrationReviewRow(row.r.RegistrationId, row.e.EventId, row.e.Title, row.u.Name, row.m.StudentNumber, row.r.SubmittedAt, row.r.RegistrationStatusId)
+        {
+            Course = row.r.CourseSnapshot,
+            YearLevel = row.r.YearLevelSnapshot
+        });
     }
 
     public Task<int> CountReviewQueueAsync(RegistrationStatusCode status, int? eventId, CancellationToken ct = default) => ReviewQueue(status, eventId).CountAsync(ct);

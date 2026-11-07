@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Resources.Constants;
@@ -21,16 +22,19 @@ namespace ASI.Basecode.WebApp.Controllers;
 public sealed class MyEventsController : ControllerBase<MyEventsController>
 {
     private readonly IMyEventsService _myEvents;
+    private readonly IMyCertificatesService _certificates;
 
     public MyEventsController(
         IHttpContextAccessor httpContextAccessor,
         ILoggerFactory loggerFactory,
         IConfiguration configuration,
         IMapper mapper,
-        IMyEventsService myEvents)
+        IMyEventsService myEvents,
+        IMyCertificatesService certificates)
         : base(httpContextAccessor, loggerFactory, configuration, mapper)
     {
         _myEvents = myEvents;
+        _certificates = certificates;
     }
 
     [HttpGet]
@@ -43,12 +47,27 @@ public sealed class MyEventsController : ControllerBase<MyEventsController>
         View("Index", MyEventsViewModel.FromRegistrations(
             await _myEvents.GetRegistrationsAsync(page, cancellationToken)));
 
-    // The attendance and certificate tabs keep their empty models until 4.12 and 6.13 fill them.
     [HttpGet]
     [Route("MyEvents/Attendance")]
-    public IActionResult Attendance(int? page) => View("Index", MyEventsViewModel.Empty(MyEventsTab.Attendance));
+    public async Task<IActionResult> Attendance(int? page, CancellationToken cancellationToken) =>
+        View("Index", MyEventsViewModel.FromAttendance(
+            await _myEvents.GetAttendanceAsync(page, cancellationToken)));
 
     [HttpGet]
     [Route("MyEvents/Certificates")]
-    public IActionResult Certificates(int? page) => View("Index", MyEventsViewModel.Empty(MyEventsTab.Certificates));
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> Certificates(int? page, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return View("Index", MyEventsViewModel.FromCertificates(
+                await _certificates.GetPageAsync(page, cancellationToken)));
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.LogWarning("Certificate history read failed ({ExceptionType}).", exception.GetType().Name);
+            ViewData["CertificateHistoryError"] = "Your certificate history could not be loaded. Please try again.";
+            return View("Index", MyEventsViewModel.Empty(MyEventsTab.Certificates));
+        }
+    }
 }

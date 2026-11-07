@@ -1,7 +1,11 @@
 @model CheckInScreenViewModel
 @{
     ViewData["Title"] = "Check-in";
-    ViewData["Feature"] = "scanner";
+    var returnUrl = Model.HasEvent
+        ? Url.Action("Index", "CheckIn", new { eventId = Model.EventId })
+        : null;
+    var manualActive = Model.Lookup.HasQuery;
+    var lastOutcome = ViewData["CheckInOutcome"] as CheckInOutcomeViewModel;
 }
 
 <div class="page-heading">
@@ -11,37 +15,270 @@
     </div>
 </div>
 
-<partial name="_EventSelector" model="Model.Selector" />
+@if (!Model.HasEvent)
+{
+    <section class="panel" aria-labelledby="scanner-empty-heading">
+        <h2 id="scanner-empty-heading">No event to check in</h2>
+        <p class="empty-state">No published events are available. Publish an event before opening the scanner.</p>
+    </section>
+}
+else
+{
+    <partial name="_EventSelector" model="Model.Selector" />
 
-<section class="scanner-window" aria-labelledby="scanner-heading">
-    <h2 id="scanner-heading">Scanner</h2>
-    <div class="scanner-viewport" aria-live="polite"></div>
-    <div class="scanner-result" aria-live="polite"></div>
-</section>
+    <section class="panel scanner-session" aria-labelledby="scanner-session-heading">
+        <div class="scanner-session-head">
+            <div>
+                <h2 id="scanner-session-heading">@Model.EventTitle</h2>
+                <p class="muted">
+                    @if (Model.IsCompleted)
+                    {
+                        <span>This event is completed, so check-in is closed.</span>
+                    }
+                    else if (Model.IsCheckInOpen)
+                    {
+                        <span>Check-in is open. Scan a pass or look up a participant.</span>
+                    }
+                    else
+                    {
+                        <span>Check-in is closed. Open it before scanning or checking in.</span>
+                    }
+                </p>
+            </div>
+            <partial name="_CheckInControl" model="new CheckInControlViewModel { EventId = Model.EventId.Value, IsCheckInOpen = Model.IsCheckInOpen, CanChange = Model.CanChangeWindow, ReturnUrl = returnUrl }" />
+        </div>
+    </section>
 
-<section class="panel" aria-labelledby="scanner-log-heading">
-    <h2 id="scanner-log-heading">Recorded check-ins</h2>
-    <div class="table-scroll" role="region" aria-label="Recorded check-ins" tabindex="0">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th scope="col">Participant</th>
-                    <th scope="col">Student number</th>
-                    <th scope="col">Recorded</th>
-                    <th scope="col">Outcome</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var result in Model.RecentResults)
-                {
+    <section class="scanner-window" aria-labelledby="scanner-heading" data-scanner>
+        <h2 id="scanner-heading">Scanner</h2>
+
+        <div class="scanner-modes" role="tablist" aria-label="Check-in mode">
+            <button type="button" class="scanner-mode" role="tab" id="mode-camera" aria-controls="panel-camera" aria-selected="@(manualActive ? "false" : "true")" data-scanner-mode="camera">Camera scan</button>
+            <button type="button" class="scanner-mode" role="tab" id="mode-code" aria-controls="panel-code" aria-selected="false" data-scanner-mode="code">Pass code</button>
+            <button type="button" class="scanner-mode" role="tab" id="mode-manual" aria-controls="panel-manual" aria-selected="@(manualActive ? "true" : "false")" data-scanner-mode="manual">Manual lookup</button>
+        </div>
+
+        <div id="panel-camera" class="scanner-panel" role="tabpanel" aria-labelledby="mode-camera">
+            <div class="scanner-viewport">
+                <video class="scanner-video" playsinline muted aria-label="Camera preview" data-scanner-video></video>
+                <p class="scanner-camera-note" data-camera-note>Point the camera at the member's pass.</p>
+            </div>
+            <div class="scanner-actions">
+                <button type="button" class="button button-primary" data-camera-start>Start camera</button>
+                <button type="button" class="button button-secondary" data-camera-stop hidden>Stop camera</button>
+                <button type="button" class="button button-secondary" data-scan-next hidden>Scan next</button>
+            </div>
+        </div>
+
+        <div id="panel-code" class="scanner-panel" role="tabpanel" aria-labelledby="mode-code">
+            <form asp-action="Scan" method="post" class="scanner-code-form" data-scan-form>
+                <input type="hidden" name="eventId" value="@Model.EventId" />
+                <div class="field">
+                    <label for="scan-token">Pass code</label>
+                    <input id="scan-token" name="token" class="field-control" autocomplete="off" autocapitalize="off" spellcheck="false" required />
+                    <span class="field-hint">Paste or type the code shown on the member's pass.</span>
+                </div>
+                <button type="submit" class="button button-primary" data-submitting-label="Checking&hellip;">Check in</button>
+            </form>
+        </div>
+
+        <div id="panel-manual" class="scanner-panel" role="tabpanel" aria-labelledby="mode-manual">
+            <form method="get" asp-action="Index" class="scanner-lookup-form" data-lookup-form>
+                <input type="hidden" name="eventId" value="@Model.EventId" />
+                <div class="field">
+                    <label for="lookup-query">Name or student number</label>
+                    <input id="lookup-query" name="q" value="@Model.Lookup.Query" class="field-control" autocomplete="off" />
+                </div>
+                <button type="submit" class="button button-secondary" data-submitting-label="Searching&hellip;">Search</button>
+            </form>
+
+            @if (!Model.Lookup.HasQuery)
+            {
+                <p class="muted">Search by name or student number. Searching alone does not record attendance.</p>
+            }
+            else if (Model.Lookup.TotalCount == 0)
+            {
+                <p class="empty-state">No confirmed participants match &ldquo;@Model.Lookup.Query&rdquo;.</p>
+            }
+            else
+            {
+                <div class="table-scroll" role="region" aria-label="Confirmed participants" tabindex="0">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Participant</th>
+                                <th scope="col">Student number</th>
+                                <th scope="col">Attendance</th>
+                                <th scope="col">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in Model.Lookup.Rows)
+                            {
+                                <tr data-registration-id="@row.RegistrationId">
+                                    <td>@row.MemberName</td>
+                                    <td class="numeric">@row.StudentNumber</td>
+                                    <td>
+                                        @if (row.IsInvalidated)
+                                        {
+                                            <span class="badge badge-inactive">Invalidated</span>
+                                        }
+                                        else if (row.IsCheckedIn)
+                                        {
+                                            <span class="badge badge-open">Checked in</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge badge-closed">Not checked in</span>
+                                        }
+                                    </td>
+                                    <td class="actions">
+                                        @if (row.CanCheckIn)
+                                        {
+                                            <form asp-action="CheckIn" method="post" class="inline-form" data-check-in-form>
+                                                <input type="hidden" name="eventId" value="@Model.EventId" />
+                                                <input type="hidden" name="registrationId" value="@row.RegistrationId" />
+                                                <input type="hidden" name="q" value="@Model.Lookup.Query" />
+                                                <input type="hidden" name="page" value="@Model.Lookup.PageNumber" />
+                                                <button type="submit" class="button button-small button-primary" data-submitting-label="Checking&hellip;">Check in</button>
+                                            </form>
+                                        }
+                                        else
+                                        {
+                                            <span class="muted">@(row.IsInvalidated ? "Invalidated" : "Checked in")</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <partial name="_ResultCount" model="Model.Lookup" />
+                <partial name="_Pager" model="Model.Lookup" />
+            }
+        </div>
+
+        <div class="scanner-result" aria-live="polite" data-scan-result>
+            @if (lastOutcome != null)
+            {
+                <div class="scanner-outcome scanner-outcome-@lastOutcome.Outcome" role="@(lastOutcome.IsRecorded ? "status" : "alert")">
+                    <h3>@(lastOutcome.Outcome switch
+                        {
+                            CheckInOutcomeViewModel.Success => "Checked in",
+                            CheckInOutcomeViewModel.Repeat => "Already checked in",
+                            CheckInOutcomeViewModel.Closed => "Check-in closed",
+                            _ => "Not checked in"
+                        })</h3>
+                    @if (!string.IsNullOrWhiteSpace(lastOutcome.MemberName))
+                    {
+                        <p class="scanner-outcome-name">@lastOutcome.MemberName</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(lastOutcome.StudentNumber))
+                    {
+                        <p class="scanner-outcome-meta numeric">@lastOutcome.StudentNumber</p>
+                    }
+                    @if (lastOutcome.RecordedAt.HasValue)
+                    {
+                        <p class="scanner-outcome-meta">@ManilaTimeFormatter.Format(lastOutcome.RecordedAt)</p>
+                    }
+                    <p>@lastOutcome.Message</p>
+                </div>
+            }
+        </div>
+    </section>
+
+    <section class="panel" aria-labelledby="scanner-log-heading">
+        <h2 id="scanner-log-heading">Recorded check-ins</h2>
+        <div class="table-scroll" role="region" aria-label="Recorded check-ins" tabindex="0">
+            <table class="data-table">
+                <thead>
                     <tr>
-                        <td>@result.MemberName</td>
-                        <td class="numeric">@result.StudentNumber</td>
-                        <td class="numeric">@(result.RecordedAt is null ? string.Empty : ManilaTimeFormatter.Format(result.RecordedAt.Value))</td>
-                        <td>@result.Outcome</td>
+                        <th scope="col">Participant</th>
+                        <th scope="col">Student number</th>
+                        <th scope="col">Recorded</th>
+                        <th scope="col">Outcome</th>
+                        <th scope="col">Action</th>
                     </tr>
-                }
-            </tbody>
-        </table>
-    </div>
-</section>
+                </thead>
+                <tbody data-scan-log>
+                    @if (Model.RecentResults.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="5" class="empty-state">No check-ins recorded for this event yet.</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var result in Model.RecentResults)
+                        {
+                            <tr data-registration-id="@result.RegistrationId">
+                                <td>@result.MemberName</td>
+                                <td class="numeric">@result.StudentNumber</td>
+                                <td class="numeric">@ManilaTimeFormatter.Format(result.RecordedAt)</td>
+                                <td>
+                                    @if (result.IsInvalidated)
+                                    {
+                                        <span class="badge badge-inactive">Invalidated</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-open">Recorded</span>
+                                    }
+                                </td>
+                                <td class="actions">
+                                    @if (result.CanInvalidate)
+                                    {
+                                        <button type="button"
+                                                class="button button-small button-secondary"
+                                                data-dialog-open="invalidate-dialog"
+                                                data-dialog-value-id="@result.RegistrationId"
+                                                data-dialog-value-summary="Invalidate the check-in for @result.MemberName (@result.StudentNumber)?">
+                                            Invalidate
+                                        </button>
+                                    }
+                                    else if (result.IsInvalidated)
+                                    {
+                                        <span class="muted">@result.Message</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="muted">Certificate issued</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <dialog id="invalidate-dialog" class="task-dialog" aria-labelledby="invalidate-dialog-title">
+        <form asp-action="Invalidate" method="post">
+            <input type="hidden" name="eventId" value="@Model.EventId" />
+            <input type="hidden" name="registrationId" data-dialog-field="id" />
+            <div class="dialog-header">
+                <h2 id="invalidate-dialog-title">Invalidate attendance</h2>
+                <button type="button" class="dialog-close" data-dialog-close aria-label="Close dialog">&times;</button>
+            </div>
+            <p class="muted" data-dialog-field="summary"></p>
+            <p class="dialog-consequence">The attendance row stays on record and the member is marked as not eligible. Re-check-in is refused after invalidation.</p>
+            <div class="field">
+                <label for="invalidate-reason">Reason for invalidating</label>
+                <textarea id="invalidate-reason" name="reason" rows="3" maxlength="500" required class="field-control"></textarea>
+                <span class="field-hint">Required. Shown on the attendance record.</span>
+            </div>
+            <div class="dialog-actions">
+                <button type="button" class="button button-secondary" data-dialog-close>Cancel</button>
+                <button type="submit" class="button button-danger" data-submitting-label="Invalidating&hellip;">Invalidate attendance</button>
+            </div>
+        </form>
+    </dialog>
+}
+
+@section Scripts {
+    <script src="~/lib/jsqr/jsQR.js" asp-append-version="true"></script>
+    <script src="~/js/features/scanner.js" asp-append-version="true"></script>
+    <script src="~/js/features/scanner-camera.js" asp-append-version="true"></script>
+    <script src="~/js/features/scanner-manual.js" asp-append-version="true"></script>
+}

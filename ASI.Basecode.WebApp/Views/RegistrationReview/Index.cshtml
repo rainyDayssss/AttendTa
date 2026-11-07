@@ -10,7 +10,6 @@
         @foreach (var value in new[] { "pending", "confirmed", "waitlisted", "cancelled" })
         { <option value="@value" selected="@(string.Equals((string)ViewBag.Status, value, StringComparison.OrdinalIgnoreCase))">@value</option> }
     </select>
-    <label for="eventId">Event ID (optional)</label><input id="eventId" name="eventId" type="number" min="1" value="@ViewBag.EventId" />
     <button type="submit">Filter</button>
 </form>
 @if (string.Equals((string)ViewBag.Status, "waitlisted", StringComparison.OrdinalIgnoreCase) && ViewBag.EventId != null && Model.Items.Any())
@@ -25,7 +24,7 @@
 @foreach (var row in Model.Items)
 {
     <article data-registration-id="@row.RegistrationId">
-        <h2>@row.MemberName — @row.EventTitle</h2>
+        <h2>@row.MemberName — <a asp-controller="Event" asp-action="Details" asp-route-id="@row.EventId">@row.EventTitle</a></h2>
         <p>@row.StudentNumber · @row.Status · @ManilaTimeFormatter.Format(row.SubmittedAt)</p>
         @if (row.Status == RegistrationStatusCode.Pending)
         {

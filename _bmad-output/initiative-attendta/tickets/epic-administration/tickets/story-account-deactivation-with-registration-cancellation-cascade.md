@@ -9,7 +9,7 @@ hitl: false
 risk: medium
 tracker_id: "55"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/55"
-tracker_status: backlog
+tracker_status: review
 ---
 
 # Account deactivation with registration cancellation cascade and session refusal

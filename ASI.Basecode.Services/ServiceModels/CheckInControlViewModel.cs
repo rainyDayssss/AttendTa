@@ -14,4 +14,12 @@ public sealed class CheckInControlViewModel
 
     /// <summary>True when the event is in a state that accepts an open or close command.</summary>
     public bool CanChange { get; set; }
+
+    /// <summary>
+    /// Optional local return path posted with the command. The controller redirects here after the
+    /// command when it is a local URL, so the scanner and the event dossier keep their context.
+    /// </summary>
+    public string ReturnUrl { get; set; }
+
+    public bool Dossier { get; set; }
 }

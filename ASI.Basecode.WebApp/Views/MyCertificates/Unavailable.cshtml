@@ -1,0 +1,8 @@
+@{
+    ViewData["Title"] = "Certificate unavailable";
+}
+<div class="page-heading"><h1>Certificate unavailable</h1></div>
+<section class="panel" aria-label="Certificate access">
+    <p class="notice notice-error" role="alert">@ViewData["DocumentError"]</p>
+    <a class="button button-secondary" asp-controller="MyEvents" asp-action="Certificates">Back to My Certificates</a>
+</section>

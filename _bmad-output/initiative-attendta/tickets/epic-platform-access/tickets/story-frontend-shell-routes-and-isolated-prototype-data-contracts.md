@@ -8,7 +8,7 @@ hitl: false
 risk: low
 tracker_id: "136"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/136"
-tracker_status: backlog
+tracker_status: done
 ---
 
 # Frontend shell routes and isolated prototype data contracts

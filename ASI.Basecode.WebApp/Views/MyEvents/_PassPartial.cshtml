@@ -1,23 +1,48 @@
 @model PassViewModel
 @if (Model.HasPass)
 {
-    <section class="pass-card" aria-label="Door pass">
-        <div class="pass-card-body">
-            <p class="muted">@Model.EventTitle</p>
-            <p class="identity-name">@Model.HolderName</p>
-            <p class="numeric">@Model.StudentNumber</p>
-            @if (!string.IsNullOrWhiteSpace(Model.GateCode))
+    <section class="pass-card @Model.AccentClass" aria-label="Door pass for @Model.EventTitle" data-registration-id="@Model.RegistrationId">
+        <div class="pass-card-head">
+            @if (!string.IsNullOrWhiteSpace(Model.EventTypeName))
             {
-                <p class="numeric">@Model.GateCode</p>
+                <p class="pass-event-type">@Model.EventTypeName</p>
             }
+            <p class="pass-event-title">@Model.EventTitle</p>
+            <p class="pass-event-meta">
+                <span>@ManilaTimeFormatter.Format(Model.StartsAt)</span>
+                @if (!string.IsNullOrWhiteSpace(Model.VenueName))
+                {
+                    <span> · @Model.VenueName</span>
+                }
+            </p>
         </div>
-        @if (!string.IsNullOrWhiteSpace(Model.QrImageUrl))
-        {
-            <img class="pass-qr" src="@Model.QrImageUrl" alt="Pass code for @Model.EventTitle" />
-        }
-        @if (!string.IsNullOrWhiteSpace(Model.DownloadUrl))
-        {
-            <a class="button button-secondary" href="@Model.DownloadUrl">Download pass</a>
-        }
+        <div class="pass-card-body">
+            <div class="pass-identity">
+                <p class="pass-holder">@Model.HolderName</p>
+                <p class="pass-student numeric">@Model.StudentNumber</p>
+                @if (!string.IsNullOrWhiteSpace(Model.StatusLabel))
+                {
+                    <span class="badge badge-open">@Model.StatusLabel</span>
+                }
+            </div>
+            <div class="pass-code">
+                @if (!string.IsNullOrWhiteSpace(Model.QrImageUrl))
+                {
+                    <img class="pass-qr" src="@Model.QrImageUrl" alt="Pass code for @Model.EventTitle" />
+                }
+                else if (!string.IsNullOrWhiteSpace(Model.QrToken))
+                {
+                    <canvas class="pass-qr" width="168" height="168" data-pass-token="@Model.QrToken" role="img" aria-label="Pass code for @Model.EventTitle"></canvas>
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.DownloadUrl))
+                {
+                    <a class="button button-secondary" href="@Model.DownloadUrl">Download pass</a>
+                }
+                else if (!string.IsNullOrWhiteSpace(Model.QrToken))
+                {
+                    <button type="button" class="button button-secondary" data-pass-download data-pass-file="@Model.DownloadFileName">Download PNG</button>
+                }
+            </div>
+        </div>
     </section>
 }

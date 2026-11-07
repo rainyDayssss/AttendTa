@@ -1,0 +1,26 @@
+@model VenueViewModel
+@{
+    var editing = Model.VenueId > 0;
+    ViewData["PhotoRequired"] = Model.VenueId == 0;
+}
+<form asp-action="@(editing ? "Edit" : "Create")" method="post" enctype="multipart/form-data" data-record-form>
+    <div asp-validation-summary="All" class="field-error" tabindex="-1" data-record-errors></div>
+    @if (editing)
+    {
+        <input asp-for="VenueId" type="hidden" />
+    }
+    @if (!string.IsNullOrWhiteSpace(Model.ImagePath))
+    {
+        <div class="field">
+            <p class="field-label">Current photo</p>
+            <a asp-action="Photo" asp-route-id="@Model.VenueId" target="_blank" rel="noopener">
+                <img src="@Url.Action("Photo", new { id = Model.VenueId })" alt="Current photo of @Model.RoomName" width="96" height="64" class="venue-thumb" />
+            </a>
+        </div>
+    }
+    <partial name="_Form" model="Model" />
+    <footer class="record-dialog-actions">
+        <button type="button" class="button button-secondary" data-record-close>Cancel</button>
+        <button type="submit" class="button button-primary">@(editing ? "Save changes" : "Create venue")</button>
+    </footer>
+</form>

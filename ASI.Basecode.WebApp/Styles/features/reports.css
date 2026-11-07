@@ -1,11 +1,25 @@
 /* Per-event participation report. */
 @layer components {
+  .report-event { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: 1rem; }
+  .report-event h2 { margin: 0; font-size: 1.35rem; }
+  .report-event p { margin: .25rem 0 0; }
   .report-summary { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); margin-bottom: 1rem; }
   .report-summary .panel { margin: 0; }
   .report-summary h2 { font-size: 1rem; }
-  .report-breakdowns { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
+  .report-summary .report-value { margin: 0; font-size: 1.6rem; font-weight: 700; line-height: 1.2; }
+  .report-summary .report-not-final { color: #92400e; font-size: 1.1rem; }
+  .report-summary .field-hint { margin-top: .35rem; }
+  .report-status-counts { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; margin-bottom: 1rem; padding: .75rem 1rem; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; }
+  .report-status-count { display: inline-flex; align-items: center; gap: .5rem; }
+  .report-status-count .numeric { font-size: 1rem; font-weight: 600; }
+  .report-breakdowns { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); margin-top: 1rem; }
+  .report-breakdowns .panel { margin-top: 0; }
   .report-breakdown { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
-  .report-breakdown li { display: flex; justify-content: space-between; gap: 1rem; border-bottom: 1px solid #e2e8f0; padding-bottom: .35rem; }
+  .report-breakdown li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .25rem 1rem; border-bottom: 1px solid #e2e8f0; padding-bottom: .35rem; }
+  .report-breakdown-label { min-width: 0; overflow-wrap: anywhere; }
+  .report-breakdown-value { text-align: right; }
+  .report-breakdown-bar { grid-column: 1 / -1; height: .4rem; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+  .report-breakdown-bar > span { display: block; height: 100%; background: #b45309; }
   @media (min-width: 640px) { .report-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (min-width: 1024px) { .report-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); } .report-breakdowns { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 }

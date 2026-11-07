@@ -1,2 +1,68 @@
 @model MembershipAccessViewModel
-@* Membership access dialog. Filled by the account and membership access surface ticket. *@
+@{
+    var action = Model.IsActive ? "Deactivate" : "Reactivate";
+    var title = Model.IsActive ? "Deactivate membership" : "Reactivate membership";
+    var submitText = Model.IsActive ? "Deactivate membership" : "Reactivate membership";
+    var submittingText = Model.IsActive ? "Deactivating…" : "Reactivating…";
+    var rows = Model.AffectedRegistrations ?? Array.Empty<UpcomingRegistrationPreview>();
+}
+<dialog class="task-dialog access-dialog" aria-labelledby="membership-access-title" aria-describedby="membership-access-consequence">
+    <form asp-controller="Member" asp-action="@action" asp-route-id="@Model.MemberId" method="post">
+        <div class="dialog-header">
+            <h2 id="membership-access-title">@title</h2>
+            <button type="button" class="dialog-close" data-dialog-close aria-label="Close dialog">&times;</button>
+        </div>
+        <p class="muted">
+            @Model.FullName &middot; <span class="numeric">@Model.StudentNumber</span>
+            <span class="badge @(Model.IsActive ? "badge-active" : "badge-inactive")">@(Model.IsActive ? "Active" : "Inactive")</span>
+        </p>
+        @if (Model.IsActive)
+        {
+            <p class="access-dialog-consequence" id="membership-access-consequence">
+                Deactivating this membership removes event participation and certificate eligibility.
+                The linked account can still sign in.
+            </p>
+            @if (rows.Count == 0)
+            {
+                <p class="muted">No upcoming registrations will be affected.</p>
+            }
+            else
+            {
+                <p class="muted">Deactivating this membership affects these upcoming registrations.</p>
+                <ul class="access-dialog-list">
+                    @foreach (var row in rows)
+                    {
+                        <li data-registration-id="@row.RegistrationId">
+                            <strong>@row.EventTitle</strong>
+                            <span class="muted">@ManilaTimeFormatter.Format(row.StartsAt)</span>
+                        </li>
+                    }
+                </ul>
+            }
+        }
+        else
+        {
+            <p class="access-dialog-consequence" id="membership-access-consequence">
+                Reactivating this membership restores event participation and certificate eligibility.
+                The linked account's access is unchanged.
+            </p>
+        }
+        <div class="field">
+            <label for="membership-access-reason">Reason<span class="required" aria-hidden="true">*</span></label>
+            <textarea id="membership-access-reason"
+                      name="reason"
+                      rows="3"
+                      maxlength="1000"
+                      required
+                      class="field-control"
+                      aria-describedby="membership-access-reason-hint"></textarea>
+            <span id="membership-access-reason-hint" class="field-hint">Required. Recorded with the change.</span>
+        </div>
+        <div class="dialog-actions">
+            <button type="button" class="button button-secondary" data-dialog-close>Cancel</button>
+            <button type="submit"
+                    class="button @(Model.IsActive ? "button-danger" : "button-primary")"
+                    data-submitting-label="@submittingText">@submitText</button>
+        </div>
+    </form>
+</dialog>

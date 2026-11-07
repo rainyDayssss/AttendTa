@@ -1,7 +1,60 @@
-/* Door scanner surface. */
+/* Door scanner surface: event session, mode tabs, camera viewport, result variants and 390px. */
 @layer components {
-  .scanner-window { padding: 1.5rem; border-radius: 10px; background: #0b1120; color: #ffffff; }
+  .scanner-session-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+  .scanner-session-head h2 { margin: 0 0 .25rem; overflow-wrap: anywhere; }
+  .scanner-session-head .muted { margin: 0; }
+
+  .scanner-window { margin-top: 1rem; padding: 1.5rem; border-radius: 10px; background: #0b1120; color: #ffffff; }
   .scanner-window h2 { margin-top: 0; }
-  .scanner-viewport { min-height: 16rem; border: 1px dashed #334155; border-radius: 10px; background: #0f172a; }
-  .scanner-result { min-height: 3rem; margin-top: 1rem; }
+
+  .scanner-modes { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+  .scanner-mode { min-height: 44px; padding: .55rem 1rem; border: 1px solid #334155; border-radius: 10px; background: transparent; color: #cbd5e1; font-weight: 600; cursor: pointer; }
+  .scanner-mode:hover { background: #0f172a; color: #ffffff; }
+  .scanner-mode[aria-selected="true"] { border-color: #fcd34d; background: #fef3c7; color: #92400e; }
+
+  .scanner-panel { min-width: 0; }
+  .scanner-viewport { display: grid; gap: .75rem; min-height: 16rem; padding: 1rem; border: 1px dashed #334155; border-radius: 10px; background: #0f172a; }
+  .scanner-video { display: block; width: 100%; max-height: 22rem; border-radius: 10px; background: #0f172a; object-fit: cover; }
+  .scanner-camera-note { margin: 0; color: #cbd5e1; font-size: .9rem; overflow-wrap: anywhere; }
+  .scanner-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+
+  .scanner-code-form, .scanner-lookup-form { display: grid; gap: .75rem; max-width: 32rem; }
+  .scanner-code-form .field, .scanner-lookup-form .field { margin: 0; }
+  .scanner-code-form .button, .scanner-lookup-form .button { justify-self: start; }
+  .scanner-window .field label { color: #e2e8f0; }
+  .scanner-window .field-hint { color: #cbd5e1; }
+  .scanner-window .scanner-panel > .muted,
+  .scanner-window .scanner-panel > .empty-state { color: #cbd5e1; }
+  .scanner-window .scanner-panel .table-scroll { margin-top: 1rem; }
+  .scanner-window .scanner-panel .data-table { color: #0f172a; }
+  .scanner-window .scanner-panel .table-scroll .muted { color: #475569; }
+
+  .scanner-result { margin-top: 1rem; }
+  .scanner-result:empty { display: none; }
+  .scanner-outcome { padding: 1rem; border: 1px solid #334155; border-radius: 10px; background: #0f172a; }
+  .scanner-outcome h3 { margin: 0 0 .35rem; color: #ffffff; font-size: 1.05rem; }
+  .scanner-outcome p { margin: .15rem 0 0; color: #e2e8f0; overflow-wrap: anywhere; }
+  .scanner-outcome .scanner-outcome-name { color: #ffffff; font-weight: 700; }
+  .scanner-outcome .scanner-outcome-meta { color: #cbd5e1; font-size: .9rem; }
+  .scanner-outcome-success { border-color: #059669; background: #052e24; }
+  .scanner-outcome-repeat { border-color: #d97706; background: #2b1d05; }
+  .scanner-outcome-invalid { border-color: #dc2626; background: #2b0b0b; }
+  .scanner-outcome-closed, .scanner-outcome-camera-unavailable { border-color: #64748b; background: #111827; }
+
+  @media (pointer: coarse) {
+    .scanner-mode,
+    .scanner-actions .button,
+    .scanner-code-form .button,
+    .scanner-lookup-form .button { min-height: 56px; }
+  }
+
+  @media (max-width: 640px) {
+    .scanner-session-head { flex-direction: column; align-items: stretch; }
+    .scanner-window { padding: 1rem; }
+    .scanner-modes { display: grid; grid-template-columns: minmax(0, 1fr); }
+    .scanner-mode { width: 100%; }
+    .scanner-viewport { min-height: 12rem; }
+    .scanner-code-form .button,
+    .scanner-lookup-form .button { width: 100%; justify-self: stretch; }
+  }
 }

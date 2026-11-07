@@ -8,6 +8,7 @@ hitl: false
 risk: medium
 tracker_id: "156"
 remote: "https://github.com/rainyDayssss/AttendTa/issues/156"
+tracker_status: done
 ---
 
 # Demo data seam with startup database guard

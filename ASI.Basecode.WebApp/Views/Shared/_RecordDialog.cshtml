@@ -1,0 +1,13 @@
+<dialog id="record-dialog" class="record-dialog" aria-labelledby="record-dialog-title" aria-describedby="record-dialog-description">
+    <header class="record-dialog-header">
+        <h2 id="record-dialog-title">Record editor</h2>
+        <button type="button" class="button button-secondary" data-record-close aria-label="Close editor">×</button>
+    </header>
+    <p id="record-dialog-description">Required fields are marked with an asterisk.</p>
+    <div data-record-message role="status" tabindex="-1"></div>
+    <div data-record-body></div>
+    <div data-record-recovery hidden>
+        <button type="button" class="button button-secondary" data-record-retry>Retry loading</button>
+        <a class="button button-secondary" data-record-fallback>Open full page</a>
+    </div>
+</dialog>

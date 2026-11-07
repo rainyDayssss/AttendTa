@@ -1,27 +1,70 @@
 @model MyEventsCertificatesTabViewModel
-@if (Model.Rows.Count > 0)
+@if (ViewData["CertificateHistoryError"] is string error)
 {
+    <div class="notice notice-error certificate-history" role="alert">
+        <p>@error</p>
+        <a class="button button-secondary" asp-action="Certificates">Try again</a>
+    </div>
+}
+else if (Model.Rows.Count > 0)
+{
+    <p class="certificate-history-help muted">Certificates become available after attendance review and issuance. All times are Asia/Manila.</p>
     <div class="table-scroll certificate-history" role="region" aria-label="Certificate history" tabindex="0">
         <table class="data-table">
             <thead>
                 <tr>
                     <th scope="col">Event</th>
-                    <th scope="col">Certificate number</th>
-                    <th scope="col">Issued</th>
+                    <th scope="col">Review status</th>
+                    <th scope="col">Issue details</th>
                     <th scope="col">Certificate</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var row in Model.Rows)
                 {
+                    var (label, badge, message) = row.State switch
+                    {
+                        MyCertificateState.Pending => ("Pending review", "badge-pending", "Your attendance is awaiting certificate review."),
+                        MyCertificateState.Eligible => ("Eligible", "badge-approved", "Approved for a certificate. Awaiting issuance."),
+                        MyCertificateState.Declined => ("Declined", "badge-rejected", "A certificate will not be issued for this attendance."),
+                        MyCertificateState.Issued => ("Issued", "badge-completed", "Your certificate is ready."),
+                        _ => ("Unavailable", "badge-closed", "No certificate is available yet. Contact an officer if you need help.")
+                    };
                     <tr data-certificate-id="@row.CertificateId">
-                        <td>@row.EventTitle</td>
-                        <td class="numeric">@row.CertificateNumber</td>
-                        <td class="numeric">@ManilaTimeFormatter.Format(row.IssuedAt)</td>
+                        <th scope="row" class="certificate-event">
+                            <span>@row.EventTitle</span>
+                            <span class="certificate-meta numeric">@ManilaTimeFormatter.Format(row.StartsAt)</span>
+                        </th>
                         <td>
-                            @if (!string.IsNullOrWhiteSpace(row.DownloadUrl))
+                            <span class="badge @badge">@label</span>
+                            <p class="certificate-context">@message</p>
+                            @if (!string.IsNullOrWhiteSpace(row.Reason))
                             {
-                                <a class="button button-secondary" href="@row.DownloadUrl">Download</a>
+                                <p class="certificate-reason"><strong>Reason:</strong> @row.Reason</p>
+                            }
+                        </td>
+                        <td>
+                            @if (row.State == MyCertificateState.Issued && row.IssuedAt.HasValue)
+                            {
+                                <span class="numeric">@row.CertificateNumber</span>
+                                <span class="certificate-meta numeric">@ManilaTimeFormatter.Format(row.IssuedAt.Value)</span>
+                            }
+                            else
+                            {
+                                <span class="muted">Not issued</span>
+                            }
+                        </td>
+                        <td>
+                            @if (row.State == MyCertificateState.Issued && row.HasDocument)
+                            {
+                                <div class="certificate-actions">
+                                    <a class="button button-secondary" asp-controller="MyCertificates" asp-action="Pdf" asp-route-id="@row.CertificateId" aria-label="View certificate for @row.EventTitle">View PDF</a>
+                                    <a class="button button-primary" asp-controller="MyCertificates" asp-action="Pdf" asp-route-id="@row.CertificateId" asp-route-download="true" aria-label="Download certificate for @row.EventTitle">Download PDF</a>
+                                </div>
+                            }
+                            else
+                            {
+                                <span class="muted">No PDF available</span>
                             }
                         </td>
                     </tr>
@@ -29,4 +72,8 @@
             </tbody>
         </table>
     </div>
+}
+else
+{
+    <p class="certificate-history-help muted">After you attend an event, you can follow your certificate review here. Issued certificates will have View and Download links.</p>
 }

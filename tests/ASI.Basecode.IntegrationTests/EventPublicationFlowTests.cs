@@ -1,7 +1,9 @@
 using System.Globalization;
 using System.Net;
 using Microsoft.Data.SqlClient;
+using ASI.Basecode.Data;
 using ASI.Basecode.Data.Models;
+using ASI.Basecode.Data.Repositories;
 using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Data.Queries;
 using ASI.Basecode.Resources.Constants;
@@ -89,6 +91,15 @@ public sealed class EventPublicationFlowTests(SqlServerDatabaseFixture fixture) 
         Assert.Equal(new[] { facts.ConfirmedRegistrationIds[1], facts.ConfirmedRegistrationIds[2] }, await ParticipationFacts.NoShows(factContext.Registrations, factContext.Events, factContext.AttendanceRecords).Where(row => row.EventId == facts.CompletedEventId).Select(row => row.RegistrationId).OrderBy(id => id).ToArrayAsync(ct));
         var rate = Assert.Single(await ParticipationFacts.AttendanceRates(factContext.Events.Where(row => row.EventId == facts.CompletedEventId), factContext.Registrations, factContext.AttendanceRecords).ToListAsync(ct));
         Assert.InRange(rate!.Value, 0.333333m, 0.333334m);
+
+        var reportFacts = await new ParticipationReportRepository(new UnitOfWork(factContext))
+            .GetSummaryFactsAsync(facts.CompletedEventId, ct);
+        Assert.Equal(3, reportFacts.ConfirmedCount);
+        Assert.Equal(1, reportFacts.ValidAttendeeCount);
+        Assert.Equal(0, reportFacts.PendingCount);
+        Assert.Equal(0, reportFacts.WaitlistedCount);
+        Assert.Equal(0, reportFacts.CancelledCount);
+        Assert.InRange(reportFacts.AttendanceRate!.Value, 0.333333m, 0.333334m);
     }
 
     private async Task<int> SeedEventAsync(int actorId, int typeId, int venueId, string? imagePath, CancellationToken cancellationToken)

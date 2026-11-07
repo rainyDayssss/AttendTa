@@ -8,5 +8,7 @@ public sealed class AccountSummaryViewModel
     public string Email { get; init; }
     public string RoleCode { get; init; }
     public string RoleLabel { get; init; }
-    public bool IsActive { get; init; }
+
+    /// <summary>Settable so the demo overlay can show the state a command changed (register rule 7).</summary>
+    public bool IsActive { get; set; }
 }

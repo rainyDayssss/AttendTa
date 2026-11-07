@@ -1,6 +1,25 @@
-/* Door pass card slot. */
+/* Door passes: member pass cards, the QR block and its download states (M-03). */
 @layer components {
-  .pass-card { display: grid; gap: 1rem; padding: 1rem; border-top: 3px solid #d97706; background: #f8fafc; }
-  .pass-card-body p { margin: 0 0 .35rem; }
-  .pass-qr { width: 168px; height: 168px; object-fit: contain; background: white; }
+  .passes-section + .passes-section { margin-top: 1.5rem; }
+  .pass-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+  .pass-card { display: flex; flex-direction: column; gap: .75rem; min-width: 0; padding: 1rem; background: white; border: 1px solid #e2e8f0; border-top: 3px solid #3d5a80; border-radius: 10px; box-shadow: 0 4px 12px -2px #0f172a0d; }
+  .pass-card-head { display: grid; gap: .15rem; min-width: 0; }
+  .pass-event-type { margin: 0; color: #475569; font-size: .75rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+  .pass-event-title { margin: 0; font-size: 1.05rem; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+  .pass-event-meta { margin: 0; color: #475569; font-size: .9rem; overflow-wrap: anywhere; }
+  .pass-card-body { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+  .pass-identity { flex: 1 1 11rem; min-width: 0; }
+  .pass-holder { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+  .pass-student { margin: .15rem 0 .5rem; color: #334155; }
+  .pass-code { display: grid; justify-items: center; gap: .5rem; }
+  .pass-qr { display: block; width: 168px; max-width: 100%; height: auto; aspect-ratio: 1 / 1; background: white; }
+  .pass-code .button { width: 100%; }
+  .pass-accent-moss { border-top-color: #4d7c0f; }
+  .pass-accent-indigo { border-top-color: #4f46e5; }
+  .pass-accent-teal { border-top-color: #0d9488; }
+  .pass-accent-violet { border-top-color: #7c3aed; }
+  .pass-accent-crimson { border-top-color: #be123c; }
+  .pass-accent-orange { border-top-color: #ea580c; }
+  .pass-accent-slate { border-top-color: #3d5a80; }
+  @media (min-width: 768px) { .pass-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 }

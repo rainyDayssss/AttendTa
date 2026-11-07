@@ -40,6 +40,9 @@ namespace ASI.Basecode.WebApp
             this._services.AddScoped<IAccountRequestService, AccountRequestService>();
             this._services.AddScoped<IAccountAdministrationService, AccountAdministrationService>();
             this._services.AddScoped<IAccountRoleService, AccountRoleService>();
+            this._services.AddScoped<IAccessDialogService, AccessDialogService>();
+            this._services.AddScoped<AccountAccessService>();
+            this._services.AddScoped<IAccountAccessCommands, AccountAccessService>();
             this._services.AddScoped<IMemberService, MemberService>();
             this._services.AddScoped<IEventTypeService, EventTypeService>();
             this._services.AddScoped<IVenueService, VenueService>();
@@ -48,6 +51,9 @@ namespace ASI.Basecode.WebApp
             this._services.AddScoped<IRegistrationCancellationService, RegistrationCancellationService>();
             this._services.AddScoped<IRegistrationReviewService, RegistrationReviewService>();
             this._services.AddScoped<ICertificateTracerService, CertificateTracerService>();
+            this._services.AddScoped<IMyEventsService, MyEventsService>();
+            this._services.AddScoped<ParticipationReportService>();
+            this._services.AddScoped<IParticipationReportService>(services => services.GetRequiredService<ParticipationReportService>());
 
             // Repositories
             this._services.AddScoped<IUserRepository, UserRepository>();
@@ -59,6 +65,7 @@ namespace ASI.Basecode.WebApp
             this._services.AddScoped<IVenueRepository, VenueRepository>();
             this._services.AddScoped<IEventRepository, EventRepository>();
             this._services.AddScoped<IRegistrationRepository, RegistrationRepository>();
+            this._services.AddScoped<IParticipationReportRepository, ParticipationReportRepository>();
 
             // Shared server-local storage for private images, certificates and renderer files.
             this._services.AddScoped<IPrivateFileStore, PrivateFileStore>();

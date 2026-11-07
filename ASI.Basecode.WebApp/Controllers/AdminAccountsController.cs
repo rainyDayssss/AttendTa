@@ -6,6 +6,7 @@ using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
+using ASI.Basecode.WebApp.DemoData;
 using ASI.Basecode.WebApp.Mvc;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
@@ -18,7 +19,7 @@ using Microsoft.Extensions.Logging;
 namespace ASI.Basecode.WebApp.Controllers
 {
     /// <summary>
-    /// Administrator-only account console: the read-only list plus role assignment.
+    /// Administrator-only account console: the read-only list, role assignment and account access.
     /// </summary>
     [Authorize(Policy = Policies.Administrator)]
     [AutoValidateAntiforgeryToken]
@@ -26,6 +27,9 @@ namespace ASI.Basecode.WebApp.Controllers
     {
         private readonly IAccountAdministrationService _accountAdministrationService;
         private readonly IAccountRoleService _accountRoleService;
+        private readonly IAccessDialogService _accessDialogService;
+        private readonly IAccountAccessCommands _accountAccessCommands;
+        private readonly IAccessStateOverlay _accessStateOverlay;
 
         public AdminAccountsController(
             IHttpContextAccessor httpContextAccessor,
@@ -33,10 +37,16 @@ namespace ASI.Basecode.WebApp.Controllers
             IConfiguration configuration,
             IMapper mapper,
             IAccountAdministrationService accountAdministrationService,
-            IAccountRoleService accountRoleService) : base(httpContextAccessor, loggerFactory, configuration, mapper)
+            IAccountRoleService accountRoleService,
+            IAccessDialogService accessDialogService,
+            IAccountAccessCommands accountAccessCommands,
+            IAccessStateOverlay accessStateOverlay) : base(httpContextAccessor, loggerFactory, configuration, mapper)
         {
             _accountAdministrationService = accountAdministrationService;
             _accountRoleService = accountRoleService;
+            _accessDialogService = accessDialogService;
+            _accountAccessCommands = accountAccessCommands;
+            _accessStateOverlay = accessStateOverlay;
         }
 
         [HttpGet]
@@ -45,12 +55,57 @@ namespace ASI.Basecode.WebApp.Controllers
         {
             ViewBag.Search = search;
             var result = await _accountAdministrationService.GetPageAsync(search, page, HttpContext.RequestAborted);
-            return View(result);
+            return View(_accessStateOverlay.Apply(result));
         }
 
         [HttpGet]
         [Route("admin/accounts/{id:int}/access")]
-        public IActionResult Access(int id) => PartialView("_AccessDialog", AccountAccessViewModel.Empty(id));
+        public async Task<IActionResult> Access(int id)
+        {
+            try
+            {
+                var model = await _accessDialogService.GetAccountAccessAsync(id, HttpContext.RequestAborted);
+                return PartialView("_AccessDialog", _accessStateOverlay.Apply(model));
+            }
+            catch (DomainException exception) when (exception.Outcome == OutcomeCode.NotFound)
+            {
+                return NotFound();
+            }
+        }
+
+        [HttpPost]
+        [Route("admin/accounts/{id:int}/access/deactivate")]
+        public async Task<IActionResult> Deactivate(int id, string reason)
+        {
+            try
+            {
+                await _accountAccessCommands.DeactivateAsync(id, reason, HttpContext.RequestAborted);
+                TempData["SuccessMessage"] = "Account deactivated.";
+            }
+            catch (DomainException exception)
+            {
+                TempData["ErrorMessage"] = exception.Message;
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [Route("admin/accounts/{id:int}/access/reactivate")]
+        public async Task<IActionResult> Reactivate(int id, string reason)
+        {
+            try
+            {
+                await _accountAccessCommands.ReactivateAsync(id, reason, HttpContext.RequestAborted);
+                TempData["SuccessMessage"] = "Account reactivated.";
+            }
+            catch (DomainException exception)
+            {
+                TempData["ErrorMessage"] = exception.Message;
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
 
         [HttpGet]
         [Route("admin/accounts/{id:int}/role")]

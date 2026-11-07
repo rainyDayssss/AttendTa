@@ -1,2 +1,10 @@
 @model MembershipAccessViewModel
-@* Membership access action slot. Filled by the account and membership access surface ticket. *@
+@{
+    var actionLabel = Model.IsActive ? "Deactivate membership" : "Reactivate membership";
+    var actionText = Model.IsActive ? "Deactivate" : "Reactivate";
+}
+<button type="button"
+        class="button button-small button-secondary"
+        data-access-dialog="@Url.Action("Access", "Member", new { id = Model.MemberId })"
+        aria-haspopup="dialog"
+        aria-label="@actionLabel">@actionText</button>

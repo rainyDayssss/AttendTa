@@ -30,6 +30,7 @@
 @if (member)
 {
     <a asp-controller="MemberEvents" asp-action="Index" aria-current="@(controller == "MemberEvents" ? "page" : null)">Events</a>
+    <a asp-controller="Passes" asp-action="Index" aria-current="@(controller == "Passes" ? "page" : null)">My Passes</a>
     <a asp-controller="MyEvents" asp-action="Index" aria-current="@(controller == "MyEvents" ? "page" : null)">My Events</a>
     <a asp-controller="Profile" asp-action="Index" aria-current="@(controller == "Profile" ? "page" : null)">Profile</a>
 }

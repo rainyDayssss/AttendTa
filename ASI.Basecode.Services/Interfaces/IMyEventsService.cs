@@ -5,9 +5,9 @@ using System.Threading.Tasks;
 namespace ASI.Basecode.Services.Interfaces;
 
 /// <summary>
-/// The member Participation History registrations read. The demo provider composes the existing
-/// per-event reads now (register M-02); 3.13 implements the real cross-event owner query behind
-/// this same contract, so the controller and views do not change.
+/// The member Participation History reads. Registrations use the real owner-scoped cross-event
+/// query; attendance stays an empty page until 4.7 implements its owner-scoped query behind the
+/// same contract, so the controller and views do not change.
 /// </summary>
 public interface IMyEventsService
 {
@@ -17,6 +17,15 @@ public interface IMyEventsService
     /// already resolved for the current time.
     /// </summary>
     Task<PagedResult<MyEventRegistrationCardViewModel>> GetRegistrationsAsync(
+        int? pageNumber,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the actor's own attendance records, newest recorded first, one shared page of at
+    /// most <see cref="PageRequest.FixedPageSize"/> rows, with the method label and the
+    /// invalidated state already resolved.
+    /// </summary>
+    Task<PagedResult<MyEventAttendanceRowViewModel>> GetAttendanceAsync(
         int? pageNumber,
         CancellationToken cancellationToken = default);
 }

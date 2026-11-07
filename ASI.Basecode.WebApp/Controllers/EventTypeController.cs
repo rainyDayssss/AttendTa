@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System;
 using System.Threading.Tasks;
 
 namespace ASI.Basecode.WebApp.Controllers
@@ -20,6 +21,20 @@ namespace ASI.Basecode.WebApp.Controllers
         private const string EventTypeIndexRoute = "EventTypeIndex";
 
         private readonly IEventTypeService _eventTypeService;
+
+        private bool IsRecordDialog => Request.Headers["X-Record-Dialog"] == "true";
+
+        private IActionResult Editor(EventTypeViewModel model)
+        {
+            return IsRecordDialog ? PartialView("_Editor", model) : View(model);
+        }
+
+        private IActionResult EditorError(DomainException exception, EventTypeViewModel model)
+        {
+            if (!IsRecordDialog) return HandleDomainException(exception, model);
+            ModelState.AddModelError(exception.Field ?? string.Empty, exception.Message);
+            return Editor(model);
+        }
 
         public EventTypeController(IHttpContextAccessor httpContextAccessor,
                                    ILoggerFactory loggerFactory,
@@ -35,15 +50,33 @@ namespace ASI.Basecode.WebApp.Controllers
         [Route("EventType/Index")]
         public async Task<IActionResult> Index(string status, int? page = null)
         {
-            var eventTypes = await _eventTypeService.GetPageAsync(status, page, HttpContext.RequestAborted);
             ViewBag.Status = status;
-            return View(eventTypes);
+
+            try
+            {
+                var eventTypes = await _eventTypeService.GetPageAsync(status, page, HttpContext.RequestAborted);
+                return View(eventTypes);
+            }
+            catch (DomainException exception)
+            {
+                ViewData["ListError"] = exception.Message;
+                return View(EmptyPage());
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                _logger.LogWarning("Event type list read failed ({ExceptionType}).", exception.GetType().Name);
+                ViewData["ListError"] = "The event type list could not be loaded. Please try again.";
+                return View(EmptyPage());
+            }
         }
+
+        private static PagedResult<EventTypeViewModel> EmptyPage() =>
+            new PagedResult<EventTypeViewModel>(Array.Empty<EventTypeViewModel>(), 1, 0);
 
         [HttpGet]
         public IActionResult Create()
         {
-            return View(new EventTypeViewModel());
+            return Editor(new EventTypeViewModel());
         }
 
         [HttpPost]
@@ -51,18 +84,19 @@ namespace ASI.Basecode.WebApp.Controllers
         {
             if (!ModelState.IsValid)
             {
-                return View(model);
+                return Editor(model);
             }
 
             try
             {
                 await _eventTypeService.AddEventTypeAsync(model, HttpContext.RequestAborted);
                 TempData["SuccessMessage"] = "Event type added successfully.";
+                if (IsRecordDialog) return Json(new { saved = true });
                 return RedirectToAction("Index");
             }
             catch (DomainException ex)
             {
-                return HandleDomainException(ex, model);
+                return EditorError(ex, model);
             }
         }
 
@@ -72,10 +106,11 @@ namespace ASI.Basecode.WebApp.Controllers
             var model = _eventTypeService.GetEventType(id);
             if (model == null)
             {
+                if (IsRecordDialog) return NotFound();
                 return RedirectToAction("Index");
             }
 
-            return View(model);
+            return Editor(model);
         }
 
         [HttpPost]
@@ -83,18 +118,19 @@ namespace ASI.Basecode.WebApp.Controllers
         {
             if (!ModelState.IsValid)
             {
-                return View(model);
+                return Editor(model);
             }
 
             try
             {
                 await _eventTypeService.UpdateEventTypeAsync(model, HttpContext.RequestAborted);
                 TempData["SuccessMessage"] = "Event type updated successfully.";
+                if (IsRecordDialog) return Json(new { saved = true });
                 return RedirectToAction("Index");
             }
             catch (DomainException ex)
             {
-                return HandleDomainException(ex, model);
+                return EditorError(ex, model);
             }
         }
 

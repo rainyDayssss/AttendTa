@@ -1,0 +1,7 @@
+/* Shared loading feedback for the Member, Event Type and Venue lists. */
+@layer components {
+  /* Reserve the line in both states so showing the label cannot move the table or pager. */
+  [data-list-status] { display: block; min-height: 1.5em; margin: 0 0 1rem; }
+  /* Signal busy with an outline, not opacity, so text contrast is unchanged. */
+  [data-list-region][aria-busy="true"] { outline: 2px solid #64748b; outline-offset: -2px; }
+}

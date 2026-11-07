@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Playwright;
 using System;
 using System.Globalization;
@@ -35,6 +36,7 @@ public sealed class PlaywrightCertificatePdfRenderer : ICertificatePdfRenderer
     private readonly IWebHostEnvironment environment;
     private readonly IServiceProvider services;
     private readonly IOptions<CertificateSignatoryOptions> signatoryOptions;
+    private readonly string browserChannel;
 
     public PlaywrightCertificatePdfRenderer(
         IRazorViewEngine razorViewEngine,
@@ -42,7 +44,8 @@ public sealed class PlaywrightCertificatePdfRenderer : ICertificatePdfRenderer
         IModelMetadataProvider metadataProvider,
         IWebHostEnvironment environment,
         IServiceProvider services,
-        IOptions<CertificateSignatoryOptions> signatoryOptions)
+        IOptions<CertificateSignatoryOptions> signatoryOptions,
+        IConfiguration configuration)
     {
         this.razorViewEngine = razorViewEngine;
         this.tempDataProvider = tempDataProvider;
@@ -50,6 +53,7 @@ public sealed class PlaywrightCertificatePdfRenderer : ICertificatePdfRenderer
         this.environment = environment;
         this.services = services;
         this.signatoryOptions = signatoryOptions;
+        this.browserChannel = configuration["Certificates:BrowserChannel"];
     }
 
     public Task<byte[]> RenderSampleAsync(CancellationToken cancellationToken = default) => RenderPdfAsync(
@@ -116,7 +120,8 @@ public sealed class PlaywrightCertificatePdfRenderer : ICertificatePdfRenderer
         using var playwright = await Playwright.CreateAsync();
         await using var browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
         {
-            Headless = true
+            Headless = true,
+            Channel = browserChannel
         });
         await using var context = await browser.NewContextAsync();
         await context.RouteAsync("http://**/*", route => route.AbortAsync("blockedbyclient"));

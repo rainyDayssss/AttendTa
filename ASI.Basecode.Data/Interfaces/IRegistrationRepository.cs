@@ -19,6 +19,15 @@ public interface IRegistrationRepository
     /// </summary>
     Task<MemberRegistrationRow> GetMemberRegistrationAsync(int eventId, int userId, CancellationToken cancellationToken = default);
 
+    /// <summary>Counts the actor's registrations across events, resolving ownership through <c>members.user_id</c>.</summary>
+    Task<int> CountMyRegistrationsAsync(int userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reads one owner-scoped page of the actor's registrations across events, newest start first,
+    /// with the event and registration facts the My Events card needs.
+    /// </summary>
+    Task<IReadOnlyList<MyEventRegistrationRow>> GetMyRegistrationsAsync(int userId, int skip, int take, CancellationToken cancellationToken = default);
+
     /// <summary>Counts confirmed seats for the event using the canonical seat fact.</summary>
     Task<int> CountConfirmedAsync(int eventId, CancellationToken cancellationToken = default);
 
@@ -46,4 +55,12 @@ public sealed record UpcomingRegistrationRow(int RegistrationId, int EventId, st
 public sealed record MemberRegistrationRow(int RegistrationId, int MemberId, int EventId, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status);
 public sealed record RegistrationReviewIdentity(int UserId, int MemberId, int EventId);
 public sealed record RegistrationPromotionCandidate(int RegistrationId, int UserId, int MemberId, int EventId, DateTime? ReviewedAt);
-public sealed record RegistrationReviewRow(int RegistrationId, int EventId, string EventTitle, string MemberName, string StudentNumber, DateTime SubmittedAt, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status);
+public sealed record MyEventRegistrationRow(int RegistrationId, int EventId, string EventTitle, string TypeName, string VenueName, DateTime StartsAt, ASI.Basecode.Data.Models.Lookups.EventStatusCode EventStatusId, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status);
+public sealed record RegistrationReviewRow(int RegistrationId, int EventId, string EventTitle, string MemberName, string StudentNumber, DateTime SubmittedAt, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status)
+{
+    /// <summary>The course captured at signup, used by the participation report breakdowns.</summary>
+    public string Course { get; init; }
+
+    /// <summary>The year level captured at signup, used by the participation report breakdowns.</summary>
+    public int YearLevel { get; init; }
+}

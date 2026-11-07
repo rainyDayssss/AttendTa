@@ -6,6 +6,9 @@ namespace ASI.Basecode.Services.ServiceModels
     {
         public int MemberId { get; set; }
 
+        // Display-only. The linked users.user_id, read from the member record.
+        public int UserId { get; set; }
+
         [Required(ErrorMessage = "Full name is required.")]
         [StringLength(255, ErrorMessage = "Full name cannot exceed 255 characters.")]
         public string FullName { get; set; }

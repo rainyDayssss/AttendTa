@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Resources;
+using ASI.Basecode.Services.ServiceModels;
 using Microsoft.Extensions.Options;
 
 namespace ASI.Basecode.WebApp.DemoData;
@@ -104,6 +106,7 @@ public sealed class DemoStore
         {
             _completedEventIds.Add(eventId);
             _checkInOpenEventIds.Remove(eventId);
+            EnsureCertificateReviews(eventId, DateTime.UtcNow);
         }
     }
 
@@ -120,7 +123,13 @@ public sealed class DemoStore
     /// <summary>
     /// Records a check-in. A repeat returns the original record so the first time is preserved.
     /// </summary>
-    public DemoAttendance RecordAttendance(int registrationId, int eventId, DateTime recordedAt, CheckInMethodCode method)
+    public DemoAttendance RecordAttendance(
+        int registrationId,
+        int eventId,
+        string memberName,
+        string studentNumber,
+        DateTime recordedAt,
+        CheckInMethodCode method)
     {
         lock (_gate)
         {
@@ -129,9 +138,25 @@ public sealed class DemoStore
                 return existing;
             }
 
-            var record = new DemoAttendance(registrationId, eventId, recordedAt, method, null, null);
+            var record = new DemoAttendance(registrationId, eventId, memberName, studentNumber, recordedAt, method, null, null);
             _attendance[registrationId] = record;
             return record;
+        }
+    }
+
+    /// <summary>
+    /// The event's attendance rows, newest first, for the scanner log. The store is in memory, so
+    /// this read is bounded by the rows a session recorded.
+    /// </summary>
+    public IReadOnlyList<DemoAttendance> GetAttendanceForEvent(int eventId)
+    {
+        lock (_gate)
+        {
+            return _attendance.Values
+                .Where(record => record.EventId == eventId)
+                .OrderByDescending(record => record.RecordedAt)
+                .ThenBy(record => record.RegistrationId)
+                .ToList();
         }
     }
 
@@ -180,6 +205,85 @@ public sealed class DemoStore
 
     // ---- Certificate reviews and issues -------------------------------------
 
+    // M-11a: registration identity makes the number unique within the shared store.
+    public string GetCertificateNumber(int registrationId, DateTime issuedAt) => $"AT-{issuedAt:yyyy}-{registrationId:D6}";
+
+    // M-10a: 6.4 replaces review creation with the real completion hook.
+    public void EnsureCertificateReviews(int eventId, DateTime now)
+    {
+        lock (_gate)
+        {
+            foreach (var attendance in _attendance.Values.Where(row => row.EventId == eventId && row.IsValid))
+            {
+                _reviews.TryAdd(attendance.RegistrationId, new DemoCertificateReview(
+                    attendance.RegistrationId, eventId, CertificateStatusCode.PendingApproval, null, now));
+            }
+        }
+    }
+
+    // M-10b: 6.6 replaces the guarded in-memory decisions.
+    public void DecideCertificate(int registrationId, bool approve, string reason, int actorId, DateTime now)
+    {
+        var trimmed = reason?.Trim();
+        if (!approve && (string.IsNullOrWhiteSpace(trimmed) || trimmed.Length > 1000))
+            throw new DomainException(OutcomeCode.Invalid, "Enter a decline reason of up to 1,000 characters.", "reason");
+        lock (_gate)
+        {
+            RequireValidAttendance(registrationId);
+            if (!_reviews.TryGetValue(registrationId, out var review))
+                throw new DomainException(OutcomeCode.NotFound, "Certificate review not found.");
+            if (review.Status != CertificateStatusCode.PendingApproval)
+                throw new DomainException(OutcomeCode.Invalid, "This review has already been decided.");
+            _reviews[registrationId] = review with
+            {
+                Status = approve ? CertificateStatusCode.Eligible : CertificateStatusCode.NotEligible,
+                Reason = approve ? null : trimmed,
+                UpdatedAt = now,
+                ReviewedBy = actorId
+            };
+        }
+    }
+
+    // M-11a: publish only after successful rendering, rechecking against invalidation and duplicate issuance.
+    public void PublishCertificate(int registrationId, CertificatePdfSnapshot snapshot, byte[] pdf, int actorId)
+    {
+        lock (_gate)
+        {
+            RequireValidAttendance(registrationId);
+            if (_issues.ContainsKey(registrationId))
+                throw new DomainException(OutcomeCode.Duplicate, "A certificate has already been issued.");
+            if (!_reviews.TryGetValue(registrationId, out var review) || review.Status != CertificateStatusCode.Eligible)
+                throw new DomainException(OutcomeCode.Invalid, "Approve this review before issuing a certificate.");
+            if (pdf == null || pdf.Length == 0)
+                throw new DomainException(OutcomeCode.Invalid, "The certificate could not be rendered. Please try again.");
+            _issues[registrationId] = new DemoCertificateIssue(registrationId, review.EventId,
+                snapshot.CertificateNumber, snapshot.IssuedAt, snapshot, (byte[])pdf.Clone(), actorId);
+            _reviews[registrationId] = review with { Status = CertificateStatusCode.Issued, UpdatedAt = snapshot.IssuedAt };
+        }
+    }
+
+    // M-11b: a seeded issue is rendered once, then its original bytes are reused for this process lifetime.
+    public DemoCertificateIssue AttachCertificateDocument(int registrationId, CertificatePdfSnapshot snapshot, byte[] pdf)
+    {
+        lock (_gate)
+        {
+            if (!_issues.TryGetValue(registrationId, out var issue))
+                throw new DomainException(OutcomeCode.NotFound, "Certificate not found.");
+            if (issue.Pdf == null)
+            {
+                issue = issue with { Snapshot = issue.Snapshot ?? snapshot, Pdf = (byte[])pdf.Clone() };
+                _issues[registrationId] = issue;
+            }
+            return issue;
+        }
+    }
+
+    private void RequireValidAttendance(int registrationId)
+    {
+        if (!_attendance.TryGetValue(registrationId, out var attendance) || !attendance.IsValid)
+            throw new DomainException(OutcomeCode.Invalid, "Valid attendance is required for a certificate.");
+    }
+
     public bool TryGetReview(int registrationId, out DemoCertificateReview review)
     {
         lock (_gate)
@@ -212,11 +316,11 @@ public sealed class DemoStore
         }
     }
 
-    public void SeedIssuedCertificate(int registrationId, int eventId, string certificateNumber, DateTime issuedAt)
+    public void SeedIssuedCertificate(int registrationId, int eventId, string certificateNumber, DateTime issuedAt, CertificatePdfSnapshot snapshot = null)
     {
         lock (_gate)
         {
-            _issues[registrationId] = new DemoCertificateIssue(registrationId, eventId, certificateNumber, issuedAt);
+            _issues[registrationId] = new DemoCertificateIssue(registrationId, eventId, certificateNumber, issuedAt, snapshot);
             _reviews[registrationId] = new DemoCertificateReview(
                 registrationId, eventId, CertificateStatusCode.Issued, null, issuedAt);
         }
@@ -245,6 +349,18 @@ public sealed class DemoStore
             var status = new DemoAccountStatus(userId, isActive, trimmedReason, changedAt);
             _accounts[userId] = status;
             return status;
+        }
+    }
+
+    /// <summary>
+    /// Drops a demo status entry once the real command wrote the authoritative state, so the overlay
+    /// stops masking the real row (5.4 removed M-14a; reactivation stays in the store for M-14b).
+    /// </summary>
+    public void ClearAccountStatus(int userId)
+    {
+        lock (_gate)
+        {
+            _accounts.Remove(userId);
         }
     }
 
@@ -277,6 +393,8 @@ public sealed class DemoStore
 public sealed record DemoAttendance(
     int RegistrationId,
     int EventId,
+    string MemberName,
+    string StudentNumber,
     DateTime RecordedAt,
     CheckInMethodCode Method,
     DateTime? InvalidatedAt,
@@ -291,14 +409,18 @@ public sealed record DemoCertificateReview(
     int EventId,
     CertificateStatusCode Status,
     string Reason,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    int? ReviewedBy = null);
 
 /// <summary>A demo certificate issue keyed by the real registration id.</summary>
 public sealed record DemoCertificateIssue(
     int RegistrationId,
     int EventId,
     string CertificateNumber,
-    DateTime IssuedAt);
+    DateTime IssuedAt,
+    CertificatePdfSnapshot Snapshot = null,
+    byte[] Pdf = null,
+    int? IssuedBy = null);
 
 /// <summary>A demo account status keyed by the real user id.</summary>
 public sealed record DemoAccountStatus(int UserId, bool IsActive, string Reason, DateTime ChangedAt);

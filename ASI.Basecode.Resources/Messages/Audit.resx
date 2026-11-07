@@ -13,6 +13,7 @@
   <data name="EventTypeEdited" xml:space="preserve"><value>Event type edited.</value></data>
   <data name="EventTypeStatusChanged" xml:space="preserve"><value>Event type status changed.</value></data>
   <data name="UserRoleAssigned" xml:space="preserve"><value>User role assigned.</value></data>
+  <data name="UserDeactivated" xml:space="preserve"><value>User account deactivated.</value></data>
   <data name="VenueCreated" xml:space="preserve"><value>Venue created.</value></data>
   <data name="VenueEdited" xml:space="preserve"><value>Venue edited.</value></data>
   <data name="VenueStatusChanged" xml:space="preserve"><value>Venue status changed.</value></data>

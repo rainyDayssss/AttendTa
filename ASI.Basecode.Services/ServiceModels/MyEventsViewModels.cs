@@ -121,13 +121,35 @@ public sealed class MyEventRegistrationCardViewModel
     public PassViewModel Pass { get; init; } = PassViewModel.Empty();
 }
 
-/// <summary>Pass card slot. Renders nothing until the pass surface ticket supplies a pass.</summary>
+/// <summary>
+/// Pass card. The demo provider fills the event metadata, holder identity and rule-10 token;
+/// 4.1 supplies <see cref="QrImageUrl"/> and <see cref="DownloadUrl"/> when the real renderer and
+/// authorized PNG endpoint exist.
+/// </summary>
 public sealed class PassViewModel
 {
     public int RegistrationId { get; init; }
+    public int EventId { get; init; }
     public string EventTitle { get; init; }
+    public string EventTypeName { get; init; }
+    public string VenueName { get; init; }
+    public DateTime StartsAt { get; init; }
     public string HolderName { get; init; }
     public string StudentNumber { get; init; }
+    public string StatusLabel { get; init; }
+
+    /// <summary>The visual event accent class for the card's top rule. Decorative only.</summary>
+    public string AccentClass { get; init; }
+
+    /// <summary>
+    /// The demo pass token the browser draws into the QR. It is not personal data and is never
+    /// logged; 4.1 replaces it with a server-rendered PNG.
+    /// </summary>
+    public string QrToken { get; init; }
+
+    /// <summary>The file name used when the browser saves the QR as a PNG.</summary>
+    public string DownloadFileName { get; init; }
+
     public string GateCode { get; init; }
     public string QrImageUrl { get; init; }
     public string DownloadUrl { get; init; }
@@ -204,13 +226,19 @@ public sealed class MyEventsCertificatesTabViewModel : MyEventsTabPage
             : new MyEventsCertificatesTabViewModel(page.Items, page.PageNumber, page.TotalCount);
 }
 
-/// <summary>One issued certificate in the member history.</summary>
+public enum MyCertificateState { Unavailable, Pending, Eligible, Declined, Issued }
+
+/// <summary>One certificate review or issued document in the member history.</summary>
 public sealed class MyEventCertificateRowViewModel
 {
     public int CertificateId { get; init; }
     public int EventId { get; init; }
     public string EventTitle { get; init; }
+    public DateTime StartsAt { get; init; }
+    public MyCertificateState State { get; init; }
+    public string Reason { get; init; }
+    public bool HasDocument { get; init; }
     public string CertificateNumber { get; init; }
-    public DateTime IssuedAt { get; init; }
+    public DateTime? IssuedAt { get; init; }
     public string DownloadUrl { get; init; }
 }

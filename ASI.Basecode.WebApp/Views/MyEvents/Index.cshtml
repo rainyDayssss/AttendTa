@@ -53,7 +53,7 @@
             break;
     }
 
-    @if (activePage.TotalCount == 0)
+    @if (activePage.TotalCount == 0 && ViewData["CertificateHistoryError"] == null)
     {
         <p class="empty-state">
             @emptyMessage
@@ -63,7 +63,7 @@
             }
         </p>
     }
-    else
+    else if (activePage.TotalCount > 0)
     {
         <partial name="_ResultCount" model="activePage" />
         <partial name="_Pager" model="activePage" />

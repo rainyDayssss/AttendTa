@@ -371,6 +371,8 @@ public sealed class RegistrationCancellationTests(SqlServerDatabaseFixture fixtu
         public Task<bool> IsConfirmedAsync(int id, CancellationToken ct = default) => inner.IsConfirmedAsync(id, ct);
         public Task<bool> ExistsAsync(int eventId, int memberId, CancellationToken ct = default) => inner.ExistsAsync(eventId, memberId, ct);
         public Task<MemberRegistrationRow> GetMemberRegistrationAsync(int eventId, int userId, CancellationToken ct = default) => inner.GetMemberRegistrationAsync(eventId, userId, ct);
+        public Task<int> CountMyRegistrationsAsync(int userId, CancellationToken ct = default) => inner.CountMyRegistrationsAsync(userId, ct);
+        public Task<IReadOnlyList<MyEventRegistrationRow>> GetMyRegistrationsAsync(int userId, int skip, int take, CancellationToken ct = default) => inner.GetMyRegistrationsAsync(userId, skip, take, ct);
         public Task<int> CountConfirmedAsync(int id, CancellationToken ct = default) => inner.CountConfirmedAsync(id, ct);
         public Task AddAsync(Registration row, CancellationToken ct = default) => inner.AddAsync(row, ct);
         public Task<Registration> GetForCancellationAsync(int id, CancellationToken ct = default) => inner.GetForCancellationAsync(id, ct);

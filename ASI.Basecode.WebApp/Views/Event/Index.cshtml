@@ -34,7 +34,7 @@ else
                 @foreach (var eventItem in Model.Items)
                 {
                     <tr data-event-id="@eventItem.EventId">
-                        <td>@eventItem.Title</td>
+                        <td><a asp-action="Details" asp-route-id="@eventItem.EventId">@eventItem.Title</a></td>
                         <td>@eventItem.TypeName</td>
                         <td>@eventItem.VenueName</td>
                         <td>@ManilaTimeFormatter.Format(eventItem.StartsAt)</td>
@@ -45,9 +45,8 @@ else
                             <partial name="_CheckInControl" model="new CheckInControlViewModel { EventId = eventItem.EventId, IsCheckInOpen = eventItem.IsCheckInOpen, CanChange = eventItem.EventStatusId == EventStatusCode.Published }" />
                         </td>
                         <td class="actions">
-                            <a asp-action="Details" asp-route-id="@eventItem.EventId" class="button button-secondary">Dossier</a>
                             <a asp-action="Cover" asp-route-id="@eventItem.EventId" class="button button-secondary">Cover</a>
-                            <a asp-controller="RegistrationReview" asp-action="Index" asp-route-eventId="@eventItem.EventId" class="button button-secondary">Review</a>
+                            <a asp-action="Details" asp-route-id="@eventItem.EventId" class="button button-secondary">View dossier</a>
                             @if (eventItem.EventStatusId is EventStatusCode.Draft or EventStatusCode.Published)
                             {
                                 <a asp-action="Edit" asp-route-id="@eventItem.EventId" class="button button-secondary">Edit</a>
@@ -62,10 +61,7 @@ else
                             }
                             @if (eventItem.EventStatusId == EventStatusCode.Published)
                             {
-                                <form asp-action="Complete" method="post" class="inline-form">
-                                    <input type="hidden" name="id" value="@eventItem.EventId" />
-                                    <button type="submit" class="button button-secondary">Complete</button>
-                                </form>
+                                <a asp-action="Details" asp-route-id="@eventItem.EventId" class="button button-secondary">Lifecycle controls</a>
                             }
                         </td>
                     </tr>
