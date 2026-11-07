@@ -75,7 +75,7 @@ else
                 <input type="hidden" name="eventId" value="@Model.EventId" />
                 <div class="field">
                     <label for="scan-token">Pass code</label>
-                    <input id="scan-token" name="token" class="field-control" autocomplete="off" autocapitalize="off" spellcheck="false" required />
+                    <input id="scan-token" name="token" class="field-control" autocomplete="off" autocapitalize="off" spellcheck="false" required placeholder="Paste the pass code" />
                     <span class="field-hint">Paste or type the code shown on the member's pass.</span>
                 </div>
                 <button type="submit" class="button button-primary" data-submitting-label="Checking&hellip;">Check in</button>
@@ -87,7 +87,7 @@ else
                 <input type="hidden" name="eventId" value="@Model.EventId" />
                 <div class="field">
                     <label for="lookup-query">Name or student number</label>
-                    <input id="lookup-query" name="q" value="@Model.Lookup.Query" class="field-control" autocomplete="off" />
+                    <input id="lookup-query" name="q" value="@Model.Lookup.Query" class="field-control" autocomplete="off" placeholder="Name or student number" />
                 </div>
                 <button type="submit" class="button button-secondary" data-submitting-label="Searching&hellip;">Search</button>
             </form>
@@ -265,7 +265,7 @@ else
             <p class="dialog-consequence">The attendance row stays on record and the member is marked as not eligible. Re-check-in is refused after invalidation.</p>
             <div class="field">
                 <label for="invalidate-reason">Reason for invalidating</label>
-                <textarea id="invalidate-reason" name="reason" rows="3" maxlength="500" required class="field-control"></textarea>
+                <textarea id="invalidate-reason" name="reason" rows="3" maxlength="500" required class="field-control" placeholder="Explain why the check-in is invalid"></textarea>
                 <span class="field-hint">Required. Shown on the attendance record.</span>
             </div>
             <div class="dialog-actions">

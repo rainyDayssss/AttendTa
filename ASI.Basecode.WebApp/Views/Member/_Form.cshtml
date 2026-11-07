@@ -1,20 +1,22 @@
 @model MemberViewModel
+@using System.Linq
+@using ASI.Basecode.Resources.Constants
 
 <fieldset>
     <legend>Identity</legend>
     <div class="field">
         <label asp-for="FullName" class="field-label">Full name <span class="required" aria-hidden="true">*</span></label>
-        <input asp-for="FullName" aria-describedby="FullName-validation" class="field-control" required aria-required="true" />
+        <input asp-for="FullName" aria-describedby="FullName-validation" class="field-control" required aria-required="true" placeholder="e.g. Liza Fernandez" />
         <span id="FullName-validation" asp-validation-for="FullName" class="field-error"></span>
     </div>
     <div class="field">
         <label asp-for="StudentNumber" class="field-label">Student number <span class="required" aria-hidden="true">*</span></label>
-        <input asp-for="StudentNumber" aria-describedby="StudentNumber-validation" class="field-control" required aria-required="true" />
+        <input asp-for="StudentNumber" aria-describedby="StudentNumber-validation" class="field-control" required aria-required="true" placeholder="e.g. UC-2026-0110" />
         <span id="StudentNumber-validation" asp-validation-for="StudentNumber" class="field-error"></span>
     </div>
     <div class="field">
         <label asp-for="StudentNumberCorrectionReason" class="field-label">Reason for student-number correction</label>
-        <textarea asp-for="StudentNumberCorrectionReason" aria-describedby="StudentNumberCorrectionReason-validation" class="field-control" rows="3"></textarea>
+        <textarea asp-for="StudentNumberCorrectionReason" aria-describedby="StudentNumberCorrectionReason-validation" class="field-control" rows="3" placeholder="Explain why the student number is being corrected"></textarea>
         <span id="StudentNumberCorrectionReason-validation" asp-validation-for="StudentNumberCorrectionReason" class="field-error"></span>
     </div>
 </fieldset>
@@ -23,17 +25,38 @@
     <legend>Academic details</legend>
     <div class="field">
         <label asp-for="Course" class="field-label">Course <span class="required" aria-hidden="true">*</span></label>
-        <input asp-for="Course" aria-describedby="Course-validation" class="field-control" required aria-required="true" />
+        <input asp-for="Course" aria-describedby="Course-validation" class="field-control" required aria-required="true" list="member-course-options" placeholder="e.g. BS Information Technology" />
+        <datalist id="member-course-options">
+            @foreach (var course in ProfileOptions.Courses)
+            {
+                <option value="@course"></option>
+            }
+        </datalist>
         <span id="Course-validation" asp-validation-for="Course" class="field-error"></span>
     </div>
     <div class="field">
         <label asp-for="YearLevel" class="field-label">Year level <span class="required" aria-hidden="true">*</span></label>
-        <input asp-for="YearLevel" aria-describedby="YearLevel-validation" type="number" class="field-control" min="1" required aria-required="true" />
+        <select asp-for="YearLevel" aria-describedby="YearLevel-validation" class="field-control" required aria-required="true">
+            @foreach (var year in ProfileOptions.YearLevels)
+            {
+                <option value="@year">@year</option>
+            }
+            @if (!ProfileOptions.YearLevels.Contains(Model.YearLevel))
+            {
+                <option value="@Model.YearLevel" selected>@Model.YearLevel</option>
+            }
+        </select>
         <span id="YearLevel-validation" asp-validation-for="YearLevel" class="field-error"></span>
     </div>
     <div class="field">
         <label asp-for="Section" class="field-label">Section <span class="required" aria-hidden="true">*</span></label>
-        <input asp-for="Section" aria-describedby="Section-validation" class="field-control" required aria-required="true" />
+        <input asp-for="Section" aria-describedby="Section-validation" class="field-control" required aria-required="true" list="member-section-options" placeholder="e.g. B" />
+        <datalist id="member-section-options">
+            @foreach (var sectionCode in ProfileOptions.Sections)
+            {
+                <option value="@sectionCode"></option>
+            }
+        </datalist>
         <span id="Section-validation" asp-validation-for="Section" class="field-error"></span>
     </div>
 </fieldset>
@@ -42,12 +65,22 @@
     <legend>Membership</legend>
     <div class="field">
         <label asp-for="MobileNumber" class="field-label">Mobile number</label>
-        <input asp-for="MobileNumber" aria-describedby="MobileNumber-validation" class="field-control" />
+        <input asp-for="MobileNumber" aria-describedby="MobileNumber-validation" class="field-control" type="tel" placeholder="e.g. 0917-000-0102" />
         <span id="MobileNumber-validation" asp-validation-for="MobileNumber" class="field-error"></span>
     </div>
     <div class="field">
         <label asp-for="MembershipType" class="field-label">Membership type</label>
-        <input asp-for="MembershipType" aria-describedby="MembershipType-validation" class="field-control" />
+        <select asp-for="MembershipType" aria-describedby="MembershipType-validation" class="field-control">
+            <option value="">Select membership type</option>
+            @foreach (var membershipType in ProfileOptions.MembershipTypes)
+            {
+                <option value="@membershipType">@membershipType</option>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.MembershipType) && !ProfileOptions.MembershipTypes.Contains(Model.MembershipType))
+            {
+                <option value="@Model.MembershipType" selected>@Model.MembershipType</option>
+            }
+        </select>
         <span id="MembershipType-validation" asp-validation-for="MembershipType" class="field-error"></span>
     </div>
 </fieldset>

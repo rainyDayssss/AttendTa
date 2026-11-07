@@ -10,7 +10,7 @@
 <form asp-controller="CertificateTracer" asp-action="Trace" method="post" class="form-card">
     <div class="form-group">
         <label for="registrationId">Confirmed registration ID</label>
-        <input id="registrationId" name="registrationId" type="number" min="1" required />
+        <input id="registrationId" name="registrationId" type="number" min="1" required placeholder="e.g. 12" />
     </div>
     <button type="submit" class="button button-primary">Render sample PDF</button>
 </form>

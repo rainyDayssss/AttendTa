@@ -7,17 +7,17 @@
     <legend>Facility details</legend>
     <div class="field">
         <label asp-for="RoomName" class="field-label">Room name <span class="required" aria-hidden="true">*</span></label>
-        <input asp-for="RoomName" aria-describedby="RoomName-validation" class="field-control" required aria-required="true" />
+        <input asp-for="RoomName" aria-describedby="RoomName-validation" class="field-control" required aria-required="true" placeholder="e.g. University Auditorium" />
         <span id="RoomName-validation" asp-validation-for="RoomName" class="field-error"></span>
     </div>
     <div class="field">
         <label asp-for="Capacity" class="field-label">Capacity <span class="required" aria-hidden="true">*</span></label>
-        <input asp-for="Capacity" aria-describedby="Capacity-validation" type="number" min="1" class="field-control" required aria-required="true" />
+        <input asp-for="Capacity" aria-describedby="Capacity-validation" type="number" min="1" class="field-control" required aria-required="true" placeholder="e.g. 400" />
         <span id="Capacity-validation" asp-validation-for="Capacity" class="field-error"></span>
     </div>
     <div class="field">
         <label asp-for="Location" class="field-label">Location</label>
-        <input asp-for="Location" aria-describedby="Location-validation" class="field-control" />
+        <input asp-for="Location" aria-describedby="Location-validation" class="field-control" placeholder="e.g. Main Campus, Second Floor" />
         <span id="Location-validation" asp-validation-for="Location" class="field-error"></span>
     </div>
 </fieldset>
@@ -26,12 +26,12 @@
     <legend>Availability</legend>
     <div class="field">
         <label asp-for="AvailabilityNotes" class="field-label">Availability notes</label>
-        <textarea asp-for="AvailabilityNotes" aria-describedby="AvailabilityNotes-validation" class="field-control" rows="3"></textarea>
+        <textarea asp-for="AvailabilityNotes" aria-describedby="AvailabilityNotes-validation" class="field-control" rows="3" placeholder="When the venue is available and any booking conditions"></textarea>
         <span id="AvailabilityNotes-validation" asp-validation-for="AvailabilityNotes" class="field-error"></span>
     </div>
     <div class="field">
         <label asp-for="ContactPerson" class="field-label">Contact person</label>
-        <input asp-for="ContactPerson" aria-describedby="ContactPerson-validation" class="field-control" />
+        <input asp-for="ContactPerson" aria-describedby="ContactPerson-validation" class="field-control" placeholder="e.g. Campus Facilities Office" />
         <span id="ContactPerson-validation" asp-validation-for="ContactPerson" class="field-error"></span>
     </div>
 </fieldset>
