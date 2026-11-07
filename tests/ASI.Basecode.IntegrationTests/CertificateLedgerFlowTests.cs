@@ -125,8 +125,12 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         }
 
         await PostAsync("Decline", registrationIds[3], " ");
-        Assert.True(store.TryGetReview(registrationIds[3], out var pending));
-        Assert.Equal(CertificateStatusCode.PendingApproval, pending.Status);
+        await using (var check = MemberEventTestSupport.Context(fixture.ConnectionString))
+        {
+            var pending = await check.Certificates.AsNoTracking()
+                .SingleAsync(row => row.RegistrationId == registrationIds[3], ct);
+            Assert.Equal(CertificateStatusCode.PendingApproval, pending.CertificateStatusId);
+        }
         Assert.Contains("Enter a decline reason", await client.GetStringAsync("/Certificates", ct), StringComparison.Ordinal);
         await page.Locator($"[data-certificate-open='decline-certificate'][data-id='{registrationIds[3]}']").ClickAsync();
         await page.Locator("#certificate-decline-reason").FillAsync("Participation requirements not met.");
@@ -166,13 +170,19 @@ public sealed class CertificateLedgerFlowTests(SqlServerDatabaseFixture fixture)
         await page.ScreenshotAsync(new() { Path = Path.Combine(Path.GetTempPath(), "attendta-6-12-certificate-viewer-phone.png"), FullPage = true });
         await page.CloseAsync();
         await using var observer = MemberEventTestSupport.Context(fixture.ConnectionString);
-        // The demo event's attendance lives only in DemoStore, so the real completion hook finds no
-        // SQL attendance and inserts no certificate rows here; the ledger still shows the seeded reviews.
-        Assert.Empty(await observer.Certificates.ToListAsync(ct));
-        var logs = await observer.ActivityLogs.ToListAsync(ct);
-        var completion = Assert.Single(logs);
-        Assert.Equal(AuditActions.EventCompleted, completion.Action);
+        // The demo seed writes real attendance and reviews, so the completion hook finds nothing to
+        // add and the decisions update the seeded rows in SQL.
+        var certificates = await observer.Certificates.AsNoTracking().ToListAsync(ct);
+        Assert.Equal(registrationIds.Count, certificates.Count);
+        Assert.Equal(CertificateStatusCode.Issued,
+            certificates.Single(row => row.RegistrationId == registrationIds[1]).CertificateStatusId);
+        Assert.Equal(CertificateStatusCode.NotEligible,
+            certificates.Single(row => row.RegistrationId == registrationIds[3]).CertificateStatusId);
+        var logs = await observer.ActivityLogs.AsNoTracking().ToListAsync(ct);
+        var completion = Assert.Single(logs, row => row.Action == AuditActions.EventCompleted);
         Assert.Equal(eventItem.EventId, completion.EntityId);
+        Assert.Single(logs, row => row.Action == AuditActions.CertificateApproved);
+        Assert.Single(logs, row => row.Action == AuditActions.CertificateDeclined);
         Assert.False(Directory.Exists(Path.Combine(factory.SetupRoot, "certificates"))
             && Directory.EnumerateFiles(Path.Combine(factory.SetupRoot, "certificates"), "*", SearchOption.AllDirectories).Any());
         Assert.Equal(EventStatusCode.Completed, (await observer.Events.SingleAsync(row => row.EventId == eventItem.EventId, ct)).EventStatusId);

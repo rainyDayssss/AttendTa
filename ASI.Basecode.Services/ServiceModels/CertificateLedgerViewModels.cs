@@ -56,3 +56,11 @@ public sealed class CertificateViewerViewModel
 }
 
 public sealed record CertificateDocument(byte[] Bytes, string CertificateNumber);
+
+/// <summary>
+/// The selected completed event's full review set. The real page path and the demo hand-over both
+/// page this read, so tab counts and paging stay identical in both switch states.
+/// </summary>
+public sealed record CertificateLedgerRead(
+    EventSelectorViewModel Selector,
+    IReadOnlyList<CertificateLedgerRowViewModel> Rows);

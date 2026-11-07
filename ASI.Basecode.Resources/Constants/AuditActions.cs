@@ -31,4 +31,6 @@ public static class AuditActions
     public const string MemberMembershipReactivated = "member.membership_reactivated";
     public const string AttendanceRecorded = "attendance.recorded";
     public const string AttendanceInvalidated = "attendance.invalidated";
+    public const string CertificateApproved = "certificate.approved";
+    public const string CertificateDeclined = "certificate.declined";
 }

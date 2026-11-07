@@ -12,10 +12,11 @@ using ASI.Basecode.Services.ServiceModels;
 
 namespace ASI.Basecode.WebApp.DemoData;
 
-// M-12: replaced by 6.9's owner query. Reviews/issues come from the same store as the officer ledger.
+// M-12: replaced by 6.9's owner query. Reviews are the real SQL rows; the store only overlays the
+// still-demo issued document (M-11a/M-11b).
 public sealed class DemoMyCertificatesService(
-    IRegistrationRepository registrations, IEventRepository events, DemoStore store,
-    DemoCertificateDocuments documents, ICurrentActor actor) : IMyCertificatesService
+    IRegistrationRepository registrations, IEventRepository events, ICertificateRepository certificates,
+    DemoStore store, DemoCertificateDocuments documents, ICurrentActor actor) : IMyCertificatesService
 {
     public async Task<PagedResult<MyEventCertificateRowViewModel>> GetPageAsync(int? page, CancellationToken cancellationToken = default)
     {
@@ -30,11 +31,9 @@ public sealed class DemoMyCertificatesService(
             {
                 var registration = await registrations.GetMemberRegistrationAsync(eventRow.EventId, actor.UserId, cancellationToken);
                 if (registration == null || registration.Status != RegistrationStatusCode.Confirmed) continue;
-                store.TryGetReview(registration.RegistrationId, out var review);
+                var review = await certificates.GetByRegistrationIdAsync(registration.RegistrationId, cancellationToken);
                 store.TryGetIssuedCertificate(registration.RegistrationId, out var issue);
-                if (review != null && review.EventId != eventRow.EventId) continue;
-                if (issue != null && issue.EventId != eventRow.EventId) continue;
-                var state = review?.Status switch
+                var state = review?.CertificateStatusId switch
                 {
                     CertificateStatusCode.PendingApproval => MyCertificateState.Pending,
                     CertificateStatusCode.Eligible => MyCertificateState.Eligible,
@@ -44,6 +43,12 @@ public sealed class DemoMyCertificatesService(
                 };
                 var hasDocument = state == MyCertificateState.Issued && issue?.Snapshot != null;
                 if (state == MyCertificateState.Issued && !hasDocument) state = MyCertificateState.Unavailable;
+                if (issue?.Snapshot != null)
+                {
+                    state = MyCertificateState.Issued;
+                    hasDocument = true;
+                }
+
                 rows.Add(new MyEventCertificateRowViewModel
                 {
                     CertificateId = registration.RegistrationId,
@@ -51,7 +56,7 @@ public sealed class DemoMyCertificatesService(
                     EventTitle = issue?.Snapshot?.EventTitle ?? eventRow.Title,
                     StartsAt = issue?.Snapshot?.EventStartsAt ?? eventRow.StartsAt,
                     State = state,
-                    Reason = review?.Reason,
+                    Reason = review?.ReviewNotes,
                     HasDocument = hasDocument,
                     CertificateNumber = issue?.CertificateNumber,
                     IssuedAt = issue?.IssuedAt

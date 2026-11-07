@@ -33,4 +33,6 @@
   <data name="RegistrationAdminCancelled" xml:space="preserve"><value>Registration administratively cancelled.</value></data>
   <data name="AttendanceRecorded" xml:space="preserve"><value>Attendance recorded.</value></data>
   <data name="AttendanceInvalidated" xml:space="preserve"><value>Attendance invalidated.</value></data>
+  <data name="CertificateApproved" xml:space="preserve"><value>Certificate review approved.</value></data>
+  <data name="CertificateDeclined" xml:space="preserve"><value>Certificate review declined.</value></data>
 </root>

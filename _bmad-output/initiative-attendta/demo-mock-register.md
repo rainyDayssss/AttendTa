@@ -82,7 +82,7 @@ into lettered rows.
 
 | Id | Surface | Missing backend today | Added by | Removed by | State |
 |---|---|---|---|---|---|
-| M-01 | Demo seam: `DemoData:Enabled`, the startup database guard, `DemoData:TokenKey`, the demo store (pass tokens, attendance, certificate reviews and issues; the completed-state fixture serves only the certificate-ledger demo and its M-10a tests), the registration method and the start-up seed | — (infrastructure) | 1.14 | 8.13 | open |
+| M-01 | Demo seam: `DemoData:Enabled`, the startup database guard, `DemoData:TokenKey`, the demo store (pass tokens and issued certificate documents; attendance and certificate reviews are real SQL rows after 6.6), the registration method and the start-up seed | — (infrastructure) | 1.14 | 8.13 | open |
 | M-02 | My Events: all of a member's registrations across events, with status and cutoff labels | Cross-event owner query (only per-event and upcoming-only reads exist) | 3.17 | 3.13 | removed |
 | M-03 | Pass card QR image and PNG download (rule 10 token, QR drawn by a locally served browser library) | QR library, token read, authorized PNG endpoint | 4.10 | 4.1 | removed |
 | M-04 | Check-in window open/close command, the shared control partial, and the open flag overlaid on event reads (rule 7) | Open/close command | 1.14 | 4.2 | removed (7f6ae2218e6bc9e74611c610287b11ffa7f19ec4) |
@@ -92,7 +92,7 @@ into lettered rows.
 | M-08 | Member attendance history | Owner-scoped attendance query | 4.12 | 4.7 | removed (d3edd37) |
 | M-09 | Event completion command and the Completed status overlaid on event reads (rule 7) | Completion command | 1.14 | 3.12 | removed |
 | M-10a | Certificate reviews created at completion (a pending review for each valid check-in of a completed event) | Review creation hook | 6.12 | 6.4 | removed (cd227f694fdf71d10504db4406d13a3694941cbb) |
-| M-10b | Review queue and the approve and decline decisions | Review queue and decisions | 6.12 | 6.6 | open |
+| M-10b | Review queue and the approve and decline decisions | Review queue and decisions | 6.12 | 6.6 | removed |
 | M-11a | Certificate issuance (number from the demo store, nothing retained) | Issuance pipeline and retained file | 6.12 | 6.7 | open |
 | M-11b | Officer PDF view and download (rendered in memory with the real template) | Authorized download of the retained file | 6.12 | 6.8 | open |
 | M-12 | Member certificate history and download links - `IMyCertificatesService`, `DemoMyCertificatesService`, `UnavailableMyCertificatesService`; shared `DemoCertificateDocuments` | Owner-scoped certificate query | 6.13 | 6.9 | open |
@@ -133,25 +133,29 @@ in `ASI.Basecode.Services`.
 | Shared check-in control and its model | `Views/Shared/_CheckInControl.cshtml`, `ASI.Basecode.Services/ServiceModels/CheckInControlViewModel.cs` |
 | Operator pass-token switch | `ASI.Basecode.WebApp/Program.cs` (`--demo-pass-token <registrationId>`) |
 
-**Store.** One singleton keyed by real ids: attendance by registration id, and certificate review and issue state. The check-in window is no longer store state after 4.2. `MarkCompleted` and `IsCompleted` remain only as the certificate-ledger demo and its M-10a test fixture; the app completes events through the real service. `InvalidateAttendance` requires a reason, is refused once a certificate is
-issued, and only stamps the attendance; the real `CertificateReviewInvalidationHandler` turns a
-pending or approved review not eligible with that reason. `GetPassToken` is the lowercase hex
+**Store.** One singleton keyed by real ids. After 6.6 it holds only pass tokens and the still-demo
+issued certificate documents (M-11a/M-11b); attendance and certificate reviews are real SQL rows.
+The check-in window is no longer store state after 4.2. `GetPassToken` is the lowercase hex
 HMAC-SHA256 of the invariant registration id under `DemoData:TokenKey`; the `--demo-pass-token`
 switch prints the same value and writes nothing.
 
 **Seeded starting state (for `demo-script.md`).** The seed composes `IEventRepository.GetPageAsync`
-and `IRegistrationRepository.GetReviewQueueAsync(Confirmed)`; it never writes.
+and `IRegistrationRepository.GetReviewQueueAsync(Confirmed)`, then writes the ready-to-complete
+event's attendance and certificate reviews as real SQL rows inside one transaction. It never
+overwrites an existing attendance row or decision, writes no stored file and appends no Activity Log
+entry. The issued document stays in the demo store (M-11a).
 
 - *Ready to complete* — the started published event with the most confirmed registrations (ties on
   the lowest event id). It stays Published in SQL so the demo completes it live through the real
-  service. Up to eight confirmed registrations are checked in, the last one is invalidated with
-  "Pass could not be verified at the door." and its review is not eligible with that reason, the
-  first remaining valid check-in has an issued certificate (`AT-<year>-<registrationId:D6>`), the
-  second is pending review, and the third is declined (not eligible with a review reason). Fewer
-  registrations degrade in that order.
+  service. Up to eight confirmed registrations are checked in as real `attendance` rows, the last one
+  is invalidated with "Pass could not be verified at the door." and its review is not eligible with
+  that reason, the first remaining valid check-in has an approved review and a still-demo issued
+  certificate (`AT-<year>-<registrationId:D6>`), the second is pending review, and the third is
+  declined (not eligible with a review reason). Fewer registrations degrade in that order.
 - *Check-in open* — removed by 4.2; the officer opens the real window for the next published event from the Event list.
 - Fewer rows degrade gracefully: missing scenarios are skipped and the active register ids are
-  logged at start-up. No SQL row, stored file or Activity Log entry is written.
+  logged at start-up. The seed writes only the attendance and certificate rows; it writes no stored
+  file and no Activity Log entry.
 
 **Screens, real source and demo source.**
 
@@ -427,33 +431,35 @@ certificate-ledger demo only.
 ## M-10a, M-10b, M-11a and M-11b — certificate ledger (6.12)
 
 **Contract and registration.** `ASI.Basecode.Services/Interfaces/ICertificateLedgerService.cs`
-defines `GetPageAsync`, `DecideAsync`, `IssueAsync`, `GetViewerAsync` and `GetPdfAsync`.
-`DemoData/DemoCertificatesRegistration.cs` registers `DemoCertificateLedgerService` only when
-the central switch is enabled and no real provider is already registered. With the switch off,
-`UnavailableCertificateLedgerService` supplies empty tabs and explicit command/document refusals.
-All three classes live under `ASI.Basecode.WebApp/DemoData/`.
+defines `GetPageAsync`, `DecideAsync`, `IssueAsync`, `GetViewerAsync` and `GetPdfAsync`. The real
+`CertificateLedgerService` is registered before the demo seam and serves both switch states.
+`DemoData/DemoCertificatesRegistration.cs` replaces that registration with
+`DemoCertificateLedgerService` only when the central switch is enabled, so the demo provider overlays
+the still-demo issued state over the real queue. The unavailable ledger stub is retired; only the
+M-12 member-history stub remains for the switch-off state.
 
 | Row | Implementation and handoff |
 |---|---|
 | M-10a / removed by 6.4 | `DemoStore.MarkCompleted` creates pending reviews for every valid stored check-in through `EnsureCertificateReviews`; the query also ensures reviews for real completed events. Existing decisions are never overwritten. Replace the creation call/adapter with the completion hook and real attendance facts. |
-| M-10b / removed by 6.6 | `DemoCertificateLedgerService.GetPageAsync` composes existing event and confirmed-registration repository reads with shared review state; `DecideAsync` reloads participation/event state and calls guarded `DemoStore.DecideCertificate`. Pending/valid attendance is required; decline needs a trimmed reason of 1–1,000 characters. Actor and time come from the authenticated request and server clock. |
-| M-11a / removed by 6.7 | `IssueAsync` requires completion, confirmation, valid attendance and approval, creates a unique `AT-<year>-<registrationId:D6>` number and snapshot, calls the real `RenderSnapshotAsync`, rechecks real participation, then atomically publishes via `DemoStore.PublishCertificate`. Invalidation and duplicate issues are rechecked inside the store gate. Render failure publishes nothing. No SQL, private storage or audit write occurs. |
+| M-10b / removed by 6.6 | The real `CertificateLedgerService` reads the selected completed event's confirmed registrations, attendance and certificate rows and pages the queue in memory at 25. `DecideAsync` locks the participant's `users` row and the event, rechecks `pending_approval` and Valid Attendance, writes `eligible` or `not_eligible` with the trimmed reason, and appends one `certificate.approved` or `certificate.declined` audit entry in the same transaction. A changed candidate is `Stale`; a missing review is `NotFound`; a blank reason is `Invalid` on `reason`. The demo provider delegates both the queue and the decisions to it and overlays only the still-demo issued state. |
+| M-11a / removed by 6.7 | `IssueAsync` requires completion, confirmation, valid attendance and approval, creates a unique `AT-<year>-<registrationId:D6>` number and snapshot, calls the real `RenderSnapshotAsync`, rechecks the real review, attendance and event state before and after rendering, then publishes once through `DemoStore.PublishCertificate`; the store gate guarantees one document per registration. After publication the SQL review is marked `issued` with the issuer, time, number and snapshots, so the real invalidation handler refuses the certificate. Render failure publishes nothing. No private storage or audit write occurs. |
 | M-11b / removed by 6.8 | `GetViewerAsync`/`GetPdfAsync` require Management and issued state; the controller streams `application/pdf` with no-store caching and an optional attachment name. A seeded issue renders its captured snapshot on first download, then reuses those bytes. No caller-supplied path is accepted. Replace with authorized retained-file retrieval, not current-data regeneration. |
 
 **M-10a removal (6.4).** 6.4 replaced the demo review creation with the real
 `CertificateReviewCompletionHandler`, registered as an `IEventCompletionHandler`. Inside the
 caller-owned completion transaction it inserts one `pending_approval` row per registration with
 Valid Attendance, stamped with the completing officer and the completion time, and skips a
-registration that already carries a certificate row. `DemoStore.MarkCompleted` no longer creates
-reviews; the demo ledger and its tests seed them explicitly through `SeedPendingReviewsForEvent`,
-so the demo screen is unchanged.
+registration that already carries a certificate row.
 
-**Seed and shared state.** The original seed's issued attendee now carries a snapshot of recipient,
-event title/start, number and issue time. All other valid check-ins receive pending reviews before
-the existing declined/pending scenarios are applied. Issued snapshots and PDF bytes stay in the
-same `DemoStore` issue record used by 6.13; nothing is retained across restarts. Existing invalidated
-reviews remain visible as not eligible with their reason. Later SQL edits do not rewrite issued
-snapshot values or rendered bytes.
+**M-10b removal (6.6) and seed hand-over.** 6.6 moved the queue and both decisions to the real
+service and deleted `DemoStore.DecideCertificate`. The start-up seed now writes the ready-to-complete
+event's attendance and certificate reviews as real SQL rows, so the real completion hook finds them
+and the real decision command updates them. Existing attendance rows and decisions are never
+overwritten, so a restart keeps them. The issued attendee's snapshot, number, issue time and PDF
+bytes stay in the same `DemoStore` issue record used by 6.13; the issued document itself is still
+demo state until 6.7 and is re-seeded at start-up only when the real review is approved. Existing
+invalidated reviews remain visible as not eligible with their reason. Later SQL edits do not rewrite
+issued snapshot values or rendered bytes.
 
 **Presentation ownership.** `Controllers/CertificateLedgerController.cs`,
 `Views/CertificateLedger/Index.cshtml`, `Views/CertificateLedger/Viewer.cshtml`,
@@ -470,11 +476,13 @@ empty page and the same not-found refusal for documents.
 
 **Read composition and states.** The provider composes the actor's real non-cancelled event ids,
 `IRegistrationRepository.GetMemberRegistrationAsync`, and `IEventRepository.CountAsync` /
-`GetPageAsync` for event titles and schedules. Confirmed registrations are joined to the same
-`DemoStore` reviews and issues that 6.12 updates. Pending, eligible, declined (with reason), issued,
-and unavailable (no review or missing issued snapshot) are displayed. Ordering is event start
-descending then registration id descending, at the shared page size of 25. The existing My Events
-certificate action and pager remain independent of Registrations and Attendance.
+`GetPageAsync` for event titles and schedules. Confirmed registrations are joined to the real SQL
+certificate reviews through `ICertificateRepository.GetReviewQueueAsync`, and the still-demo issued
+document is overlaid from the same `DemoStore` issue record that 6.12 updates. Pending, eligible,
+declined (with reason), issued, and unavailable (no review or missing issued snapshot) are displayed.
+Ordering is event start descending then registration id descending, at the shared page size of 25.
+The existing My Events certificate action and pager remain independent of Registrations and
+Attendance.
 
 **Documents and ownership.** Every member PDF request reloads `DiscoverReviewAsync` and compares
 its real `UserId` to `ICurrentActor.UserId` before accessing an issued snapshot. Unknown ids and
@@ -506,7 +514,8 @@ than continuing to regenerate documents (register rule 12).
   `member.membership_deactivated`, while reactivation restores eligibility only and appends
   `member.membership_reactivated`. The linked account keeps signing in in both cases, and cancelled
   registrations stay Cancelled.
-- Review decisions and issued certificates last only until the app restarts; check-ins are real SQL
-  rows and passes keep scanning.
+- Review decisions, check-ins and the seeded demo attendance are real SQL rows and survive a restart;
+  only the issued certificate document (M-11a/M-11b) is process memory and is re-seeded at start-up
+  when its review is approved. Passes keep scanning.
 - A pass scanned in the demo is matched against the real `registrations.qr_token`, the same value
   the server-rendered PNG encodes, so a cancelled registration's cleared token stops scanning.

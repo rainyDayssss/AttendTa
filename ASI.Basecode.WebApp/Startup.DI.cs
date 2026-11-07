@@ -57,6 +57,10 @@ namespace ASI.Basecode.WebApp
             this._services.AddScoped<ICheckInLookupService, CheckInLookupService>();
             this._services.AddScoped<IAttendanceInvalidationService, AttendanceInvalidationService>();
             this._services.AddScoped<ICertificateTracerService, CertificateTracerService>();
+            // The real certificate ledger serves both demo switch states; the demo registration
+            // replaces the interface with its issued-state overlay when the switch is on.
+            this._services.AddScoped<CertificateLedgerService>();
+            this._services.AddScoped<ICertificateLedgerService>(services => services.GetRequiredService<CertificateLedgerService>());
             this._services.AddScoped<IMyEventsService, MyEventsService>();
             this._services.AddScoped<IPassService, PassService>();
             this._services.AddScoped<ParticipationReportService>();

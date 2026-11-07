@@ -4,7 +4,8 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace ASI.Basecode.WebApp.DemoData;
 
-// M-10a/M-10b/M-11a/M-11b/M-12: real registrations take precedence; never replace or fall back from one.
+// M-10b/M-11a/M-11b/M-12: the real registrations take precedence; the demo provider only overlays
+// the still-demo issued state and documents, and never replaces a real provider with a fallback.
 internal static class DemoCertificatesRegistration
 {
     public static void AddCertificates(IServiceCollection services, bool enabled)
@@ -12,12 +13,11 @@ internal static class DemoCertificatesRegistration
         if (enabled)
         {
             services.TryAddScoped<DemoCertificateDocuments>();
-            services.TryAddScoped<ICertificateLedgerService, DemoCertificateLedgerService>();
+            services.Replace(ServiceDescriptor.Scoped<ICertificateLedgerService, DemoCertificateLedgerService>());
             services.TryAddScoped<IMyCertificatesService, DemoMyCertificatesService>();
         }
         else
         {
-            services.TryAddScoped<ICertificateLedgerService, UnavailableCertificateLedgerService>();
             services.TryAddScoped<IMyCertificatesService, UnavailableMyCertificatesService>();
         }
     }
