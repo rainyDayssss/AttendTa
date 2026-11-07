@@ -92,7 +92,7 @@ into lettered rows.
 | M-08 | Member attendance history | Owner-scoped attendance query | 4.12 | 4.7 | removed (d3edd37) |
 | M-09 | Event completion command and the Completed status overlaid on event reads (rule 7) | Completion command | 1.14 | 3.12 | removed |
 | M-10a | Certificate reviews created at completion (a pending review for each valid check-in of a completed event) | Review creation hook | 6.12 | 6.4 | removed (cd227f694fdf71d10504db4406d13a3694941cbb) |
-| M-10b | Review queue and the approve and decline decisions | Review queue and decisions | 6.12 | 6.6 | removed |
+| M-10b | Review queue and the approve and decline decisions | Review queue and decisions | 6.12 | 6.6 | removed (8bbf587) |
 | M-11a | Certificate issuance (number from the demo store, nothing retained) | Issuance pipeline and retained file | 6.12 | 6.7 | open |
 | M-11b | Officer PDF view and download (rendered in memory with the real template) | Authorized download of the retained file | 6.12 | 6.8 | open |
 | M-12 | Member certificate history and download links - `IMyCertificatesService`, `DemoMyCertificatesService`, `UnavailableMyCertificatesService`; shared `DemoCertificateDocuments` | Owner-scoped certificate query | 6.13 | 6.9 | open |
