@@ -10,7 +10,8 @@ route_source: 'auto'
 risk: 'medium'
 review: 'quick'
 review_source: 'pinned'
-lenses_ran: []
+lenses_ran: ['quick']
+followup_review_recommended: false
 review_loop_iteration: 0
 context:
   - 'AGENTS.md'
@@ -95,6 +96,16 @@ context:
 - low, patch — `RealNoShowsAndBreakdownsPassThroughWhenDemoStoreHoldsNoAttendance` asserted a no-show value the removed demo formula also produced, so it did not prove pass-through. Set the fake to 0 (the Published event's real value) and asserted 0 against a `Confirmed - Valid` of 1.
 - low, patch — `IParticipationReportService` doc comment still described 7.1–7.3 as future and named M-13a/M-13b. Updated to say 7.1 and 7.2 are real and only M-13c remains with the demo provider.
 
+### 2026-11-08 — Review pass
+
+- verdicts: 5 findings — high 0, medium 0, low 5, false 0, maybe-false 0
+- findings:
+  - `[low]` `[reject]` The report assembles its figures from six independent reads with no shared snapshot, so a concurrent check-in can make Confirmed − Valid disagree with No-shows — real only while a write lands mid-request; the fix is transaction/snapshot plumbing across the whole read path, more than a direct correction, and the plan scopes the surface as read-only (AD-2).
+  - `[low]` `[patch]` `GetAttendeeDistributionAsync` ran the valid-attendee set twice, once per breakdown, so the course and year panels could cover different attendees — merged into one grouped query and split in memory.
+  - `[low]` `[patch]` `demo-mock-register.md` M-13b said `removed` without the removal commit, breaking register rule 11 — recorded `(975c08b)`.
+  - `[low]` `[patch]` The year `Unspecified` label was unreachable because `chk_registrations_positive_year_level` forbids `year_level_snapshot = 0` — removed the fallback and the test row that asserted the impossible state.
+  - `[low]` `[patch]` `ZeroAttendeesProducesEmptyBreakdownsWithoutDividingByZero` never reached `Share`'s zero guard, because a non-empty distribution always sums to at least one — renamed to `ZeroAttendeesProducesEmptyBreakdowns`; the guard stays as a defensive no-cost branch.
+
 ## Design Notes
 
 - 7.2 keeps `DemoParticipationReportService` because it still owns M-13c (7.3) and the M-05/M-07 attendance handover. The ticket note's "delete the provider classes" applies when the last demo row leaves; here only the M-13b computation goes.
@@ -110,3 +121,24 @@ context:
 
 **Manual checks:**
 - Sign in as an officer against a local database with a completed event; open `/Reports/Participation?eventId=<id>` and confirm no-shows and breakdowns match hand-counted rows, including an inactive member.
+
+## Auto Run Result
+
+**Summary:** Follow-up review pass on the already-merged 7.2 change. The feature itself landed on `dev` as PR #189 (`975c08b`); this pass reviewed that diff against the current tree and applied four small corrections.
+
+**Files changed:**
+- `ASI.Basecode.Data/Repositories/ParticipationReportRepository.cs` — one grouped query for the attendee distribution instead of two scans of the same valid-attendee set.
+- `ASI.Basecode.Services/Services/ParticipationReportService.cs` — the year label is always `Year N`; the schema forbids a zero year.
+- `tests/ASI.Basecode.Services.Tests/ParticipationReportServiceTests.cs` — dropped the impossible year-0 row, updated counts and percents, renamed the zero-attendee test.
+- `_bmad-output/initiative-attendta/demo-mock-register.md` — M-13b records the removal commit `975c08b`.
+
+**Review findings:** 5 findings, all low. 4 patched, 1 rejected (see the 2026-11-08 triage entry). 0 deferred.
+
+**Follow-up review recommended:** false — no high or medium entry was patched.
+
+**Verification:**
+- `dotnet build` — succeeded, 0 warnings, 0 errors.
+- `dotnet test tests/ASI.Basecode.Services.Tests/ASI.Basecode.Services.Tests.csproj` — 315/315 passed.
+- `dotnet test tests/ASI.Basecode.IntegrationTests/ASI.Basecode.IntegrationTests.csproj --filter FullyQualifiedName~ParticipationReport` — 2/2 passed against SQL Server LocalDB.
+
+**Residual risks:** The report still reads its summary, no-shows, distribution and detail rows in separate statements, so a write landing mid-request can briefly disagree across panels (the rejected low finding).

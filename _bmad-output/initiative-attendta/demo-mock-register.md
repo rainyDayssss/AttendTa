@@ -97,7 +97,7 @@ into lettered rows.
 | M-11b | Officer PDF view and download (authorized retained-file retrieval) | Authorized download of the retained file | 6.12 | 6.8 | removed (124ef29) |
 | M-12 | Member certificate history and download links - `IMyCertificatesService`, `DemoMyCertificatesService`, `UnavailableMyCertificatesService`; shared `DemoCertificateDocuments` (its only remaining consumer after M-11b) | Owner-scoped certificate query | 6.13 | 6.9 | removed (7637096) |
 | M-13a | Report summary: status counts, Confirmed and Valid attendees, rate | Report summary queries | 7.4 | 7.1 | removed |
-| M-13b | Report no-shows and course/year breakdowns | No-show and distribution queries | 7.4 | 7.2 | removed |
+| M-13b | Report no-shows and course/year breakdowns | No-show and distribution queries | 7.4 | 7.2 | removed (975c08b) |
 | M-13c | Report paged detail rows | Paged detail query | 7.4 | 7.3 | removed (04157b3) |
 | M-14a | Account deactivation with reason (the Accounts list shows the new state) — `IAccountAccessCommands.DeactivateAsync`, `DemoAccountAccessCommands` | Account deactivation and cascade | 5.11 | 5.4 | removed |
 | M-14b | Account reactivation with reason — `IAccountAccessCommands.ReactivateAsync`, `DemoAccountAccessCommands` | Account reactivation | 5.11 | 5.5 | removed |

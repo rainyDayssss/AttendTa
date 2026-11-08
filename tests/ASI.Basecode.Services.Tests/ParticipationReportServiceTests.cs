@@ -67,7 +67,6 @@ public sealed class ParticipationReportServiceTests
         {
             new YearDistributionRow(1, 2),
             new YearDistributionRow(3, 1),
-            new YearDistributionRow(0, 1),
             new YearDistributionRow(1, 1)
         };
         var summary = new FakeReportFacts(
@@ -88,14 +87,15 @@ public sealed class ParticipationReportServiceTests
         Assert.Equal(new[] { 3, 1, 1 }, report.CourseBreakdown.Select(row => row.Count));
         Assert.Equal(new[] { 60, 20, 20 }, report.CourseBreakdown.Select(row => row.Percent));
 
-        // Year labels order by the snapshot year, with an unspecified year first.
-        Assert.Equal(new[] { "Unspecified", "Year 1", "Year 3" }, report.YearBreakdown.Select(row => row.Label));
-        Assert.Equal(new[] { 1, 3, 1 }, report.YearBreakdown.Select(row => row.Count));
-        Assert.Equal(new[] { 20, 60, 20 }, report.YearBreakdown.Select(row => row.Percent));
+        // Year labels order by the snapshot year; the schema forbids a zero year, so there is no
+        // "Unspecified" year group.
+        Assert.Equal(new[] { "Year 1", "Year 3" }, report.YearBreakdown.Select(row => row.Label));
+        Assert.Equal(new[] { 3, 1 }, report.YearBreakdown.Select(row => row.Count));
+        Assert.Equal(new[] { 75, 25 }, report.YearBreakdown.Select(row => row.Percent));
     }
 
     [Fact]
-    public async Task ZeroAttendeesProducesEmptyBreakdownsWithoutDividingByZero()
+    public async Task ZeroAttendeesProducesEmptyBreakdowns()
     {
         var events = new FakeEvents { EventItem = Event(1, EventStatusCode.Completed) };
         events.Items.Add(new EventListItem { EventId = 1, Title = "Empty" });

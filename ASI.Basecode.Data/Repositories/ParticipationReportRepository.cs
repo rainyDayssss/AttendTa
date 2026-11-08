@@ -79,22 +79,31 @@ public sealed class ParticipationReportRepository : BaseRepository, IParticipati
         var validAttendeeIds = ValidAttendeeIds(seatHolders, validAttendance, eventId);
 
         // Group the signup snapshots directly: no users/members join, so an attendee whose account or
-        // membership is now inactive still counts (SPEC §15).
+        // membership is now inactive still counts (SPEC §15). One grouped query keeps both breakdowns
+        // on the same attendee set and scans the valid-attendee set once.
         var attendees = seatHolders.Where(registration => validAttendeeIds.Contains(registration.RegistrationId));
 
-        var courses = await attendees
-            .GroupBy(registration => registration.CourseSnapshot)
-            .Select(group => new { Course = group.Key, Count = group.Count() })
+        var groups = await attendees
+            .GroupBy(registration => new { registration.CourseSnapshot, registration.YearLevelSnapshot })
+            .Select(group => new
+            {
+                group.Key.CourseSnapshot,
+                group.Key.YearLevelSnapshot,
+                Count = group.Count()
+            })
             .ToListAsync(cancellationToken);
 
-        var years = await attendees
-            .GroupBy(registration => registration.YearLevelSnapshot)
-            .Select(group => new { YearLevel = group.Key, Count = group.Count() })
-            .ToListAsync(cancellationToken);
+        var courses = groups
+            .GroupBy(row => row.CourseSnapshot)
+            .Select(group => new CourseDistributionRow(group.Key, group.Sum(row => row.Count)))
+            .ToList();
 
-        return new ParticipationReportDistributionFacts(
-            courses.Select(row => new CourseDistributionRow(row.Course, row.Count)).ToList(),
-            years.Select(row => new YearDistributionRow(row.YearLevel, row.Count)).ToList());
+        var years = groups
+            .GroupBy(row => row.YearLevelSnapshot)
+            .Select(group => new YearDistributionRow(group.Key, group.Sum(row => row.Count)))
+            .ToList();
+
+        return new ParticipationReportDistributionFacts(courses, years);
     }
 
     public Task<int> CountDetailRowsAsync(int eventId, CancellationToken cancellationToken = default) =>

@@ -173,7 +173,8 @@ public sealed class ParticipationReportService : IParticipationReportService
                 var count = group.Sum(row => row.Count);
                 return new ParticipationBreakdownItemViewModel
                 {
-                    Label = group.Key > 0 ? $"Year {group.Key}" : "Unspecified",
+                    // registrations.year_level_snapshot has a CHECK (> 0), so the year is always known.
+                    Label = $"Year {group.Key}",
                     Count = count,
                     Percent = Share(count, total)
                 };
