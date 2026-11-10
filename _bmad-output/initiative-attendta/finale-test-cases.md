@@ -4,6 +4,9 @@ Decision: 2026-11-06 — minimize new test authoring during prototyping; retain 
 checks and all existing CI. Add/reuse important automation in 8.5 (#78), execute it together
 with existing suites in 8.4 (#77), and cover the remaining SPEC scenarios manually in 8.6 (#79).
 This is a **test plan, not execution evidence**. Every case starts as **not executed**.
+The per-scenario coverage map — an existing automated test, a concrete 8.6 manual case, or a
+`deferred (8.13)` owning entry for every SPEC §20 bullet, finale case and functional ID — is
+[`acceptance-matrix.md`](acceptance-matrix.md).
 
 ## Preconditions and evidence
 
