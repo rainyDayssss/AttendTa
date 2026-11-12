@@ -1,0 +1,164 @@
+@model EventDossierViewModel
+@using ASI.Basecode.Data.Models.Lookups
+@using Microsoft.AspNetCore.Mvc.ViewFeatures
+@using System.Linq
+@{
+    var item = Model.Event;
+    ViewData["Title"] = item.Title;
+    ViewData["Feature"] = "record-dialog";
+    var mutable = item.EventStatusId is EventStatusCode.Draft or EventStatusCode.Published;
+    var published = item.EventStatusId == EventStatusCode.Published;
+    // Complete event is the dossier's primary only once it can actually act.
+    var completeButtonClass = Model.HasStarted ? "button-primary" : "button-secondary";
+    var error = TempData["DossierError"] as string;
+    var reopen = TempData["DossierDialog"] as string;
+    var failedId = TempData["DossierId"];
+    var reason = TempData["DossierReason"] as string;
+    int.TryParse(failedId?.ToString(), out var failedRegistrationId);
+    var failedRegistration = Model.Roster.Items.FirstOrDefault(row => row.RegistrationId == failedRegistrationId);
+    var retrySummary = failedRegistration == null
+        ? $"Registration #{failedRegistrationId} · {item.Title}"
+        : $"{failedRegistration.MemberName} ({failedRegistration.StudentNumber}) · Registration #{failedRegistrationId}";
+    var tabs = new[] { ("pending", "Pending Review", Model.PendingCount), ("confirmed", "Confirmed", Model.ConfirmedCount), ("waitlisted", "Waitlisted", Model.WaitlistedCount) };
+}
+
+<div class="detail-back">
+    <a asp-action="Index" class="button button-secondary button-small">&larr; Events</a>
+</div>
+<header class="page-heading">
+    <div class="min-w-0">
+        <span class="badge @EventStatusDisplay.BadgeClass(item.EventStatusId)">@item.StatusLabel</span>
+        <h1 class="dossier-title">@item.Title</h1>
+        <p class="muted">@item.TypeName · @item.VenueName</p>
+    </div>
+    <div class="page-actions">
+        @if (mutable)
+        {
+            <a asp-action="Edit" asp-route-id="@item.EventId" class="button button-secondary" data-record-open="edit-event-@item.EventId" data-record-title="Edit event" data-record-subtitle="@item.Title">Edit event</a>
+            <a asp-action="Cover" asp-route-id="@item.EventId" class="button button-secondary">Manage cover</a>
+            <button type="button" class="button button-secondary" data-dialog-open="event-cancel">Cancel event</button>
+        }
+        @if (published)
+        {
+            <button type="button" class="button @completeButtonClass" data-dialog-open="complete" disabled="@(!Model.HasStarted)">Complete event</button>
+        }
+    </div>
+</header>
+
+@if (!string.IsNullOrEmpty(error)) { <p class="notice notice-error" role="alert">@error</p> }
+<section class="panel dossier-facts" aria-label="Event details">
+    <div class="dossier-fact-grid">
+        <dl class="dossier-schedule">
+            <div class="dossier-fact">
+                <dt>Event schedule</dt>
+                <dd class="numeric">@ManilaTimeFormatter.Format(item.StartsAt)</dd>
+            </div>
+            <div class="dossier-fact">
+                <dt>Signup deadline</dt>
+                <dd class="numeric">@ManilaTimeFormatter.Format(item.RegistrationDeadline)</dd>
+            </div>
+        </dl>
+        <dl class="dossier-capacity">
+            <dt class="dossier-capacity-label">Confirmed capacity</dt>
+            <dd class="dossier-capacity-value">@Model.ConfirmedCount <span>of @item.ParticipantLimit</span></dd>
+            <dd class="dossier-capacity-note">@(Math.Max(0, item.ParticipantLimit - Model.ConfirmedCount)) seats available</dd>
+        </dl>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(item.Description))
+    {
+        <p class="dossier-description">@item.Description</p>
+    }
+    <div class="dossier-checkin">
+        <partial name="_CheckInControl" model="new CheckInControlViewModel { EventId = item.EventId, IsCheckInOpen = item.IsCheckInOpen, CanChange = published, Dossier = true }" />
+    </div>
+    @if (published && !Model.HasStarted) { <p class="muted dossier-hint">Completion becomes available when the event starts.</p> }
+</section>
+
+<section aria-labelledby="roster-title">
+    <div class="section-head">
+        <h2 id="roster-title">Registration roster</h2>
+        @if (Model.CanReview && Model.WaitlistedCount > 0)
+        {
+            <button type="button" class="button button-secondary" data-dialog-open="promote">Promote next eligible participant</button>
+        }
+    </div>
+    @if (!mutable) { <p class="notice">This event is @item.StatusLabel.ToLowerInvariant(). Its roster is read-only.</p> }
+    else if (Model.HasStarted) { <p class="notice">The event start cutoff has passed. Reviews and promotions are closed. Pending and waitlisted participants were not confirmed before cutoff.</p> }
+    else if (!published) { <p class="notice">Publish this event to review registrations.</p> }
+    <nav class="filter-tabs" aria-label="Registration status">
+        @foreach (var tab in tabs)
+        {
+            <a asp-action="Details" asp-route-id="@item.EventId" asp-route-status="@tab.Item1" class="filter-tab" aria-current="@(Model.Status == tab.Item1 ? "page" : null)">@tab.Item2 <span class="filter-tab-count">@tab.Item3</span></a>
+        }
+        <a asp-action="Details" asp-route-id="@item.EventId" asp-route-status="cancelled" class="filter-tab" aria-current="@(Model.Status == "cancelled" ? "page" : null)">Cancelled / declined</a>
+    </nav>
+    <div class="table-scroll" role="region" aria-label="Registration roster" tabindex="0">
+        <table class="data-table dossier-roster table-sticky">
+            @if (Model.Roster.Items.Count > 0) { <caption>Times shown in Asia/Manila.</caption> }
+            <thead><tr><th scope="col">Participant</th><th scope="col">Student number</th><th scope="col">Submitted</th><th scope="col">Status</th><th scope="col" class="actions">Actions</th></tr></thead>
+            <tbody>
+                @if (Model.Roster.Items.Count == 0) { <tr><td colspan="5" class="empty-state">No @Model.Status registrations for this event.</td></tr> }
+                @foreach (var row in Model.Roster.Items)
+                {
+                    var initials = string.Concat(row.MemberName
+                        .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                        .Take(2)
+                        .Select(part => char.ToUpperInvariant(part[0])));
+                    var cutoffLabel = Model.HasStarted && row.Status is RegistrationStatusCode.Pending or RegistrationStatusCode.Waitlisted;
+                    <tr data-registration-id="@row.RegistrationId">
+                        <td class="cell-name">
+                            <span class="name-cell">
+                                <span class="name-initials" aria-hidden="true">@initials</span>
+                                <span class="name-text">@row.MemberName</span>
+                            </span>
+                        </td>
+                        <td class="numeric cell-identifier">@row.StudentNumber</td>
+                        <td class="numeric cell-date">@ManilaTimeFormatter.Format(row.SubmittedAt)</td>
+                        <td><span class="badge @(cutoffLabel ? "badge-closed" : RegistrationStatusDisplay.BadgeClass(row.Status, false))">@(cutoffLabel ? "Not confirmed before cutoff" : row.Status.ToString())</span></td>
+                        <td class="actions"><div class="row-actions">
+                            @if (Model.CanReview && row.Status == RegistrationStatusCode.Pending)
+                            {
+                                <button type="button" class="button button-primary button-small" data-dialog-open="approve" data-dialog-value-id="@row.RegistrationId" data-dialog-value-summary="Review @row.MemberName (@row.StudentNumber) for approval?">Approve</button>
+                                <button type="button" class="button button-secondary button-small button-quiet-danger" data-dialog-open="decline" data-dialog-value-id="@row.RegistrationId" data-dialog-value-summary="Decline @row.MemberName (@row.StudentNumber)?">Decline</button>
+                            }
+                            else if (Model.CanReview && row.Status is RegistrationStatusCode.Confirmed or RegistrationStatusCode.Waitlisted)
+                            {
+                                <button type="button" class="button button-secondary button-small button-quiet-danger" data-dialog-open="registration-cancel" data-dialog-value-id="@row.RegistrationId" data-dialog-value-summary="Cancel the registration for @row.MemberName (@row.StudentNumber)?">Cancel registration</button>
+                            }
+                            else { <span class="muted">No actions available</span> }
+                        </div></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <partial name="_Pager" model="Model.Roster" />
+    <partial name="_ResultCount" model="Model.Roster" view-data="@(new ViewDataDictionary(ViewData) { ["ResultNoun"] = "registration" })" />
+</section>
+
+@foreach (var decision in new[] { ("approve", "Approve registration", "Approve", false), ("decline", "Decline registration", "Decline", true), ("registration-cancel", "Cancel registration", "Cancel", true), ("promote", "Promote next eligible participant", "Promote", false), ("event-cancel", "Cancel event", "CancelFromDossier", true), ("complete", "Mark event as completed?", "Complete", false) })
+{
+    var eventCommand = decision.Item1 is "event-cancel" or "complete";
+    var retry = reopen == decision.Item1;
+    <dialog id="@decision.Item1" class="task-dialog" aria-labelledby="@decision.Item1-title" aria-describedby="@decision.Item1-summary" data-reopen="@(retry ? "true" : null)" data-reopen-id="@failedId" data-reopen-reason="@reason">
+        <form asp-controller="@(eventCommand ? "Event" : "RegistrationReview")" asp-action="@decision.Item3" method="post">
+            <input type="hidden" name="id" value="@item.EventId" data-dialog-field="id" />
+            <input type="hidden" name="eventId" value="@item.EventId" /><input type="hidden" name="status" value="@Model.Status" /><input type="hidden" name="page" value="@Model.Roster.PageNumber" /><input type="hidden" name="dossier" value="true" />
+            <div class="dialog-header"><h2 id="@decision.Item1-title">@decision.Item2</h2><button type="button" class="dialog-close" data-dialog-close aria-label="Close dialog"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg></button></div>
+            <p id="@decision.Item1-summary" class="muted" data-dialog-field="summary">@(retry && !eventCommand && decision.Item1 != "promote" ? retrySummary : item.Title)</p>
+            @if (decision.Item1 == "approve") { <p class="dialog-consequence">Approval confirms a participant only when a seat is available and no earlier eligible waitlisted participant has priority. Otherwise, the registration joins the waitlist.</p> }
+            @if (decision.Item1 == "promote") { <p class="dialog-consequence">This confirms the earliest eligible waitlisted participant if a seat is available. No other registrations are promoted automatically.</p> }
+            @if (decision.Item1 == "event-cancel") { <p class="dialog-consequence">Pending, confirmed and waitlisted registrations will be cancelled, passes invalidated and check-in closed. This cannot be undone.</p> }
+            @if (decision.Item1 == "registration-cancel") { <p class="dialog-consequence">The pass will be invalidated and any seat released. No participant is promoted automatically. Valid attendance prevents cancellation.</p> }
+            @if (decision.Item1 == "complete") { <p class="dialog-consequence">Completion closes check-in and makes this event read-only. Complete only after the event has started.</p> }
+            @if (retry) { <p class="field-error dialog-consequence" role="alert">@error</p> }
+            @if (decision.Item4)
+            {
+                <div class="field"><label for="@decision.Item1-reason">Reason (required)</label><textarea id="@decision.Item1-reason" name="reason" class="field-control" rows="4" required maxlength="500" placeholder="Enter a reason">@(retry ? reason : "")</textarea></div>
+            }
+            <div class="dialog-actions"><button type="button" class="button button-secondary" data-dialog-close>Go back</button><button type="submit" class="button button-primary" data-submitting-label="Saving…">Confirm</button></div>
+        </form>
+    </dialog>
+}
+
+<partial name="_RecordDialog" />

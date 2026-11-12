@@ -1,0 +1,4 @@
+/* Member attendance history slot. */
+@layer components {
+  .attendance-history { margin-top: 16px; }
+}

@@ -1,0 +1,30 @@
+@model AccountAccessViewModel
+@{
+    var rows = Model.AffectedRegistrations ?? Array.Empty<UpcomingRegistrationPreview>();
+}
+<dialog class="app-dialog" aria-labelledby="deactivation-preview-title">
+    <h2 id="deactivation-preview-title">Deactivation impact preview</h2>
+    <p class="muted">
+        <strong>@Model.FullName</strong> &middot; @Model.Email
+    </p>
+    @if (rows.Count == 0)
+    {
+        <p class="empty-state">No upcoming registrations will be cancelled.</p>
+    }
+    else
+    {
+        <p class="muted">Deactivating this account cancels these registrations.</p>
+        <ul class="app-dialog-list">
+            @foreach (var row in rows)
+            {
+                <li data-registration-id="@row.RegistrationId">
+                    <strong>@row.EventTitle</strong>
+                    <span class="muted">@ManilaTimeFormatter.Format(row.StartsAt)</span>
+                </li>
+            }
+        </ul>
+    }
+    <form method="dialog" class="app-dialog-actions">
+        <button type="submit" class="button button-secondary">Close</button>
+    </form>
+</dialog>

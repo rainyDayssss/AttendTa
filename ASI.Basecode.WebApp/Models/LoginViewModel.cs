@@ -1,20 +1,31 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.Text.Json.Serialization;
 
 namespace ASI.Basecode.WebApp.Models
 {
     /// <summary>
-    /// Login View Model
+    /// Email sign-in view model.
     /// </summary>
     public class LoginViewModel
     {
-        /// <summary>ユーザーID</summary>
-        [JsonPropertyName("userId")]
-        [Required(ErrorMessage = "UserId is required.")]
-        public string UserId { get; set; }
-        /// <summary>パスワード</summary>
-        [JsonPropertyName("password")]
+        /// <summary>
+        /// Gets or sets the account email, which is the login identifier.
+        /// </summary>
+        [Required(ErrorMessage = "Email is required.")]
+        [EmailAddress(ErrorMessage = "Enter a valid email address.")]
+        [Display(Name = "Email")]
+        public string Email { get; set; }
+
+        /// <summary>
+        /// Gets or sets the password.
+        /// </summary>
         [Required(ErrorMessage = "Password is required.")]
+        [DataType(DataType.Password)]
+        [Display(Name = "Password")]
         public string Password { get; set; }
+
+        /// <summary>
+        /// Gets or sets the local URL to return to after a successful sign-in.
+        /// </summary>
+        public string ReturnUrl { get; set; }
     }
 }

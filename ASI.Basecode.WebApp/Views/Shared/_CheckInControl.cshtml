@@ -1,0 +1,59 @@
+@model CheckInControlViewModel
+@{
+    var stateLabel = Model.IsCheckInOpen ? "Check-in open" : "Check-in closed";
+    var stateBadge = Model.IsCheckInOpen ? "badge-checkin-open" : "badge-checkin-closed";
+    var action = Model.IsCheckInOpen ? "CloseCheckIn" : "OpenCheckIn";
+    var actionLabel = Model.IsCheckInOpen ? "Close check-in for this event" : "Open check-in for this event";
+    var actionText = Model.IsCheckInOpen ? "Close check-in" : "Open check-in";
+    var stateMeta = Model.IsCheckInOpen
+        ? (Model.CheckInOpenedAt.HasValue && !string.IsNullOrWhiteSpace(Model.CheckInOpenedByName)
+            ? $"Opened by {Model.CheckInOpenedByName} · {ManilaTimeFormatter.Format(Model.CheckInOpenedAt)}"
+            : null)
+        : (Model.CheckInClosedAt.HasValue && !string.IsNullOrWhiteSpace(Model.CheckInClosedByName)
+            ? $"Closed by {Model.CheckInClosedByName} · {ManilaTimeFormatter.Format(Model.CheckInClosedAt)}"
+            : null);
+}
+
+@if (Model.CanChange)
+{
+    @if (Model.Dossier)
+    {
+        @* The dossier already carries the screen's single primary action (Complete event), so the
+           check-in control stays secondary here rather than adding a second cobalt fill. *@
+        <span class="badge @stateBadge">@stateLabel</span>
+        <button type="button" class="button button-secondary" data-dialog-open="check-in-@Model.EventId">@actionText</button>
+        <dialog id="check-in-@Model.EventId" class="task-dialog" aria-labelledby="check-in-title-@Model.EventId">
+            <form asp-controller="Event" asp-action="@action" method="post">
+                <input type="hidden" name="id" value="@Model.EventId" />
+                <input type="hidden" name="dossier" value="true" />
+                <div class="dialog-header"><h2 id="check-in-title-@Model.EventId">@actionText?</h2><button type="button" class="dialog-close" data-dialog-close aria-label="Close dialog">&times;</button></div>
+                <p class="dialog-consequence">@(Model.IsCheckInOpen ? "Participants will no longer be able to check in until you reopen the window." : "Confirmed participants can check in while this window is open.")</p>
+                <div class="dialog-actions"><button type="button" class="button button-secondary" data-dialog-close>Go back</button><button type="submit" class="button button-primary">@actionText</button></div>
+            </form>
+        </dialog>
+    }
+    else
+    {
+    <form asp-controller="Event" asp-action="@action" method="post" class="check-in-control">
+        <input type="hidden" name="id" value="@Model.EventId" />
+        @if (!string.IsNullOrWhiteSpace(Model.ReturnUrl))
+        {
+            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+        }
+        <span class="badge @stateBadge">@stateLabel</span>
+        <button type="submit" class="button @(Model.IsCheckInOpen ? "button-secondary" : "button-primary") button-small" aria-label="@actionLabel">@actionText</button>
+        @if (!string.IsNullOrWhiteSpace(stateMeta))
+        {
+            <span class="check-in-meta">@stateMeta</span>
+        }
+    </form>
+    }
+}
+else
+{
+    <span class="badge @stateBadge">@stateLabel</span>
+    @if (!string.IsNullOrWhiteSpace(stateMeta))
+    {
+        <span class="check-in-meta">@stateMeta</span>
+    }
+}

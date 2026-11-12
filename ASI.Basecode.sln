@@ -9,6 +9,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ASI.Basecode.WebApp", "ASI.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ASI.Basecode.Services", "ASI.Basecode.Services\ASI.Basecode.Services.csproj", "{141FD3B6-645F-4E17-B3DA-055A39639513}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ASI.Basecode.Services.Tests", "tests\ASI.Basecode.Services.Tests\ASI.Basecode.Services.Tests.csproj", "{A1D939B6-E3F7-465F-83AC-5A8B9EBE9B11}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ASI.Basecode.IntegrationTests", "tests\ASI.Basecode.IntegrationTests\ASI.Basecode.IntegrationTests.csproj", "{229D7C32-31DA-4C75-A94C-7D9FD4798D2A}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{65A10F5F-9790-475E-A544-DF3FF6A41A66}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ASI.Basecode.Resources", "ASI.Basecode.Resources\ASI.Basecode.Resources.csproj", "{ED0C96A6-749E-413B-BF4D-8E405BEB172E}"
@@ -31,6 +35,14 @@ Global
 		{141FD3B6-645F-4E17-B3DA-055A39639513}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{141FD3B6-645F-4E17-B3DA-055A39639513}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{141FD3B6-645F-4E17-B3DA-055A39639513}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1D939B6-E3F7-465F-83AC-5A8B9EBE9B11}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1D939B6-E3F7-465F-83AC-5A8B9EBE9B11}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1D939B6-E3F7-465F-83AC-5A8B9EBE9B11}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1D939B6-E3F7-465F-83AC-5A8B9EBE9B11}.Release|Any CPU.Build.0 = Release|Any CPU
+		{229D7C32-31DA-4C75-A94C-7D9FD4798D2A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{229D7C32-31DA-4C75-A94C-7D9FD4798D2A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{229D7C32-31DA-4C75-A94C-7D9FD4798D2A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{229D7C32-31DA-4C75-A94C-7D9FD4798D2A}.Release|Any CPU.Build.0 = Release|Any CPU
 		{ED0C96A6-749E-413B-BF4D-8E405BEB172E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{ED0C96A6-749E-413B-BF4D-8E405BEB172E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{ED0C96A6-749E-413B-BF4D-8E405BEB172E}.Release|Any CPU.ActiveCfg = Release|Any CPU

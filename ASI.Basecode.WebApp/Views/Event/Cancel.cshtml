@@ -1,0 +1,46 @@
+@model EventCancelViewModel
+@{
+    ViewData["Title"] = "Cancel Event";
+}
+
+<div class="page-heading">
+    <div>
+        <h1>Cancel event</h1>
+    </div>
+    <a asp-action="Index" class="button button-secondary">Back to events</a>
+</div>
+
+<section class="panel" aria-labelledby="cancel-event-title">
+    <h2 id="cancel-event-title">@Model.Title</h2>
+    <dl class="profile-details">
+        <div>
+            <dt>Status</dt>
+            <dd>@Model.StatusLabel</dd>
+        </div>
+        <div>
+            <dt>Starts</dt>
+            <dd class="numeric">@ManilaTimeFormatter.Format(Model.StartsAt)</dd>
+        </div>
+    </dl>
+</section>
+
+<section class="panel" aria-label="Cancel event">
+    <p class="event-consequence">Cancelling this event also cancels every pending, confirmed and waitlisted registration and closes check-in. This cannot be undone.</p>
+    <form asp-action="Cancel" method="post">
+        <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
+        <input type="hidden" asp-for="EventId" />
+        <div class="field">
+            <label asp-for="Reason" class="field-label">Reason</label>
+            <textarea asp-for="Reason" class="field-control" rows="3" aria-describedby="Reason-validation" placeholder="Explain why the event is cancelled"></textarea>
+            <span id="Reason-validation" asp-validation-for="Reason" class="field-error"></span>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="button button-primary">Cancel event</button>
+            <a asp-action="Index" class="button button-secondary">Keep event</a>
+        </div>
+    </form>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

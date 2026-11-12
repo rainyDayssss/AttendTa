@@ -1,0 +1,68 @@
+@model PagedResult<AccountSummaryViewModel>
+@{
+    ViewData["Title"] = "Accounts & Roles";
+    var search = ViewBag.Search as string;
+}
+
+<div class="page-heading">
+    <h1>Accounts &amp; Roles</h1>
+</div>
+
+<div class="sheet-keys">
+    <form asp-action="Index" method="get" class="search-group">
+        <input type="text" name="search" aria-label="Search accounts" value="@search" class="field-control" placeholder="Search by name or email" />
+        <button type="submit" class="button button-secondary">Search</button>
+    </form>
+</div>
+
+<div class="table-scroll" role="region" aria-label="Accounts table" tabindex="0">
+    <table class="data-table table-sticky-first">
+        <thead>
+            <tr>
+                <th scope="col">Full Name</th>
+                <th scope="col">Email</th>
+                <th scope="col">Role</th>
+                <th scope="col">Status</th>
+                <th scope="col" class="actions">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model.Items.Count == 0)
+            {
+                <tr>
+                    <td colspan="5" class="empty-state">@(string.IsNullOrWhiteSpace(search) ? "No accounts found." : "No accounts match your search.")</td>
+                </tr>
+            }
+            else
+            {
+                foreach (var account in Model.Items)
+                {
+                    <tr data-account-id="@account.AccountId">
+                        <td class="cell-name"><span class="cell-strong">@account.FullName</span></td>
+                        <td class="cell-email">@account.Email</td>
+                        <td><span class="badge badge-@account.RoleCode">@account.RoleLabel</span></td>
+                        <td><span class="badge @(account.IsActive ? "badge-active" : "badge-inactive")">@(account.IsActive ? "Active" : "Inactive")</span></td>
+                        <td class="actions">
+                            <div class="row-actions">
+                                <a asp-action="ChangeRole" asp-route-id="@account.AccountId" class="button button-secondary">Change role</a>
+                                <partial name="_RowMenuTrigger" model="@($"row-menu-account-{account.AccountId}")" />
+                            </div>
+                            <div id="row-menu-account-@account.AccountId" popover class="row-menu">
+                                @if (account.IsActive)
+                                {
+                                    <button type="button" class="button" data-deactivation-preview="@Url.Action("Index", "DeactivationPreview", new { userId = account.AccountId })">Preview deactivation</button>
+                                }
+                                <div class="row-menu-danger">
+                                    <partial name="_AccessActions" model="AccountAccessViewModel.For(account)" />
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+<partial name="_Pager" model="Model" />
+<partial name="_ResultCount" model="Model" />

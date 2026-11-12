@@ -1,0 +1,40 @@
+@model PassViewModel
+@if (Model.HasPass)
+{
+    <section class="pass-card" aria-label="Door pass for @Model.EventTitle" data-registration-id="@Model.RegistrationId">
+        <div class="pass-card-head">
+            @if (!string.IsNullOrWhiteSpace(Model.EventTypeName))
+            {
+                <p class="pass-event-type">@Model.EventTypeName</p>
+            }
+            <p class="pass-event-title">@Model.EventTitle</p>
+            <p class="pass-event-meta">
+                <span class="numeric">@ManilaTimeFormatter.Format(Model.StartsAt)</span>
+                @if (!string.IsNullOrWhiteSpace(Model.VenueName))
+                {
+                    <span> · @Model.VenueName</span>
+                }
+            </p>
+        </div>
+        <div class="pass-card-body">
+            <div class="pass-identity">
+                <p class="pass-holder">@Model.HolderName</p>
+                <p class="pass-student numeric">@Model.StudentNumber</p>
+                @if (!string.IsNullOrWhiteSpace(Model.StatusLabel))
+                {
+                    <span class="badge badge-open">@Model.StatusLabel</span>
+                }
+            </div>
+            <div class="pass-code">
+                @if (!string.IsNullOrWhiteSpace(Model.QrImageUrl))
+                {
+                    <img class="pass-qr" src="@Model.QrImageUrl" alt="Pass code for @Model.EventTitle" width="168" height="168" />
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.DownloadUrl))
+                {
+                    <a class="button button-secondary" href="@Model.DownloadUrl">Download pass</a>
+                }
+            </div>
+        </div>
+    </section>
+}

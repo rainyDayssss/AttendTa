@@ -1,0 +1,15 @@
+/* Event lifecycle side screens: cancel confirmation and cover management. */
+@layer components {
+  .event-consequence { margin: 0 0 16px; max-width: 72ch; color: var(--color-ink-secondary); font-size: 13.5px; }
+
+  .cover-figure { margin: 16px 0 0; }
+  .cover-preview {
+    display: block;
+    width: 100%;
+    max-height: 24rem;
+    object-fit: contain;
+    background: var(--color-surface-subtle);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+  }
+}

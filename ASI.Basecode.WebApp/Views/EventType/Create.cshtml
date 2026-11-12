@@ -1,0 +1,21 @@
+@model EventTypeViewModel
+@{
+    ViewData["Title"] = "New Event Type";
+}
+
+<div class="page-heading">
+    <h1>New Event Type</h1>
+</div>
+
+<form asp-action="Create" method="post" class="form-panel">
+    <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
+    <partial name="_Form" model="Model" />
+    <div class="form-actions">
+        <button type="submit" class="button button-primary">Save</button>
+        <a asp-action="Index" class="button button-secondary">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

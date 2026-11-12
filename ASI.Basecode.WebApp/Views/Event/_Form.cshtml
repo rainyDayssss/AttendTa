@@ -1,0 +1,102 @@
+@model EventViewModel
+@using ASI.Basecode.Data.Models.Lookups
+@using System.Globalization
+@{
+    // A rejected save keeps exactly what the officer typed; a fresh form stays empty instead of
+    // showing the DateTime/int sentinel. A native date or number control cannot paint an
+    // unparsable string, but the attempted value still travels in the markup.
+    string Attempted(string name) =>
+        ViewData.ModelState.TryGetValue(name, out var entry) ? entry.AttemptedValue : null;
+    bool Invalid(string name) =>
+        ViewData.ModelState.TryGetValue(name, out var entry) && entry.Errors.Count > 0;
+
+    var startsValue = Attempted(nameof(EventViewModel.StartsAt))
+        ?? (Model.StartsAt == default ? string.Empty : Model.StartsAt.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture));
+    var deadlineValue = Attempted(nameof(EventViewModel.RegistrationDeadline))
+        ?? (Model.RegistrationDeadline == default ? string.Empty : Model.RegistrationDeadline.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture));
+    var limitValue = Attempted(nameof(EventViewModel.ParticipantLimit))
+        ?? (Model.ParticipantLimit > 0 ? Model.ParticipantLimit.ToString(CultureInfo.InvariantCulture) : string.Empty);
+
+    var startsInvalid = Invalid(nameof(EventViewModel.StartsAt));
+    var deadlineInvalid = Invalid(nameof(EventViewModel.RegistrationDeadline));
+    var limitInvalid = Invalid(nameof(EventViewModel.ParticipantLimit));
+}
+
+<fieldset>
+    <legend>Event details</legend>
+    <div class="record-form-grid">
+        <div class="field field-span-2">
+            <label asp-for="Title" class="field-label">Title <span class="required" aria-hidden="true">*</span></label>
+            <input asp-for="Title" aria-describedby="Title-validation" class="field-control" placeholder="e.g. Leadership Summit 2026" />
+            <span id="Title-validation" asp-validation-for="Title" class="field-error"></span>
+        </div>
+        <div class="field field-span-2">
+            <label asp-for="Description" class="field-label"></label>
+            <textarea asp-for="Description" aria-describedby="Description-validation" class="field-control" rows="4" placeholder="What the event covers, who it is for, and what to bring"></textarea>
+            <span id="Description-validation" asp-validation-for="Description" class="field-error"></span>
+        </div>
+    </div>
+</fieldset>
+@if (Model.EventStatusId == EventStatusCode.Published)
+{
+    <div class="record-summary" role="group" aria-label="Locked event details">
+        <p class="record-summary-row"><span class="record-summary-label">Event type:</span> <span class="record-summary-value">@Model.TypeName</span></p>
+        <p class="record-summary-row"><span class="record-summary-label">Venue:</span> <span class="record-summary-value">@Model.VenueName</span></p>
+        <p class="record-summary-row"><span class="record-summary-label">Starts (Asia/Manila):</span> <span class="record-summary-value">@Model.StartsAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)</span></p>
+        <p class="record-summary-row"><span class="record-summary-label">Signup deadline (Asia/Manila):</span> <span class="record-summary-value">@Model.RegistrationDeadline.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)</span></p>
+        <p class="record-summary-row"><span class="record-summary-label">Participant limit:</span> <span class="record-summary-value">@Model.ParticipantLimit</span></p>
+    </div>
+    <input type="hidden" name="TypeId" value="@Model.TypeId" />
+    <input type="hidden" name="VenueId" value="@Model.VenueId" />
+    <input type="hidden" name="StartsAt" value="@Model.StartsAt.ToString("yyyy-MM-ddTHH:mm:ss.fffffff", CultureInfo.InvariantCulture)" />
+    <input type="hidden" name="RegistrationDeadline" value="@Model.RegistrationDeadline.ToString("yyyy-MM-ddTHH:mm:ss.fffffff", CultureInfo.InvariantCulture)" />
+    <input type="hidden" name="ParticipantLimit" value="@Model.ParticipantLimit" />
+}
+else
+{
+    <fieldset>
+        <legend>Schedule and capacity</legend>
+        <div class="record-form-grid">
+            <div class="field">
+                <label asp-for="TypeId" class="field-label">Event type <span class="required" aria-hidden="true">*</span></label>
+                <select asp-for="TypeId" aria-describedby="TypeId-validation" class="field-control">
+                    <option value="">Select an active event type</option>
+                    @foreach (var eventType in Model.FormOptions.EventTypes)
+                    {
+                        <option value="@eventType.TypeId" selected="@(eventType.TypeId == Model.TypeId)">@eventType.TypeName</option>
+                    }
+                </select>
+                <span id="TypeId-validation" asp-validation-for="TypeId" class="field-error"></span>
+            </div>
+            <div class="field">
+                <label asp-for="VenueId" class="field-label">Venue <span class="required" aria-hidden="true">*</span></label>
+                <select asp-for="VenueId" aria-describedby="VenueId-validation VenueId-help" class="field-control">
+                    <option value="">Select an active venue</option>
+                    @foreach (var venue in Model.FormOptions.Venues)
+                    {
+                        <option value="@venue.VenueId" selected="@(venue.VenueId == Model.VenueId)">@venue.RoomName (capacity @venue.Capacity)</option>
+                    }
+                </select>
+                <small id="VenueId-help" class="muted">The participant limit cannot exceed the selected venue capacity.</small>
+                <span id="VenueId-validation" asp-validation-for="VenueId" class="field-error"></span>
+            </div>
+            <div class="field">
+                <label asp-for="StartsAt" class="field-label">Starts (Asia/Manila) <span class="required" aria-hidden="true">*</span></label>
+                <input asp-for="StartsAt" type="datetime-local" value="@startsValue" aria-describedby="StartsAt-validation StartsAt-help" aria-required="true" aria-invalid="@(startsInvalid ? "true" : null)" class="field-control" required />
+                <small id="StartsAt-help" class="muted">Enter the start date and time in Asia/Manila.</small>
+                <span id="StartsAt-validation" asp-validation-for="StartsAt" class="field-error"></span>
+            </div>
+            <div class="field">
+                <label asp-for="RegistrationDeadline" class="field-label">Signup deadline (Asia/Manila) <span class="required" aria-hidden="true">*</span></label>
+                <input asp-for="RegistrationDeadline" type="datetime-local" value="@deadlineValue" aria-describedby="RegistrationDeadline-validation RegistrationDeadline-help" aria-required="true" aria-invalid="@(deadlineInvalid ? "true" : null)" class="field-control" required />
+                <small id="RegistrationDeadline-help" class="muted">The signup deadline cannot be after the event start.</small>
+                <span id="RegistrationDeadline-validation" asp-validation-for="RegistrationDeadline" class="field-error"></span>
+            </div>
+            <div class="field">
+                <label asp-for="ParticipantLimit" class="field-label">Participant limit <span class="required" aria-hidden="true">*</span></label>
+                <input asp-for="ParticipantLimit" type="number" min="1" value="@limitValue" aria-describedby="ParticipantLimit-validation" aria-required="true" aria-invalid="@(limitInvalid ? "true" : null)" class="field-control" required placeholder="e.g. 100" />
+                <span id="ParticipantLimit-validation" asp-validation-for="ParticipantLimit" class="field-error"></span>
+            </div>
+        </div>
+    </fieldset>
+}

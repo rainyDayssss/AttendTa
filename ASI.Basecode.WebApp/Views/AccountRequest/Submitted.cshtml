@@ -1,0 +1,10 @@
+@{
+    ViewData["Title"] = "Request submitted";
+    ViewData["ShellWidth"] = "public-wide";
+}
+<section class="login-card">
+    <h1>Request submitted</h1>
+    <p class="muted">Your membership request is pending review. An officer will review your details and contact you offline about the outcome.</p>
+    <p class="muted">Do not submit another request with the same email or student number. You can sign in after your request is approved.</p>
+    <a asp-controller="Account" asp-action="Login" class="button button-primary full-width">Back to sign in</a>
+</section>

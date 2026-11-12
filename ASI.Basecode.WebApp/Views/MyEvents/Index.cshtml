@@ -1,0 +1,71 @@
+@model MyEventsViewModel
+@{
+    ViewData["Title"] = "Participation History";
+    var tabs = new[]
+    {
+        (Tab: MyEventsTab.Registrations, Label: "My Registrations", Action: "Registrations"),
+        (Tab: MyEventsTab.Attendance, Label: "My Attendance", Action: "Attendance"),
+        (Tab: MyEventsTab.Certificates, Label: "My Certificates", Action: "Certificates")
+    };
+
+    MyEventsTabPage activePage = Model.ActiveTab switch
+    {
+        MyEventsTab.Attendance => Model.Attendance,
+        MyEventsTab.Certificates => Model.Certificates,
+        _ => Model.Registrations
+    };
+
+    var emptyMessage = Model.ActiveTab switch
+    {
+        MyEventsTab.Attendance => "No attendance to show yet.",
+        MyEventsTab.Certificates => "No certificates to show yet.",
+        _ => "No registrations to show yet."
+    };
+}
+
+<div class="page-heading">
+    <div>
+        <h1>Participation History</h1>
+        <p class="muted">Review your registrations, attendance and certificates.</p>
+    </div>
+</div>
+
+<div class="panel my-events-panel">
+    <nav class="filter-tabs" aria-label="Participation history sections">
+        @foreach (var tab in tabs)
+        {
+            <a class="filter-tab" asp-action="@tab.Action" aria-current="@(Model.ActiveTab == tab.Tab ? "page" : null)">
+                @tab.Label
+            </a>
+        }
+    </nav>
+
+    @switch (Model.ActiveTab)
+    {
+        case MyEventsTab.Attendance:
+            <partial name="_AttendanceHistoryPartial" model="Model.Attendance" />
+            break;
+        case MyEventsTab.Certificates:
+            <partial name="_CertificateLinkPartial" model="Model.Certificates" />
+            break;
+        default:
+            <partial name="_RegistrationsTab" model="Model.Registrations" />
+            break;
+    }
+
+    @if (activePage.TotalCount == 0 && ViewData["CertificateHistoryError"] == null)
+    {
+        <p class="empty-state">
+            @emptyMessage
+            @if (Model.ActiveTab == MyEventsTab.Registrations)
+            {
+                <span><a asp-controller="MemberEvents" asp-action="Index">Browse events</a> to find one to join.</span>
+            }
+        </p>
+    }
+    else if (activePage.TotalCount > 0)
+    {
+        <partial name="_Pager" model="activePage" />
+        <partial name="_ResultCount" model="activePage" />
+    }
+</div>

@@ -1,0 +1,32 @@
+@model MyEventsRegistrationsTabViewModel
+@if (Model.Cards.Count > 0)
+{
+    <div class="registration-list">
+        @foreach (var card in Model.Cards)
+        {
+            <article class="registration-row" data-registration-id="@card.RegistrationId">
+                <div class="registration-head">
+                    <div class="registration-ident">
+                        @if (!string.IsNullOrWhiteSpace(card.TypeName))
+                        {
+                            <p class="registration-type">@card.TypeName</p>
+                        }
+                        <h2 class="registration-title">@card.EventTitle</h2>
+                    </div>
+                    <span class="badge @card.StatusBadgeClass">@card.StatusLabel</span>
+                </div>
+                <ul class="registration-meta">
+                    <li><span class="registration-label">Starts</span><span class="numeric">@ManilaTimeFormatter.Format(card.StartsAt)</span></li>
+                    <li><span class="registration-label">Venue</span><span>@card.VenueName</span></li>
+                </ul>
+                <partial name="_PassPartial" model="card.Pass" />
+                @if (card.CanViewEvent)
+                {
+                    <div class="registration-actions">
+                        <a asp-controller="MemberEvents" asp-action="Details" asp-route-id="@card.EventId" class="button button-secondary">View event</a>
+                    </div>
+                }
+            </article>
+        }
+    </div>
+}

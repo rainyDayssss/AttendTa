@@ -1,0 +1,92 @@
+@model PagedResult<MemberEventListItemViewModel>
+@using ASI.Basecode.Data.Models.Lookups
+@{
+    ViewData["Title"] = "Events";
+}
+
+<header class="page-heading">
+    <div>
+        <h1>Campus Events</h1>
+        <p class="muted">Browse published events and submit a registration before the signup deadline.</p>
+    </div>
+</header>
+
+@if (Model.Items.Count == 0)
+{
+    <p class="empty-state">No published events are available yet.</p>
+}
+else
+{
+    <div class="event-grid">
+        @foreach (var eventItem in Model.Items)
+        {
+            var remainingSeats = Math.Max(0, eventItem.ParticipantLimit - eventItem.ConfirmedCount);
+            <article class="event-card event-feed-card" data-event-id="@eventItem.EventId">
+                <div class="event-feed-cover">
+                    @if (eventItem.HasCover)
+                    {
+                        <img class="event-feed-cover-image" src="@Url.Action("Image", "EventCover", new { id = eventItem.EventId })" alt="Cover for @eventItem.Title" loading="lazy" />
+                    }
+                    else
+                    {
+                        <div class="event-feed-cover-placeholder" aria-hidden="true">AttendTa</div>
+                    }
+                    <span class="event-feed-scrim" aria-hidden="true"></span>
+                    <div class="event-feed-cover-content">
+                        <div class="event-badges">
+                            <span class="badge badge-member">@eventItem.TypeName</span>
+                            @if (eventItem.EventStatusId != EventStatusCode.Published)
+                            {
+                                <span class="badge @EventStatusDisplay.BadgeClass(eventItem.EventStatusId)">@eventItem.StatusLabel</span>
+                            }
+                            @if (eventItem.IsCheckInOpen)
+                            {
+                                <span class="badge badge-checkin-open">Check-in open</span>
+                            }
+                            @if (!eventItem.IsSignupOpen)
+                            {
+                                <span class="badge badge-closed">Signup closed</span>
+                            }
+                            else if (eventItem.IsFull)
+                            {
+                                <span class="badge badge-full">Full</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-open">Signup open</span>
+                            }
+                        </div>
+                        <h2 class="event-feed-title">
+                            <a asp-action="Details" asp-route-id="@eventItem.EventId">@eventItem.Title</a>
+                        </h2>
+                    </div>
+                </div>
+                <div class="event-feed-body">
+                    <ul class="event-meta event-feed-meta">
+                        <li><span class="event-meta-label">Venue</span>@eventItem.VenueName</li>
+                        <li><span class="event-meta-label">Schedule</span>@ManilaTimeFormatter.Format(eventItem.StartsAt)</li>
+                        <li><span class="event-meta-label">Signup deadline</span>@ManilaTimeFormatter.Format(eventItem.RegistrationDeadline)</li>
+                        <li><span class="event-meta-label">Confirmed</span>@eventItem.ConfirmedCount of @eventItem.ParticipantLimit</li>
+                    </ul>
+                    @if (!eventItem.IsSignupOpen)
+                    {
+                        <p class="event-feed-note">Signup closed on @ManilaTimeFormatter.Format(eventItem.RegistrationDeadline).</p>
+                    }
+                    else if (eventItem.IsFull)
+                    {
+                        <p class="event-feed-note">This event is full. You can still submit a registration, but a seat is not guaranteed.</p>
+                    }
+                    else
+                    {
+                        <p class="event-feed-note">@remainingSeats @(remainingSeats == 1 ? "seat" : "seats") available until the signup deadline.</p>
+                    }
+                    <div class="event-card-actions">
+                        <a asp-action="Details" asp-route-id="@eventItem.EventId" class="button button-secondary">View details</a>
+                    </div>
+                </div>
+            </article>
+        }
+    </div>
+
+    <partial name="_Pager" model="Model" />
+}

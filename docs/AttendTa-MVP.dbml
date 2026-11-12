@@ -1,0 +1,343 @@
+// Revised MVP v2.1; UC baseline plus agreed refinements. Originals remain in docs/.
+// Password changes and reopening declined certificate decisions are deferred; password_hash remains for login.
+// No archive/delete fields or manual registration-opening fields.
+// No user image field; mandatory venue photos; event covers required before publishing.
+// See AttendTa-User-Stories.md shared rules for application/transaction constraints.
+// AttendTa MVP: 10 business tables.
+// Enums are for ERD readability; SQL Server uses lookup tables and FKs.
+// No email services, verification/reset tokens, or dedicated session table.
+// Images use paths relative to the configured persistent server-local storage root; QR PNGs are generated from qr_token.
+// Nullable unique columns require filtered unique indexes in SQL Server.
+// Pagination is query/UI state, not a table or column. Review indexes against
+// actual authorized filters and stable sorts, using primary keys as tie-breakers.
+
+Enum user_role {
+  admin
+  officer
+  member
+}
+
+Enum account_request_status {
+  pending
+  approved
+  rejected
+}
+
+Enum membership_status {
+  active
+  inactive
+}
+
+Enum event_status {
+  draft
+  published
+  cancelled
+  completed
+}
+
+Enum registration_status {
+  pending
+  confirmed
+  waitlisted
+  cancelled
+}
+
+Enum check_in_method {
+  qr_code
+  manual_search
+  student_number
+}
+
+Enum certificate_status {
+  pending_approval
+  eligible
+  not_eligible
+  issued
+}
+
+Enum activity_actor_type {
+  user
+  system
+}
+
+Table users {
+  user_id integer [pk, increment]
+  full_name nvarchar(255) [not null]
+  email nvarchar(255) [not null, unique]
+  password_hash varchar(255) [not null]
+  role user_role [not null, default: 'member']
+  is_active bit [not null, default: 0]
+
+  created_by integer
+  created_at datetime2(3) [not null, default: `SYSUTCDATETIME()`]
+  updated_by integer
+  updated_at datetime2(3)
+}
+
+Table account_requests {
+  request_id integer [pk, increment]
+  student_number nvarchar(50) [not null]
+  full_name nvarchar(255) [not null]
+  email nvarchar(255) [not null]
+  password_hash varchar(255)
+  course nvarchar(100) [not null]
+  year_level integer [not null]
+  section nvarchar(50) [not null]
+  mobile_number varchar(30)
+  status account_request_status [not null, default: 'pending']
+  requested_at datetime2(3) [not null, default: `SYSUTCDATETIME()`]
+
+  reviewed_by integer
+  reviewed_at datetime2(3)
+  review_notes nvarchar(max)
+  created_user_id integer [unique, note: 'Account created upon approval. SQL Server: unique filtered index excluding NULL values.']
+
+  checks {
+    `year_level > 0` [name: 'chk_account_requests_positive_year_level']
+  }
+  indexes {
+    (status, requested_at, request_id) // Request queue; separate pending-only unique indexes remain required.
+    email
+    student_number
+  }
+  Note: 'Enforce pending-only uniqueness separately for email and student number in SQL Server. Password hash required while pending and cleared after approval/rejection.'
+}
+
+Table members {
+  member_id integer [pk, increment]
+  user_id integer [not null, unique]
+  student_number nvarchar(50) [not null, unique]
+  course nvarchar(100) [not null]
+  year_level integer [not null]
+  section nvarchar(50) [not null]
+  mobile_number varchar(30)
+  membership_type nvarchar(100)
+  status membership_status [not null, default: 'active']
+
+  created_by integer [not null]
+  created_at datetime2(3) [not null, default: `SYSUTCDATETIME()`]
+  updated_by integer
+  updated_at datetime2(3)
+
+  checks {
+    `year_level > 0` [name: 'chk_members_positive_year_level']
+  }
+}
+
+Table event_types {
+  type_id integer [pk, increment]
+  type_name nvarchar(100) [not null, unique]
+  description nvarchar(max) [not null]
+  is_active bit [not null, default: 1]
+
+  created_by integer [not null]
+  created_at datetime2(3) [not null, default: `SYSUTCDATETIME()`]
+  updated_by integer
+  updated_at datetime2(3)
+
+  checks {
+    `LEN(LTRIM(RTRIM(description))) > 0` [name: 'chk_event_types_description_nonblank']
+  }
+}
+
+Table venues {
+  Note: 'A validated venue photo is required at creation; replacement is permitted, removal without replacement is not.'
+  venue_id integer [pk, increment]
+  room_name nvarchar(150) [not null]
+  capacity integer [not null]
+  location nvarchar(255)
+  availability_notes nvarchar(max)
+  contact_person nvarchar(150)
+  is_active bit [not null, default: 1]
+  image_path nvarchar(500) [not null, note: 'Required relative local image path.']
+
+  created_by integer [not null]
+  created_at datetime2(3) [not null, default: `SYSUTCDATETIME()`]
+  updated_by integer
+  updated_at datetime2(3)
+
+  checks {
+    `capacity > 0` [name: 'chk_venues_positive_capacity']
+    `LEN(LTRIM(RTRIM(image_path))) > 0` [name: 'chk_venues_required_photo']
+  }
+}
+
+Table events {
+  Note: 'Publishing opens signup before the deadline and requires a cover. After publication only title, description and cover may change. At deadline signup closes without changing event status.'
+  event_id integer [pk, increment]
+  title nvarchar(255) [not null]
+  description nvarchar(max)
+  type_id integer [not null]
+  venue_id integer [not null]
+  starts_at datetime2(3) [not null]
+  registration_deadline datetime2(3) [not null]
+  participant_limit integer [not null]
+  status event_status [not null, default: 'draft']
+  image_path nvarchar(500) [note: 'Optional for draft only; validated nonblank cover required for published/completed events.']
+
+  published_by integer
+  published_at datetime2(3)
+  is_check_in_open bit [not null, default: 0]
+  check_in_opened_by integer
+  check_in_opened_at datetime2(3)
+  check_in_closed_by integer
+  check_in_closed_at datetime2(3)
+  completed_by integer
+  completed_at datetime2(3)
+  cancelled_by integer
+  cancelled_at datetime2(3)
+  cancellation_reason nvarchar(max)
+
+  created_by integer [not null]
+  created_at datetime2(3) [not null, default: `SYSUTCDATETIME()`]
+  updated_by integer
+  updated_at datetime2(3)
+
+  checks {
+    `participant_limit > 0` [name: 'chk_events_positive_participant_limit']
+    // Physical SQL Server enum values are lookup FKs; implement the status/cover rule in the service or a suitable trigger.
+    // Published/completed events require a nonblank existing validated cover; cancelled drafts may have no image.
+    `registration_deadline <= starts_at` [name: 'chk_events_registration_deadline']
+  }
+  indexes {
+    (status, starts_at, event_id) // Feed ordering; apply publication visibility first.
+    type_id
+    venue_id
+  }
+}
+
+Table registrations {
+  Note: 'One row per member/event, no reapplication. Officer-triggered promotion only; queue: reviewed_at ASC, registration_id ASC. At start pending/waitlisted remain non-actionable history, not no-shows. Capacity/cutoff/eligibility checks require transactional server enforcement.'
+  registration_id integer [pk, increment]
+  member_id integer [not null]
+  event_id integer [not null]
+  status registration_status [not null, default: 'pending']
+  course_snapshot nvarchar(100) [not null]
+  year_level_snapshot integer [not null]
+  section_snapshot nvarchar(50) [not null]
+  submitted_at datetime2(3) [not null, default: `SYSUTCDATETIME()`]
+
+  reviewed_by integer
+  reviewed_at datetime2(3)
+  review_notes nvarchar(max)
+  confirmed_by integer
+  confirmed_at datetime2(3)
+  qr_token varchar(64) [unique, note: 'Nullable. SQL Server: unique filtered index WHERE qr_token IS NOT NULL.']
+  cancelled_by integer
+  cancelled_at datetime2(3)
+  cancellation_reason nvarchar(max)
+
+  created_by integer [not null]
+  created_at datetime2(3) [not null, default: `SYSUTCDATETIME()`]
+  updated_by integer
+  updated_at datetime2(3)
+
+  checks {
+    `year_level_snapshot > 0` [name: 'chk_registrations_positive_year_level']
+  }
+  indexes {
+    (event_id, member_id) [unique, name: 'unique_event_member_registration']
+    (event_id, status, reviewed_at, registration_id) // Reviewed waitlist order; promotion is officer-triggered.
+    (member_id, submitted_at, registration_id) // Personal history candidate; verify SQL Server query plans.
+  }
+}
+
+Table attendance {
+  attendance_id integer [pk, increment]
+  registration_id integer [not null, unique]
+  check_in_method check_in_method [not null]
+  recorded_by integer [not null]
+  recorded_at datetime2(3) [not null, default: `SYSUTCDATETIME()`]
+  invalidated_by integer
+  invalidated_at datetime2(3)
+  invalidation_reason nvarchar(max)
+}
+
+Table certificates {
+  certificate_id integer [pk, increment]
+  registration_id integer [not null, unique]
+  status certificate_status [not null, default: 'pending_approval']
+  reviewed_by integer
+  reviewed_at datetime2(3)
+  review_notes nvarchar(max)
+  certificate_number varchar(100) [unique, note: 'Assigned at issuance. SQL Server: unique filtered index excluding NULL values.']
+  recipient_name_snapshot nvarchar(255)
+  event_title_snapshot nvarchar(255)
+  event_starts_at_snapshot datetime2(3)
+  issuer_name_snapshot nvarchar(255) [note: 'Immutable display name captured at issuance; required when issued.']
+  file_path nvarchar(500) [note: 'Relative private server-local PDF file path; required when issued. Serve through an authorized backend endpoint, not static files.']
+  issued_by integer
+  issued_at datetime2(3)
+  created_by integer
+  created_at datetime2(3) [not null, default: `SYSUTCDATETIME()`]
+  updated_by integer
+  updated_at datetime2(3)
+  Note: 'One fixed HTML/CSS template rendered to a retained landscape A4 PDF; no bulk issuance, revocation or reissue. Issued certificates require review, issuance metadata, recipient/event/issuer snapshots, certificate number and a private PDF at file_path (application/pdf).'
+}
+
+Table activity_logs {
+  Note: 'Append-only. The runtime application database role must not be granted UPDATE or DELETE on this table.'
+  log_id bigint [pk, increment]
+  actor_type activity_actor_type [not null]
+  actor_user_id integer
+  action varchar(100) [not null]
+  entity_type varchar(100) [not null]
+  entity_id integer [not null]
+  description nvarchar(max) [not null]
+  reason nvarchar(max)
+  old_values nvarchar(max)
+  new_values nvarchar(max)
+  occurred_at datetime2(3) [not null, default: `SYSUTCDATETIME()`]
+
+  indexes {
+    (occurred_at, log_id) // Read newest first; SQL Server may scan backward.
+    (actor_user_id, occurred_at, log_id)
+    (entity_type, entity_id, occurred_at, log_id)
+  }
+}
+
+// Account and member relationships
+Ref: users.created_by > users.user_id
+Ref: users.updated_by > users.user_id
+Ref: account_requests.reviewed_by > users.user_id
+Ref: users.user_id - account_requests.created_user_id
+Ref: users.user_id - members.user_id
+Ref: members.created_by > users.user_id
+Ref: members.updated_by > users.user_id
+
+// Master data audit relationships
+Ref: event_types.created_by > users.user_id
+Ref: event_types.updated_by > users.user_id
+Ref: venues.created_by > users.user_id
+Ref: venues.updated_by > users.user_id
+
+// Event relationships
+Ref: events.type_id > event_types.type_id
+Ref: events.venue_id > venues.venue_id
+Ref: events.published_by > users.user_id
+Ref: events.check_in_opened_by > users.user_id
+Ref: events.check_in_closed_by > users.user_id
+Ref: events.completed_by > users.user_id
+Ref: events.cancelled_by > users.user_id
+Ref: events.created_by > users.user_id
+Ref: events.updated_by > users.user_id
+
+// Registration relationships
+Ref: registrations.member_id > members.member_id
+Ref: registrations.event_id > events.event_id
+Ref: registrations.reviewed_by > users.user_id
+Ref: registrations.confirmed_by > users.user_id
+Ref: registrations.cancelled_by > users.user_id
+Ref: registrations.created_by > users.user_id
+Ref: registrations.updated_by > users.user_id
+
+// Attendance, certificate and log relationships
+Ref: registrations.registration_id - attendance.registration_id
+Ref: attendance.recorded_by > users.user_id
+Ref: attendance.invalidated_by > users.user_id
+Ref: registrations.registration_id - certificates.registration_id
+Ref: certificates.reviewed_by > users.user_id
+Ref: certificates.issued_by > users.user_id
+Ref: certificates.created_by > users.user_id
+Ref: certificates.updated_by > users.user_id
+Ref: activity_logs.actor_user_id > users.user_id

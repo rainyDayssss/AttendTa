@@ -1,0 +1,141 @@
+@model CertificateLedgerViewModel
+@using ASI.Basecode.Data.Models.Lookups
+@{
+    ViewData["Title"] = "Certificates";
+    ViewData["Feature"] = "certificate-ledger";
+    var tab = Model.ActiveTab == CertificateLedgerTab.Issued ? "issued" : "eligibility";
+}
+
+<div class="page-heading">
+    <div>
+        <h1>Certificate Eligibility &amp; Issuance</h1>
+        <p class="muted">Review completed-event attendance and issue certificates.</p>
+    </div>
+</div>
+
+<partial name="_EventSelector" model="Model.Selector" />
+
+@if (ViewData["LedgerError"] is string error)
+{
+    <div class="notice notice-error" role="alert">
+        <p>@error</p>
+        <a asp-action="Index" asp-route-eventId="@Model.Selector.SelectedEventId" asp-route-tab="@tab">Try again</a>
+    </div>
+}
+
+<nav class="filter-tabs" aria-label="Certificate sections">
+    <a class="filter-tab" asp-action="Index" asp-route-tab="eligibility" asp-route-eventId="@Model.Selector.SelectedEventId" aria-current="@(Model.ActiveTab == CertificateLedgerTab.Eligibility ? "page" : null)">
+        Eligibility Review
+        <span class="filter-tab-count numeric">@Model.EligibilityCount</span>
+    </a>
+    <a class="filter-tab" asp-action="Index" asp-route-tab="issued" asp-route-eventId="@Model.Selector.SelectedEventId" aria-current="@(Model.ActiveTab == CertificateLedgerTab.Issued ? "page" : null)">
+        Issued Registry
+        <span class="filter-tab-count numeric">@Model.IssuedCount</span>
+    </a>
+</nav>
+
+@if (Model.Rows.Count == 0 && ViewData["LedgerError"] == null)
+{
+    <section class="empty-panel" role="status">
+        <h2>@(Model.Selector.HasOptions ? (tab == "issued" ? "No certificates issued yet" : "No reviews to display") : "No completed events available")</h2>
+        <p>@(Model.Selector.HasOptions ? (tab == "issued" ? "Approve an eligible attendee and issue their certificate from Eligibility Review." : "Certificate reviews appear for checked-in members when an event is completed.") : "Complete an event to begin reviewing attendance for certificates.")</p>
+    </section>
+}
+else if (Model.Rows.Count > 0)
+{
+<div class="table-scroll ledger-table" role="region" aria-label="Certificate ledger" tabindex="0">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th scope="col">Member</th>
+                <th scope="col">Student number</th>
+                <th scope="col">Event</th>
+                <th scope="col">Attended</th>
+                <th scope="col">Eligibility</th>
+                <th scope="col">Certificate</th>
+                <th scope="col" class="ledger-actions-heading">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in Model.Rows)
+            {
+                <tr data-registration-id="@row.RegistrationId">
+                    <td data-label="Member">@row.MemberName</td>
+                    <td data-label="Student number" class="numeric cell-identifier">@row.StudentNumber</td>
+                    <td data-label="Event">@row.EventTitle</td>
+                    <td data-label="Attended" class="numeric cell-date">@(row.AttendedAt is null ? "Not recorded" : ManilaTimeFormatter.Format(row.AttendedAt.Value))</td>
+                    <td data-label="Eligibility">
+                        <span class="badge @row.StatusBadgeClass">@row.StatusLabel</span>
+                        @if (!string.IsNullOrWhiteSpace(row.Reason)) { <p class="ledger-reason">@row.Reason</p> }
+                    </td>
+                    <td data-label="Certificate">
+                        @if (row.CertificateNumber is null)
+                        {
+                            <span>Not issued</span>
+                        }
+                        else
+                        {
+                            <span class="numeric">@row.CertificateNumber</span>
+                        }
+                        @if (row.IssuedAt is DateTime issuedAt) { <p class="muted ledger-issued-at">@ManilaTimeFormatter.Format(issuedAt)</p> }
+                    </td>
+                    <td data-label="Actions" class="actions">
+                        <div class="row-actions">
+                        @if (row.Status == CertificateStatusCode.PendingApproval)
+                        {
+                            <button type="button" class="button" data-certificate-open="approve-certificate" data-id="@row.RegistrationId" data-member="@row.MemberName" data-event="@row.EventTitle">Approve</button>
+                            <button type="button" class="button button-quiet-danger" data-certificate-open="decline-certificate" data-id="@row.RegistrationId" data-member="@row.MemberName" data-event="@row.EventTitle">Decline</button>
+                        }
+                        else if (row.Status == CertificateStatusCode.Eligible)
+                        {
+                            <button type="button" class="button" data-certificate-open="issue-certificate" data-id="@row.RegistrationId" data-member="@row.MemberName" data-event="@row.EventTitle">Issue certificate</button>
+                        }
+                        else if (row.Status == CertificateStatusCode.Issued)
+                        {
+                            <a class="button" asp-action="Viewer" asp-route-id="@row.RegistrationId">View PDF<span class="ledger-sr-only"> for @row.MemberName</span></a>
+                        }
+                        else { <span class="muted">Decision final</span> }
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+<partial name="_Pager" model="Model.Page" />
+<p class="result-count muted">Showing @Model.Page.FirstItemNumber–@Model.Page.LastItemNumber of @Model.Page.TotalCount</p>
+}
+
+@foreach (var action in new[] { "approve", "decline", "issue" })
+{
+    var verb = action == "approve" ? "Approve eligibility" : action == "decline" ? "Decline eligibility" : "Issue certificate";
+    var endpoint = action == "approve" ? "Approve" : action == "decline" ? "Decline" : "Issue";
+    <dialog id="@(action)-certificate" class="task-dialog certificate-dialog" aria-labelledby="@(action)-title" aria-describedby="@(action)-context @(action)-consequence">
+        <form asp-action="@endpoint" method="post">
+            <div class="dialog-header">
+                <h2 id="@(action)-title">@verb?</h2>
+                <button type="button" class="dialog-close" data-certificate-close aria-label="Close dialog"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg></button>
+            </div>
+            <input type="hidden" name="id" data-certificate-field="id" />
+            <input type="hidden" name="eventId" value="@Model.Selector.SelectedEventId" />
+            <input type="hidden" name="tab" value="@tab" />
+            <input type="hidden" name="page" value="@Model.Page.PageNumber" />
+            <p class="muted" id="@(action)-context"><strong data-certificate-field="member"></strong><br /><span data-certificate-field="event"></span></p>
+            <p class="dialog-consequence" id="@(action)-consequence">
+                @(action == "approve" ? "Approve this member's attendance for certificate issuance. Issuing the PDF is a separate step." : action == "decline" ? "This decision is final and cannot be reopened in this release. No certificate can be issued for this review." : "Generate one certificate using the approved attendance and configured signatory. Issued certificates cannot be replaced or reissued.")
+            </p>
+            @if (action == "decline")
+            {
+                <div class="field">
+                    <label for="certificate-decline-reason">Decline reason <span class="required">(required)</span></label>
+                    <textarea id="certificate-decline-reason" name="reason" rows="4" maxlength="1000" required aria-describedby="certificate-reason-hint" placeholder="Explain why the certificate is declined"></textarea>
+                    <span class="field-hint" id="certificate-reason-hint">Explain why this member is not eligible. Up to 1,000 characters.</span>
+                </div>
+            }
+            <div class="dialog-actions">
+                <button type="button" class="button button-secondary" data-certificate-close autofocus="@(action != "decline")">Cancel</button>
+                <button type="submit" class="button @(action == "decline" ? "button-danger" : "button-primary")" data-submitting-label="@(action == "issue" ? "Generating PDF…" : "Saving…")">@verb</button>
+            </div>
+        </form>
+    </dialog>
+}

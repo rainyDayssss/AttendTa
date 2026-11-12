@@ -1,0 +1,24 @@
+@model VenueViewModel
+@{
+    ViewData["Title"] = "Edit Venue";
+}
+
+<div class="page-heading">
+    <h1>Edit Venue</h1>
+</div>
+
+<div class="form-panel">
+    <form asp-action="Edit" method="post" enctype="multipart/form-data">
+        <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
+        <input type="hidden" asp-for="VenueId" />
+        <partial name="_Form" model="Model" />
+        <div class="form-actions">
+            <button type="submit" class="button button-primary">Save</button>
+            <a asp-action="Index" class="button button-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
