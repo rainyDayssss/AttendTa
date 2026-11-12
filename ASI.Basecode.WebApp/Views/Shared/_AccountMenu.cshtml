@@ -1,0 +1,24 @@
+@using ASI.Basecode.Resources.Constants
+@model string
+@{
+    // Profile is a member-only destination, so the management menu carries Sign out alone.
+    var member = User.IsInRole(RoleCodes.Member);
+}
+<div class="account-block">
+    <button type="button" class="account-trigger" popovertarget="account-menu">
+        <partial name="_AccountIdentity" model="Model" />
+        <svg class="account-chevron" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+            <path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <span class="sr-only">Account menu</span>
+    </button>
+    <div id="account-menu" popover class="account-menu">
+        @if (member)
+        {
+            <a asp-controller="Profile" asp-action="Index" aria-current="@(ViewContext.RouteData.Values["controller"]?.ToString() == "Profile" ? "page" : null)">Profile</a>
+        }
+        <form asp-controller="Account" asp-action="Logout" method="post">
+            <button type="submit">Sign out</button>
+        </form>
+    </div>
+</div>

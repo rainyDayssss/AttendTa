@@ -1,0 +1,51 @@
+@using ASI.Basecode.Resources.Constants
+@{
+    var management = User.IsInRole(RoleCodes.Admin) || User.IsInRole(RoleCodes.Officer);
+    var administrator = User.IsInRole(RoleCodes.Admin);
+    var member = User.IsInRole(RoleCodes.Member);
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+}
+@if (management)
+{
+    <div class="nav-group">
+        <p class="nav-group-label">Overview</p>
+        <a class="nav-key" asp-controller="Home" asp-action="Index" aria-current="@(controller == "Home" ? "page" : null)">Home</a>
+        <a class="nav-key" asp-controller="MemberEvents" asp-action="Index" aria-current="@(controller == "MemberEvents" ? "page" : null)">Browse events</a>
+    </div>
+    <div class="nav-group">
+        <p class="nav-group-label">Records</p>
+        <a class="nav-key" asp-controller="Event" asp-action="Index" aria-current="@(controller == "Event" ? "page" : null)">Events</a>
+        <a class="nav-key" asp-controller="Member" asp-action="Index" aria-current="@(controller == "Member" ? "page" : null)">Members</a>
+        <a class="nav-key" asp-controller="EventType" asp-action="Index" aria-current="@(controller == "EventType" ? "page" : null)">Event types</a>
+        <a class="nav-key" asp-controller="Venue" asp-action="Index" aria-current="@(controller == "Venue" ? "page" : null)">Venues</a>
+        <a class="nav-key" asp-controller="AccountRequest" asp-action="Index" aria-current="@(controller == "AccountRequest" ? "page" : null)">Account requests</a>
+        @if (administrator)
+        {
+            <a class="nav-key" asp-controller="AdminAccounts" asp-action="Index" aria-current="@(controller == "AdminAccounts" ? "page" : null)">Accounts</a>
+            <a class="nav-key" asp-controller="ActivityLog" asp-action="Index" aria-current="@(controller == "ActivityLog" ? "page" : null)">Activity log</a>
+        }
+    </div>
+    <div class="nav-group">
+        <p class="nav-group-label">Output</p>
+        <a class="nav-key" asp-controller="CheckIn" asp-action="Index" aria-current="@(controller == "CheckIn" ? "page" : null)">Check-in</a>
+        <a class="nav-key" asp-controller="RegistrationReview" asp-action="Index" aria-current="@(controller == "RegistrationReview" ? "page" : null)">Registration review</a>
+        <a class="nav-key" asp-controller="CertificateLedger" asp-action="Index" aria-current="@(controller == "CertificateLedger" ? "page" : null)">Certificates</a>
+        <a class="nav-key" asp-controller="Reports" asp-action="Participation" aria-current="@(controller == "Reports" ? "page" : null)">Reports</a>
+    </div>
+}
+@if (member)
+{
+    <div class="nav-group">
+        <p class="nav-group-label">Overview</p>
+        <a class="nav-key" asp-controller="MemberEvents" asp-action="Index" aria-current="@(controller == "MemberEvents" ? "page" : null)">Events</a>
+    </div>
+    <div class="nav-group">
+        <p class="nav-group-label">Records</p>
+        <a class="nav-key" asp-controller="MyEvents" asp-action="Index" aria-current="@(controller == "MyEvents" ? "page" : null)">My Events</a>
+        <a class="nav-key" asp-controller="Passes" asp-action="Index" aria-current="@(controller == "Passes" ? "page" : null)">My Passes</a>
+    </div>
+    <div class="nav-group">
+        <p class="nav-group-label">Account</p>
+        <a class="nav-key" asp-controller="Profile" asp-action="Index" aria-current="@(controller == "Profile" ? "page" : null)">Profile</a>
+    </div>
+}

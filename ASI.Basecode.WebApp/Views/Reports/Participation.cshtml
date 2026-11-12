@@ -1,0 +1,201 @@
+@model ParticipationReportViewModel
+@using System.Globalization
+@using ASI.Basecode.Data.Models.Lookups
+@{
+    ViewData["Title"] = "Participation report";
+    var cancelled = Model.EventStatusId == EventStatusCode.Cancelled;
+    var statusCounts = new (RegistrationStatusCode Status, int Count)[]
+    {
+        (RegistrationStatusCode.Pending, Model.PendingCount),
+        (RegistrationStatusCode.Confirmed, Model.ConfirmedCount),
+        (RegistrationStatusCode.Waitlisted, Model.WaitlistedCount),
+        (RegistrationStatusCode.Cancelled, Model.CancelledCount)
+    };
+}
+
+<div class="page-heading">
+    <div>
+        <h1>Participation &amp; Attendance Report</h1>
+        <p class="muted">Per-event participation summary and breakdowns.</p>
+    </div>
+</div>
+
+<partial name="_EventSelector" model="Model.Selector" />
+
+@if (Model.EventId is null)
+{
+    <section class="empty-panel" aria-live="polite">
+        @if (Model.Selector.HasOptions)
+        {
+            <p>Choose Show to load the selected event&rsquo;s participation report.</p>
+        }
+        else
+        {
+            <p>No participation data is available yet.</p>
+        }
+    </section>
+}
+else
+{
+    <section class="section-head" aria-labelledby="report-event-heading">
+        <div>
+            <h2 id="report-event-heading">@Model.EventTitle</h2>
+            @if (Model.StartsAt is not null)
+            {
+                <p class="muted">Starts @ManilaTimeFormatter.Format(Model.StartsAt)</p>
+            }
+        </div>
+        <span class="badge @Model.EventStatusBadgeClass">@Model.EventStatusLabel</span>
+    </section>
+
+    <section class="report-summary" aria-label="Report summary">
+        <article class="panel">
+            <h2>Confirmed</h2>
+            <p class="numeric report-value">@Model.ConfirmedCount</p>
+        </article>
+        <article class="panel">
+            <h2>Valid attendees</h2>
+            <p class="numeric report-value">@Model.ValidAttendeeCount</p>
+        </article>
+        <article class="panel">
+            <h2>Attendance rate</h2>
+            @if (Model.AttendanceRate is null || cancelled)
+            {
+                <p class="numeric report-value">N/A</p>
+            }
+            else if (!Model.IsFinal)
+            {
+                <p class="report-value report-not-final">Not final</p>
+                <p class="field-hint">Final once the event is completed.</p>
+            }
+            else
+            {
+                <p class="numeric report-value">@((Model.AttendanceRate.Value * 100).ToString("0.#", CultureInfo.InvariantCulture))%</p>
+            }
+        </article>
+        <article class="panel">
+            <h2>No-shows</h2>
+            @if (cancelled)
+            {
+                <p class="report-value">—</p>
+            }
+            else if (!Model.IsFinal)
+            {
+                <p class="report-value report-not-final">Not final</p>
+                <p class="field-hint">Final once the event is completed.</p>
+            }
+            else
+            {
+                <p class="numeric report-value">@Model.NoShowCount</p>
+            }
+        </article>
+    </section>
+
+    <section class="report-status-counts" aria-label="Registration status counts">
+        @foreach (var item in statusCounts)
+        {
+            <div class="report-status-count">
+                <span class="badge @RegistrationStatusDisplay.BadgeClass(item.Status, false)">@RegistrationStatusDisplay.Label(item.Status, false)</span>
+                <span class="numeric">@item.Count</span>
+            </div>
+        }
+    </section>
+
+    <section class="panel" aria-labelledby="report-detail-heading">
+        <h2 id="report-detail-heading">Participants</h2>
+        @if (Model.Rows.Count == 0)
+        {
+            <p class="empty-state">No registrations for this event.</p>
+        }
+        else
+        {
+            <div class="table-scroll" role="region" aria-label="Participant details" tabindex="0">
+                <table class="data-table table-sticky-first">
+                    <thead>
+                        <tr>
+                            <th scope="col">Member</th>
+                            <th scope="col">Student number</th>
+                            <th scope="col">Course</th>
+                            <th scope="col">Year</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Attendance</th>
+                            <th scope="col">Check-in time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Model.Rows)
+                        {
+                            <tr data-registration-id="@row.RegistrationId">
+                                <td>@row.MemberName</td>
+                                <td class="numeric cell-identifier">@row.StudentNumber</td>
+                                <td>@row.Course</td>
+                                <td class="numeric">@row.YearLevel</td>
+                                <td><span class="badge @row.StatusBadgeClass">@row.StatusLabel</span></td>
+                                <td>
+                                    @if (string.IsNullOrEmpty(row.AttendanceBadgeClass))
+                                    {
+                                        <span class="muted">@row.AttendanceLabel</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge @row.AttendanceBadgeClass">@row.AttendanceLabel</span>
+                                    }
+                                </td>
+                                <td class="numeric cell-date">@(row.CheckedInAt is null ? "—" : ManilaTimeFormatter.Format(row.CheckedInAt.Value))</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <partial name="_Pager" model="Model" />
+            <partial name="_ResultCount" model="Model" />
+        }
+    </section>
+
+    <section class="report-breakdowns" aria-label="Attendee breakdowns">
+        <article class="panel">
+            <h2>By course</h2>
+            @if (Model.CourseBreakdown.Count == 0)
+            {
+                <p class="empty-state">No attendee data is available for this event.</p>
+            }
+            else
+            {
+                <ul class="report-breakdown">
+                    @foreach (var item in Model.CourseBreakdown)
+                    {
+                        <li>
+                            <span class="report-breakdown-label">@item.Label</span>
+                            <span class="report-breakdown-value numeric">@item.Count</span>
+                            <span class="report-breakdown-bar" aria-hidden="true">
+                                <span style="width: @(item.Percent.ToString(CultureInfo.InvariantCulture))%"></span>
+                            </span>
+                        </li>
+                    }
+                </ul>
+            }
+        </article>
+        <article class="panel">
+            <h2>By year level</h2>
+            @if (Model.YearBreakdown.Count == 0)
+            {
+                <p class="empty-state">No attendee data is available for this event.</p>
+            }
+            else
+            {
+                <ul class="report-breakdown">
+                    @foreach (var item in Model.YearBreakdown)
+                    {
+                        <li>
+                            <span class="report-breakdown-label">@item.Label</span>
+                            <span class="report-breakdown-value numeric">@item.Count</span>
+                            <span class="report-breakdown-bar" aria-hidden="true">
+                                <span style="width: @(item.Percent.ToString(CultureInfo.InvariantCulture))%"></span>
+                            </span>
+                        </li>
+                    }
+                </ul>
+            }
+        </article>
+    </section>
+}

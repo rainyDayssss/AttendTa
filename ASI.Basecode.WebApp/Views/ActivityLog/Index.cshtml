@@ -1,0 +1,52 @@
+@model PagedResult<ActivityLogItemViewModel>
+@using System
+@{
+    ViewData["Title"] = "Activity log";
+}
+
+<div class="page-heading">
+    <h1>Activity Log</h1>
+</div>
+
+<div class="table-scroll" role="region" aria-label="Activity log table" tabindex="0">
+    <table class="data-table table-sticky-first">
+        <caption>Activity log, newest entries first</caption>
+        <thead>
+            <tr>
+                <th scope="col">Occurred</th>
+                <th scope="col">Actor</th>
+                <th scope="col">Actor type</th>
+                <th scope="col">Action</th>
+                <th scope="col">Entity type</th>
+                <th scope="col">Entity ID</th>
+                <th scope="col">Reason</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model.Items.Count == 0)
+            {
+                <tr>
+                    <td colspan="7" class="empty-state">No activity has been recorded yet.</td>
+                </tr>
+            }
+            else
+            {
+                foreach (var log in Model.Items)
+                {
+                    <tr data-log-id="@log.LogId">
+                        <td class="numeric cell-date"><time datetime="@log.OccurredAt.ToString("O")">@ManilaTimeFormatter.Format(log.OccurredAt)</time></td>
+                        <td>@log.ActorName</td>
+                        <td>@log.ActorType</td>
+                        <td>@log.Action</td>
+                        <td>@log.EntityType</td>
+                        <td class="numeric">@log.EntityId</td>
+                        <td>@(string.IsNullOrWhiteSpace(log.Reason) ? "—" : log.Reason)</td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+<partial name="_Pager" model="Model" />
+<partial name="_ResultCount" model="Model" />

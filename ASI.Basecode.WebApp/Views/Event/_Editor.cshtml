@@ -1,0 +1,17 @@
+@model EventViewModel
+@{
+    var editing = Model.EventId > 0;
+}
+<form asp-action="@(editing ? "Edit" : "Create")" method="post" data-record-form>
+    <div asp-validation-summary="All" class="field-error" tabindex="-1" data-record-errors></div>
+    @if (editing)
+    {
+        <input asp-for="EventId" type="hidden" />
+        <input asp-for="EventStatusId" type="hidden" />
+    }
+    <partial name="_Form" model="Model" />
+    <footer class="record-dialog-actions">
+        <button type="button" class="button button-secondary" data-record-close>Cancel</button>
+        <button type="submit" class="button button-primary">@(editing ? "Save changes" : "Create draft event")</button>
+    </footer>
+</form>

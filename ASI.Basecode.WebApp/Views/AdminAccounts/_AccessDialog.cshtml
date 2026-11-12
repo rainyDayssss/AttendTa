@@ -1,0 +1,87 @@
+@model AccountAccessViewModel
+@{
+    var isBlocked = Model.IsActive && Model.IsLastActiveAdministrator;
+    var action = Model.IsActive ? "Deactivate" : "Reactivate";
+    var title = Model.IsActive ? "Deactivate account" : "Reactivate account";
+    var submitText = Model.IsActive ? "Deactivate account" : "Reactivate account";
+    var submittingText = Model.IsActive ? "Deactivating…" : "Reactivating…";
+    var rows = Model.AffectedRegistrations ?? Array.Empty<UpcomingRegistrationPreview>();
+}
+<dialog class="task-dialog access-dialog" aria-labelledby="account-access-title" aria-describedby="@(isBlocked ? "account-access-blocked" : "account-access-consequence")">
+    @if (isBlocked)
+    {
+        <div class="dialog-header">
+            <h2 id="account-access-title">@title</h2>
+            <button type="button" class="dialog-close" data-dialog-close aria-label="Close dialog">&times;</button>
+        </div>
+        <p class="access-dialog-blocked" id="account-access-blocked" role="alert">
+            This is the only active Administrator. Deactivating it would leave the console without an
+            Administrator, so the action is blocked. Assign the Administrator role to another account first.
+        </p>
+        <div class="dialog-actions">
+            <button type="button" class="button button-secondary" data-dialog-close>Close</button>
+        </div>
+    }
+    else
+    {
+        <form asp-controller="AdminAccounts" asp-action="@action" asp-route-id="@Model.AccountId" method="post">
+            <div class="dialog-header">
+                <h2 id="account-access-title">@title</h2>
+                <button type="button" class="dialog-close" data-dialog-close aria-label="Close dialog">&times;</button>
+            </div>
+            <p class="muted">
+                @Model.FullName &middot; @Model.Email &middot;
+                <span class="badge badge-@Model.RoleCode">@Model.RoleLabel</span>
+                <span class="badge @(Model.IsActive ? "badge-active" : "badge-inactive")">@(Model.IsActive ? "Active" : "Inactive")</span>
+            </p>
+            @if (Model.IsActive)
+            {
+                <p class="access-dialog-consequence" id="account-access-consequence">
+                    Deactivating this account ends its access. The linked member's membership status is not changed.
+                </p>
+                @if (rows.Count == 0)
+                {
+                    <p class="muted">No upcoming registrations will be cancelled.</p>
+                }
+                else
+                {
+                    <p class="muted">Deactivating this account cancels these registrations.</p>
+                    <ul class="access-dialog-list">
+                        @foreach (var row in rows)
+                        {
+                            <li data-registration-id="@row.RegistrationId">
+                                <strong>@row.EventTitle</strong>
+                                <span class="muted">@ManilaTimeFormatter.Format(row.StartsAt)</span>
+                            </li>
+                        }
+                    </ul>
+                }
+            }
+            else
+            {
+                <p class="access-dialog-consequence" id="account-access-consequence">
+                    Reactivating this account restores sign-in access only. The linked member's membership
+                    status is unchanged.
+                </p>
+            }
+            <div class="field">
+                <label for="account-access-reason">Reason<span class="required" aria-hidden="true">*</span></label>
+                <textarea id="account-access-reason"
+                          name="reason"
+                          rows="3"
+                          maxlength="1000"
+                          required
+                          class="field-control"
+                          aria-describedby="account-access-reason-hint"
+                          placeholder="Explain why access is changing"></textarea>
+                <span id="account-access-reason-hint" class="field-hint">Required. Recorded with the change.</span>
+            </div>
+            <div class="dialog-actions">
+                <button type="button" class="button button-secondary" data-dialog-close>Cancel</button>
+                <button type="submit"
+                        class="button @(Model.IsActive ? "button-danger" : "button-primary")"
+                        data-submitting-label="@submittingText">@submitText</button>
+            </div>
+        </form>
+    }
+</dialog>

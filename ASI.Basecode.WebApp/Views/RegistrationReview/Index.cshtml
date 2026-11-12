@@ -1,0 +1,89 @@
+@using ASI.Basecode.Data.Interfaces
+@using ASI.Basecode.Data.Models.Lookups
+@using ASI.Basecode.Services.ServiceModels
+@model PagedResult<RegistrationReviewRow>
+@{ ViewData["Title"] = "Registration review"; }
+
+<div class="page-heading">
+    <div>
+        <h1>Registration review</h1>
+    </div>
+</div>
+
+<div class="review-toolbar">
+    <form method="get" asp-action="Index" class="queue-filter">
+        <div class="field">
+            <label for="status">Status</label>
+            <select id="status" name="status">
+                @foreach (var value in Enum.GetValues<RegistrationStatusCode>())
+                {
+                    var code = value.ToString().ToLowerInvariant();
+                    <option value="@code" selected="@(string.Equals((string)ViewBag.Status, code, StringComparison.OrdinalIgnoreCase))">@code</option>
+                }
+            </select>
+        </div>
+        <button type="submit" class="button button-secondary">Filter</button>
+    </form>
+    @if (string.Equals((string)ViewBag.Status, "waitlisted", StringComparison.OrdinalIgnoreCase) && ViewBag.EventId != null && Model.Items.Any())
+    {
+        <form asp-action="Promote" method="post" class="inline-form">
+            <input type="hidden" name="eventId" value="@ViewBag.EventId" />
+            <input type="hidden" name="page" value="@Model.PageNumber" />
+            <button type="submit" class="button button-secondary">Promote next eligible participant</button>
+        </form>
+    }
+</div>
+
+@if (!Model.Items.Any())
+{
+    var statusFilter = (string)ViewBag.Status;
+    <div class="empty-panel">
+        <p>No @statusFilter registrations found.</p>
+        @if (!string.Equals(statusFilter, "pending", StringComparison.OrdinalIgnoreCase))
+        {
+            <p class="muted">Change the status filter or <a asp-action="Index">show pending registrations</a>.</p>
+        }
+        else
+        {
+            <p class="muted">New registrations appear here once members sign up for an event.</p>
+        }
+    </div>
+}
+else
+{
+    <div class="panel review-list">
+        @foreach (var row in Model.Items)
+        {
+            <article class="review-row" data-registration-id="@row.RegistrationId">
+                <div class="review-row-head">
+                    <h2 class="review-row-name">@row.MemberName — <a asp-controller="Event" asp-action="Details" asp-route-id="@row.EventId">@row.EventTitle</a></h2>
+                    <span class="badge @RegistrationStatusDisplay.BadgeClass(row.Status, false)">@row.Status</span>
+                </div>
+                <p class="review-row-meta">
+                    <span class="numeric">@row.StudentNumber</span>
+                    <span aria-hidden="true">·</span>
+                    <span class="numeric">@ManilaTimeFormatter.Format(row.SubmittedAt)</span>
+                </p>
+                <div class="review-actions">
+                    @if (row.Status == RegistrationStatusCode.Pending)
+                    {
+                        <form asp-action="Approve" method="post" class="review-form">
+                            <input type="hidden" name="id" value="@row.RegistrationId" /><input type="hidden" name="status" value="@ViewBag.Status" /><input type="hidden" name="eventId" value="@ViewBag.EventId" /><input type="hidden" name="page" value="@Model.PageNumber" /><button type="submit" class="button">Approve</button>
+                        </form>
+                        <form asp-action="Decline" method="post" class="review-form review-form-reason">
+                            <input type="hidden" name="id" value="@row.RegistrationId" /><input type="hidden" name="status" value="@ViewBag.Status" /><input type="hidden" name="eventId" value="@ViewBag.EventId" /><input type="hidden" name="page" value="@Model.PageNumber" /><label class="review-reason-label">Reason <input name="reason" required maxlength="500" placeholder="Reason for declining" class="review-reason" /></label><button type="submit" class="button button-quiet-danger">Decline</button>
+                        </form>
+                    }
+                    @if (row.Status == RegistrationStatusCode.Confirmed || row.Status == RegistrationStatusCode.Waitlisted)
+                    {
+                        <form asp-action="Cancel" method="post" class="review-form review-form-reason">
+                            <input type="hidden" name="id" value="@row.RegistrationId" /><input type="hidden" name="status" value="@ViewBag.Status" /><input type="hidden" name="eventId" value="@ViewBag.EventId" /><input type="hidden" name="page" value="@Model.PageNumber" /><label class="review-reason-label">Reason <input name="reason" required maxlength="500" placeholder="Reason for cancelling" class="review-reason" /></label><button type="submit" class="button button-quiet-danger">Cancel registration</button>
+                        </form>
+                    }
+                </div>
+            </article>
+        }
+    </div>
+    <partial name="_Pager" model="Model" />
+    <partial name="_ResultCount" model="Model" />
+}

@@ -1,0 +1,27 @@
+@model EventViewModel
+@using ASI.Basecode.Data.Models.Lookups
+@{
+    ViewData["Title"] = "Edit Event";
+}
+
+<div class="page-heading">
+    <div>
+        <h1>Edit event</h1>
+        <p>Status: @Model.StatusLabel.@(Model.EventStatusId == EventStatusCode.Published ? " Only title and description can be edited." : "")</p>
+    </div>
+</div>
+
+<form asp-action="Edit" method="post" class="form-panel">
+    <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
+    <input type="hidden" asp-for="EventId" />
+    <input type="hidden" asp-for="EventStatusId" />
+    <partial name="_Form" model="Model" />
+    <div class="form-actions">
+        <button type="submit" class="button button-primary">Save changes</button>
+        <a asp-action="Index" class="button button-secondary">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

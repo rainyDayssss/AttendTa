@@ -1,0 +1,108 @@
+@model PagedResult<EventViewModel>
+@using ASI.Basecode.Data.Models.Lookups
+@{
+    ViewData["Title"] = "Events";
+    ViewData["Feature"] = "record-dialog";
+}
+
+<div class="page-heading">
+    <h1>Event Management</h1>
+    <a asp-action="Create" class="button button-primary" data-record-open="create-event" data-record-title="Create draft event">Create draft event</a>
+</div>
+
+<div class="table-scroll" role="region" aria-label="Event table" tabindex="0">
+    <table class="data-table table-sticky">
+        <thead>
+            <tr>
+                <th scope="col">Title</th>
+                <th scope="col">Event type</th>
+                <th scope="col">Venue</th>
+                <th scope="col">Starts</th>
+                <th scope="col">Signup deadline</th>
+                <th scope="col">Participant limit</th>
+                <th scope="col">Status</th>
+                <th scope="col">Check-in</th>
+                <th scope="col" class="actions">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model.Items.Count == 0)
+            {
+                <tr>
+                    <td colspan="9" class="empty-state">No records found.</td>
+                </tr>
+            }
+            else
+            {
+                foreach (var eventItem in Model.Items)
+                {
+                    var checkInMeta = eventItem.IsCheckInOpen
+                        ? (eventItem.CheckInOpenedAt.HasValue && !string.IsNullOrWhiteSpace(eventItem.CheckInOpenedByName)
+                            ? $"Opened by {eventItem.CheckInOpenedByName} · {ManilaTimeFormatter.Format(eventItem.CheckInOpenedAt)}"
+                            : null)
+                        : (eventItem.CheckInClosedAt.HasValue && !string.IsNullOrWhiteSpace(eventItem.CheckInClosedByName)
+                            ? $"Closed by {eventItem.CheckInClosedByName} · {ManilaTimeFormatter.Format(eventItem.CheckInClosedAt)}"
+                            : null);
+                    <tr data-event-id="@eventItem.EventId">
+                        <td class="cell-title"><a asp-action="Details" asp-route-id="@eventItem.EventId">@eventItem.Title</a></td>
+                        <td>@eventItem.TypeName</td>
+                        <td>@eventItem.VenueName</td>
+                        <td class="numeric cell-date">@ManilaTimeFormatter.Format(eventItem.StartsAt)</td>
+                        <td class="numeric cell-date">@ManilaTimeFormatter.Format(eventItem.RegistrationDeadline)</td>
+                        <td class="numeric">@eventItem.ParticipantLimit</td>
+                        <td><span class="badge @EventStatusDisplay.BadgeClass(eventItem.EventStatusId)">@eventItem.StatusLabel</span></td>
+                        <td class="cell-checkin">
+                            <span class="badge @(eventItem.IsCheckInOpen ? "badge-checkin-open" : "badge-checkin-closed")" title="@checkInMeta">@(eventItem.IsCheckInOpen ? "Check-in open" : "Check-in closed")</span>
+                        </td>
+                        <td class="actions">
+                            <div class="row-actions">
+                                @if (eventItem.EventStatusId == EventStatusCode.Draft)
+                                {
+                                    <form asp-action="Publish" method="post" class="inline-form">
+                                        <input type="hidden" name="id" value="@eventItem.EventId" />
+                                        <button type="submit" class="button button-primary">Publish</button>
+                                    </form>
+                                }
+                                else if (eventItem.EventStatusId == EventStatusCode.Published)
+                                {
+                                    <a asp-action="Details" asp-route-id="@eventItem.EventId" class="button button-secondary">Manage event</a>
+                                }
+                                else
+                                {
+                                    <a asp-action="Details" asp-route-id="@eventItem.EventId" class="button button-secondary">View dossier</a>
+                                }
+                                <partial name="_RowMenuTrigger" model="@($"row-menu-event-{eventItem.EventId}")" />
+                            </div>
+                            <div id="row-menu-event-@eventItem.EventId" popover class="row-menu">
+                                @if (eventItem.EventStatusId == EventStatusCode.Published)
+                                {
+                                    <form asp-controller="Event" asp-action="@(eventItem.IsCheckInOpen ? "CloseCheckIn" : "OpenCheckIn")" method="post">
+                                        <input type="hidden" name="id" value="@eventItem.EventId" />
+                                        <button type="submit" class="button">@(eventItem.IsCheckInOpen ? "Close check-in" : "Open check-in")</button>
+                                    </form>
+                                }
+                                <a asp-action="Cover" asp-route-id="@eventItem.EventId">Cover</a>
+                                @if (eventItem.EventStatusId is EventStatusCode.Draft or EventStatusCode.Published)
+                                {
+                                    <a asp-action="Details" asp-route-id="@eventItem.EventId">View dossier</a>
+                                    <a asp-action="Edit" asp-route-id="@eventItem.EventId" data-record-open="edit-event-@eventItem.EventId" data-record-title="Edit event" data-record-subtitle="@eventItem.Title">Edit</a>
+                                    <div class="row-menu-danger">
+                                        <a asp-action="Cancel" asp-route-id="@eventItem.EventId">Cancel</a>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(checkInMeta))
+                                {
+                                    <p class="row-menu-meta">@checkInMeta</p>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+<partial name="_Pager" model="Model" />
+<partial name="_ResultCount" model="Model" />
+<partial name="_RecordDialog" />

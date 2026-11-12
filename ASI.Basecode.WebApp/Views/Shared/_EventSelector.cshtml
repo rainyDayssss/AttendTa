@@ -1,0 +1,20 @@
+@model EventSelectorViewModel
+@if (Model.HasOptions)
+{
+    <form method="get" action="@Model.FormAction" class="event-selector spacing-bottom">
+        @foreach (var hidden in Model.HiddenValues)
+        {
+            <input type="hidden" name="@hidden.Key" value="@hidden.Value" />
+        }
+        <div class="field">
+            <label for="event-selector" class="field-label">@Model.Label</label>
+            <select id="event-selector" name="@Model.Name" class="field-control">
+                @foreach (var option in Model.Options)
+                {
+                    <option value="@option.EventId" selected="@(option.EventId == Model.SelectedEventId)">@option.Title</option>
+                }
+            </select>
+        </div>
+        <button type="submit" class="button button-secondary">Show</button>
+    </form>
+}

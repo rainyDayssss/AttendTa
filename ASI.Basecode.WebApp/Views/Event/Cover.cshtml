@@ -1,0 +1,63 @@
+@model EventCoverViewModel
+@{
+    ViewData["Title"] = "Event Cover";
+}
+
+<div class="page-heading">
+    <div>
+        <h1>Event cover</h1>
+    </div>
+    <a asp-action="Index" class="button button-secondary">Back to events</a>
+</div>
+
+<section class="panel" aria-labelledby="cover-event-title">
+    <h2 id="cover-event-title">@Model.Title</h2>
+    <dl class="profile-details">
+        <div>
+            <dt>Status</dt>
+            <dd>@Model.StatusLabel</dd>
+        </div>
+    </dl>
+    @if (Model.HasCover)
+    {
+        <figure class="cover-figure">
+            <img class="cover-preview" src="@Url.Action("Image", "EventCover", new { id = Model.EventId })" alt="Cover for @Model.Title" />
+        </figure>
+    }
+    else
+    {
+        <p class="muted">No cover image has been uploaded.</p>
+    }
+</section>
+
+@if (Model.CanUpload)
+{
+    <section class="panel" aria-label="Upload cover">
+        <form asp-action="UploadCover" asp-route-id="@Model.EventId" method="post" enctype="multipart/form-data">
+            <div asp-validation-summary="All" class="validation-summary" role="alert"></div>
+            <div class="field">
+                <label for="cover" class="field-label">@(Model.HasCover ? "Replace cover image" : "Upload cover image")</label>
+                <input id="cover" name="cover" type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" class="field-control" />
+                <p class="muted">JPEG or PNG, maximum 2 MiB.</p>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="button button-primary">@(Model.HasCover ? "Replace cover" : "Upload cover")</button>
+            </div>
+        </form>
+    </section>
+}
+else
+{
+    <section class="panel">
+        <p class="muted">Completed and cancelled event covers are read-only.</p>
+    </section>
+}
+
+@if (Model.CanRemove)
+{
+    <section class="panel" aria-label="Remove cover">
+        <form asp-action="RemoveCover" asp-route-id="@Model.EventId" method="post">
+            <button type="submit" class="button button-secondary">Remove draft cover</button>
+        </form>
+    </section>
+}

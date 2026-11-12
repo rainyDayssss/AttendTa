@@ -1,0 +1,91 @@
+/* Door scanner surface: event session, mode keys, camera viewport, result variants and 390px. */
+@layer components {
+  .scanner-session-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .scanner-session-head h2 { margin: 0 0 4px; overflow-wrap: anywhere; }
+  .scanner-session-head .muted { margin: 0; }
+
+  .scanner-window { margin-top: 16px; padding: 24px; border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-surface); color: var(--color-ink); }
+  .scanner-window h2 { margin-top: 0; }
+
+  /* Mode keys use the same segmented vocabulary as the filter tabs. */
+  .scanner-modes {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 0 16px;
+    padding: 2px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+    background: var(--color-surface-subtle);
+  }
+  .scanner-mode {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 30px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--color-ink-muted);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .scanner-mode:hover { background: var(--color-surface); color: var(--color-ink); }
+  .scanner-mode[aria-selected="true"] { background: var(--color-cobalt-tint); color: var(--color-cobalt); font-weight: 600; }
+  .scanner-mode:focus-visible { outline: 2px solid var(--color-cobalt); outline-offset: -2px; }
+
+  .scanner-panel { min-width: 0; }
+  .scanner-viewport { display: grid; gap: 12px; min-height: 16rem; padding: 16px; border: 1px dashed var(--color-border-strong); border-radius: var(--radius-control); background: var(--color-surface-subtle); }
+  .scanner-video { display: block; width: 100%; max-height: 22rem; border-radius: var(--radius-control); background: var(--color-surface-subtle); object-fit: cover; }
+  .scanner-camera-note { margin: 0; color: var(--color-ink-muted); font-size: 13px; overflow-wrap: anywhere; }
+  .scanner-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+
+  .scanner-code-form, .scanner-lookup-form { display: grid; gap: 12px; max-width: 32rem; }
+  .scanner-code-form .field, .scanner-lookup-form .field { margin: 0; }
+  .scanner-code-form .button, .scanner-lookup-form .button { justify-self: start; }
+  .scanner-window .field label { color: var(--color-ink-secondary); }
+  .scanner-window .field-hint { color: var(--color-ink-muted); }
+  .scanner-window .scanner-panel > .muted,
+  .scanner-window .scanner-panel > .empty-state { color: var(--color-ink-muted); }
+  .scanner-window .scanner-panel .table-scroll { margin-top: 16px; }
+  .scanner-window .scanner-panel .data-table { color: var(--color-ink-secondary); }
+  .scanner-window .scanner-panel .table-scroll .muted { color: var(--color-ink-muted); }
+
+  .check-in-meta { display: block; flex-basis: 100%; margin: 0; color: var(--color-ink-muted); font-size: 12px; }
+
+  /* The outcome is a bordered callout. State is carried by the tint, the border and the heading. */
+  .scanner-result { margin-top: 16px; }
+  .scanner-result:empty { display: none; }
+  .scanner-outcome { padding: 16px; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface-subtle); }
+  .scanner-outcome h3 { margin: 0 0 4px; color: var(--color-ink); font-size: 13.5px; }
+  .scanner-outcome p { margin: 2px 0 0; color: var(--color-ink-secondary); overflow-wrap: anywhere; }
+  .scanner-outcome .scanner-outcome-name { color: var(--color-ink); font-weight: 600; }
+  .scanner-outcome .scanner-outcome-meta { color: var(--color-ink-muted); font-size: 12.5px; }
+  .scanner-outcome-success { border-color: var(--color-confirmed); background: var(--color-confirmed-tint); }
+  .scanner-outcome-repeat { border-color: var(--color-pending); background: var(--color-pending-tint); }
+  .scanner-outcome-invalid { border-color: var(--color-declined); background: var(--color-declined-tint); }
+  .scanner-outcome-closed, .scanner-outcome-camera-unavailable { border-color: var(--color-border-strong); background: var(--color-neutral-tint); }
+
+  @media (pointer: coarse) {
+    .scanner-mode,
+    .scanner-actions .button,
+    .scanner-code-form .button,
+    .scanner-lookup-form .button { min-height: 56px; }
+  }
+
+  @media (max-width: 640px) {
+    .scanner-session-head { flex-direction: column; align-items: stretch; }
+    .scanner-window { padding: 16px; }
+    .scanner-modes { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; }
+    .scanner-mode { width: 100%; }
+    .scanner-viewport { min-height: 12rem; }
+    .scanner-code-form .button,
+    .scanner-lookup-form .button { width: 100%; justify-self: stretch; }
+  }
+}

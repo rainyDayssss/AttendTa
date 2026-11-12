@@ -1,0 +1,15 @@
+@model EventTypeViewModel
+
+<fieldset>
+    <legend>Classification details</legend>
+    <div class="field">
+        <label asp-for="TypeName" class="field-label">Type name <span class="required" aria-hidden="true">*</span></label>
+        <input asp-for="TypeName" aria-describedby="TypeName-validation" class="field-control" required aria-required="true" placeholder="e.g. Seminar" />
+        <span id="TypeName-validation" asp-validation-for="TypeName" class="field-error"></span>
+    </div>
+    <div class="field">
+        <label asp-for="Description" class="field-label">Description <span class="required" aria-hidden="true">*</span></label>
+        <textarea asp-for="Description" aria-describedby="Description-validation" class="field-control" rows="3" required aria-required="true" placeholder="What this classification covers"></textarea>
+        <span id="Description-validation" asp-validation-for="Description" class="field-error"></span>
+    </div>
+</fieldset>

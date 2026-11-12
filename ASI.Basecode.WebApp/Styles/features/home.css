@@ -1,0 +1,44 @@
+/* Home: role-aware destinations as hairline rows in a section panel, never a card grid. */
+@layer components {
+  .home-section + .home-section { margin-top: 24px; }
+
+  .home-section .section-head { margin-bottom: 12px; }
+
+  /* The panel is the ground; the rows carry the structure. */
+  .panel.dest-panel { padding: 0; overflow: hidden; }
+
+  .dest-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 2px 16px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--color-border);
+    color: var(--color-ink);
+    text-decoration: none;
+  }
+
+  .dest-row:first-child { border-top: 0; }
+
+  .dest-row:hover {
+    background: var(--color-surface-subtle);
+    color: var(--color-ink);
+    text-decoration: none;
+  }
+
+  .dest-row:focus-visible { outline: 2px solid var(--color-cobalt); outline-offset: -2px; }
+
+  .dest-name { grid-column: 1; font-size: 13.5px; font-weight: 600; line-height: 1.35; }
+
+  .dest-desc { grid-column: 1; margin: 0; color: var(--color-ink-muted); font-size: 12.5px; line-height: 1.4; }
+
+  .dest-arrow { grid-column: 2; grid-row: 1 / span 2; color: var(--color-ink-faint); }
+
+  .dest-arrow svg { display: block; }
+
+  .dest-row:hover .dest-arrow { color: var(--color-cobalt); }
+
+  @media (pointer: coarse) {
+    .dest-row { min-height: 44px; padding: 14px 16px; }
+  }
+}

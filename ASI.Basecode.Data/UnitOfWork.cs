@@ -1,43 +1,89 @@
-﻿using System;
+using System;
+using System.Linq;
+using System.Runtime.ExceptionServices;
+using System.Threading;
+using System.Threading.Tasks;
 using ASI.Basecode.Data.Interfaces;
+using ASI.Basecode.Data.Models;
+using ASI.Basecode.Resources;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
-namespace ASI.Basecode.Data
+namespace ASI.Basecode.Data;
+
+public class UnitOfWork : IUnitOfWork, IDisposable
 {
+    public DbContext Database { get; }
+    private int depth;
+    private ExceptionDispatchInfo failure;
 
-    /// <summary>
-    /// Unit of Work Implementation
-    /// </summary>
-    public class UnitOfWork : IUnitOfWork, IDisposable
+    public UnitOfWork(AsiBasecodeDBContext serviceContext) => Database = serviceContext;
+
+    private Exception Translate(Exception exception)
     {
-        /// <summary>
-        /// Gets the database context
-        /// </summary>
-        public DbContext Database { get; private set; }
+        for (var e = exception; e != null; e = e.InnerException)
+            if (e is SqlException sql && (sql.Number == 2601 || sql.Number == 2627))
+            {
+                var studentNumberUpdate = Database.ChangeTracker.Entries<Member>().Any(entry =>
+                    entry.State == EntityState.Modified && entry.Property(member => member.StudentNumber).IsModified);
+                return studentNumberUpdate
+                    ? new DomainException(OutcomeCode.Duplicate, "Student number already exists.", nameof(Member.StudentNumber))
+                    : new DomainException(OutcomeCode.Duplicate, "A record with these values already exists.");
+            }
+        return exception;
+    }
 
-        /// <summary>
-        /// Initializes a new instance of the UnitOfWork class.
-        /// </summary>
-        /// <param name="serviceContext">The service context.</param>
-        public UnitOfWork(AsiBasecodeDBContext serviceContext)
+    public void SaveChanges()
+    {
+        try { Database.SaveChanges(); }
+        catch (Exception e) { var translated = Translate(e); if (translated == e) throw; throw translated; }
+    }
+
+    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        try { return await Database.SaveChangesAsync(cancellationToken); }
+        catch (Exception e) { var translated = Translate(e); if (translated == e) throw; throw translated; }
+    }
+
+    public Task ExecuteInTransactionAsync(Func<CancellationToken, Task> work, CancellationToken cancellationToken = default) =>
+        ExecuteInTransactionAsync<object>(async ct => { await work(ct); return null; }, cancellationToken);
+
+    public async Task<T> ExecuteInTransactionAsync<T>(Func<CancellationToken, Task<T>> work, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(work);
+        var outer = depth == 0;
+        var owned = outer && Database.Database.CurrentTransaction == null;
+        if (outer) failure = null;
+        var transaction = Database.Database.CurrentTransaction;
+        if (owned) transaction = await Database.Database.BeginTransactionAsync(cancellationToken);
+        depth++;
+        try
         {
-            Database = serviceContext;
+            var result = await work(cancellationToken);
+            failure?.Throw();
+            if (owned) await transaction.CommitAsync(cancellationToken);
+            return result;
         }
-
-        /// <summary>
-        /// Saves the changes to database
-        /// </summary>
-        public void SaveChanges()
+        catch (Exception e)
         {
-            Database.SaveChanges();
+            var translated = Translate(e);
+            failure ??= ExceptionDispatchInfo.Capture(translated);
+            if (outer || !owned && depth > 1)
+            {
+                try { if (Database.Database.CurrentTransaction != null) await transaction.RollbackAsync(CancellationToken.None); }
+                catch { /* Preserve the original failure. */ }
+                Database.ChangeTracker.Clear();
+            }
+            failure.Throw();
+            throw;
         }
-
-        /// <summary>
-        /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
-        /// </summary>
-        public void Dispose()
+        finally
         {
-            Database.Dispose();
+            depth--;
+            if (owned) await transaction.DisposeAsync();
+            if (outer) failure = null;
         }
     }
+
+    public void Dispose() => Database.Dispose();
 }

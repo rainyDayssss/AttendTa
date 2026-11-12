@@ -5,7 +5,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Filters;
-using ASI.Basecode.Data;
 
 namespace ASI.Basecode.WebApp
 {
@@ -20,7 +19,7 @@ namespace ASI.Basecode.WebApp
             var loggerFactory = this._app.ApplicationServices.GetService<ILoggerFactory>();
 
             var logDir = Path.Combine(
-                PathManager.DirectoryPath.ApplicationLogsDirectory(this._environment.ApplicationName),
+                Configuration.GetSetupRootDirectoryPath(), "logs",
                 System.DateTime.Today.ToString("yyyyMM"));
 
             var defaultLogLevel = Configuration.GetLoggingLogLevel();
@@ -31,28 +30,32 @@ namespace ASI.Basecode.WebApp
                             .MinimumLevel.Is(logEventLevel)
                             .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", Serilog.Events.LogEventLevel.Warning)
                             .Enrich.FromLogContext()
-                            .WriteTo.File(logDir + "\\.txt",
+                            .WriteTo.File(Path.Combine(logDir, "log-.txt"),
+                                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [{CorrelationId}] {Message:lj}{NewLine}{Exception}",
                                 rollingInterval: RollingInterval.Day,
                                 fileSizeLimitBytes: logFileSize,
                                 rollOnFileSizeLimit: true,
                                 retainedFileCountLimit: retained)
                             .WriteTo.Logger(lc => lc
                                             .Filter.ByIncludingOnly(le => le.Level == Serilog.Events.LogEventLevel.Debug)
-                                            .WriteTo.File(logDir + "\\Debug_.txt",
+                                            .WriteTo.File(Path.Combine(logDir, "Debug_.txt"),
+                                                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [{CorrelationId}] {Message:lj}{NewLine}{Exception}",
                                                 rollingInterval: RollingInterval.Day,
                                                 fileSizeLimitBytes: logFileSize,
                                                 rollOnFileSizeLimit: true,
                                                 retainedFileCountLimit: retained))
                             .WriteTo.Logger(lc => lc
                                             .Filter.ByIncludingOnly(le => le.Level == Serilog.Events.LogEventLevel.Warning)
-                                            .WriteTo.File(logDir + "\\Warning_.txt",
+                                            .WriteTo.File(Path.Combine(logDir, "Warning_.txt"),
+                                                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [{CorrelationId}] {Message:lj}{NewLine}{Exception}",
                                                 rollingInterval: RollingInterval.Day,
                                                 fileSizeLimitBytes: logFileSize,
                                                 rollOnFileSizeLimit: true,
                                                 retainedFileCountLimit: retained))
                             .WriteTo.Logger(lc => lc
                                             .Filter.ByIncludingOnly(le => le.Level == Serilog.Events.LogEventLevel.Error)
-                                            .WriteTo.File(logDir + "\\Error_.txt",
+                                            .WriteTo.File(Path.Combine(logDir, "Error_.txt"),
+                                                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [{CorrelationId}] {Message:lj}{NewLine}{Exception}",
                                                 rollingInterval: RollingInterval.Day,
                                                 fileSizeLimitBytes: logFileSize,
                                                 rollOnFileSizeLimit: true,
@@ -60,9 +63,9 @@ namespace ASI.Basecode.WebApp
                             .WriteTo.Logger(lc => lc
                                             .MinimumLevel.Debug()
                                             .Filter.ByIncludingOnly(Matching.FromSource<ServiceBase>())
-                                            .WriteTo.File(logDir + "\\Services_.txt",
+                                            .WriteTo.File(Path.Combine(logDir, "Services_.txt"),
                                                 restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Verbose,
-                                                outputTemplate: "{Message}{NewLine}{Exception}",
+                                                outputTemplate: "[{CorrelationId}] {Message}{NewLine}{Exception}",
                                                 rollingInterval: RollingInterval.Day,
                                                 fileSizeLimitBytes: logFileSize,
                                                 rollOnFileSizeLimit: true,

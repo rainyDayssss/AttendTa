@@ -1,0 +1,14 @@
+/* Shared loading feedback for the Member, Event Type and Venue lists. */
+@layer components {
+  /* Keep one compact live line: loading remains announced without a second blank gap. */
+  [data-list-status] {
+    display: block;
+    min-height: 16px;
+    margin: 0;
+    color: var(--color-ink-muted);
+    font-size: 12px;
+    line-height: 16px;
+  }
+  /* Signal busy with an outline, not opacity, so text contrast is unchanged. */
+  [data-list-region][aria-busy="true"] { outline: 2px solid var(--color-cobalt); outline-offset: -2px; }
+}

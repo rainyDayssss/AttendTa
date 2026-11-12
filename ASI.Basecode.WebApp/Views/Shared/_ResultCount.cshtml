@@ -1,0 +1,9 @@
+@model IPagedResult
+@{
+    var noun = ViewData["ResultNoun"] as string ?? "record";
+}
+
+@if (Model.TotalCount > 0)
+{
+    <p class="muted result-count">Showing @Model.FirstItemNumber–@Model.LastItemNumber of @Model.TotalCount @(Model.TotalCount == 1 ? noun : noun + "s").</p>
+}

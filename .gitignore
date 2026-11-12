@@ -197,3 +197,37 @@ $RECYCLE.BIN/
 node_modules
 */src/*/Scripts/**/*.js
 */src/*/Scripts/**/*.js.map
+
+# Local documentation
+docs-local/
+
+# Hotspot certificate output (private keys and PFX files)
+hotspot-certificates/
+
+__pycache__/
+
+# =========================
+# AttendTa private storage and secrets
+# =========================
+# Private file store areas. The setup root lives outside the repository, but a stray
+# local run can create these at the repo root; root-anchored so the tracked
+# ASI.Basecode.WebApp/Certificates source folder is unaffected.
+/uploads/
+/keys/
+/certificates/
+
+# Key material and certificates
+*.cer
+*.crt
+*.key
+*.pem
+*.p12
+
+# Local database and backup artifacts
+*.bak
+*.sqlite
+*.db
+
+# Local environment overrides
+.env
+appsettings.*.local.json

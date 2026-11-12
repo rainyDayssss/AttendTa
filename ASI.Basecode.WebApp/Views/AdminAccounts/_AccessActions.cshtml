@@ -1,0 +1,10 @@
+@model AccountAccessViewModel
+@{
+    var actionLabel = Model.IsActive ? "Deactivate account" : "Reactivate account";
+    var actionText = Model.IsActive ? "Deactivate" : "Reactivate";
+}
+<button type="button"
+        class="button button-secondary"
+        data-access-dialog="@Url.Action("Access", "AdminAccounts", new { id = Model.AccountId })"
+        aria-haspopup="dialog"
+        aria-label="@actionLabel">@actionText</button>

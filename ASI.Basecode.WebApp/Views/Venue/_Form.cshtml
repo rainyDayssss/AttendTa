@@ -1,0 +1,80 @@
+@model VenueViewModel
+@using System.Globalization
+@{
+    var photoRequired = ViewData["PhotoRequired"] is true;
+    var photoReselect = ViewData["PhotoReselect"] is true;
+    var photoDescribedBy = photoReselect ? "photo-help photo-reselect photo-validation" : "photo-help photo-validation";
+    var hasPhoto = !string.IsNullOrWhiteSpace(Model.ImagePath);
+
+    // A rejected save keeps exactly what the officer typed; a fresh form stays empty instead of
+    // showing the int sentinel.
+    var capacityAttempt = ViewData.ModelState.TryGetValue(nameof(VenueViewModel.Capacity), out var capacityEntry)
+        ? capacityEntry.AttemptedValue
+        : null;
+    var capacityValue = capacityAttempt
+        ?? (Model.Capacity > 0 ? Model.Capacity.ToString(CultureInfo.InvariantCulture) : string.Empty);
+    var capacityInvalid = ViewData.ModelState.TryGetValue(nameof(VenueViewModel.Capacity), out var capacityState)
+        && capacityState.Errors.Count > 0;
+}
+
+<fieldset>
+    <legend>Facility details</legend>
+    <div class="record-form-grid">
+        <div class="field field-span-2">
+            <label asp-for="RoomName" class="field-label">Room name <span class="required" aria-hidden="true">*</span></label>
+            <input asp-for="RoomName" aria-describedby="RoomName-validation" class="field-control" required aria-required="true" placeholder="e.g. University Auditorium" />
+            <span id="RoomName-validation" asp-validation-for="RoomName" class="field-error"></span>
+        </div>
+        <div class="field">
+            <label asp-for="Capacity" class="field-label">Capacity <span class="required" aria-hidden="true">*</span></label>
+            <input asp-for="Capacity" aria-describedby="Capacity-validation" type="number" min="1" value="@capacityValue" aria-invalid="@(capacityInvalid ? "true" : null)" class="field-control" required aria-required="true" placeholder="e.g. 400" />
+            <span id="Capacity-validation" asp-validation-for="Capacity" class="field-error"></span>
+        </div>
+        <div class="field">
+            <label asp-for="Location" class="field-label">Location</label>
+            <input asp-for="Location" aria-describedby="Location-validation" class="field-control" placeholder="e.g. Main Campus, Second Floor" />
+            <span id="Location-validation" asp-validation-for="Location" class="field-error"></span>
+        </div>
+    </div>
+</fieldset>
+
+<fieldset>
+    <legend>Availability</legend>
+    <div class="record-form-grid">
+        <div class="field field-span-2">
+            <label asp-for="AvailabilityNotes" class="field-label">Availability notes</label>
+            <textarea asp-for="AvailabilityNotes" aria-describedby="AvailabilityNotes-validation" class="field-control" rows="3" placeholder="When the venue is available and any booking conditions"></textarea>
+            <span id="AvailabilityNotes-validation" asp-validation-for="AvailabilityNotes" class="field-error"></span>
+        </div>
+        <div class="field field-span-2">
+            <label asp-for="ContactPerson" class="field-label">Contact person</label>
+            <input asp-for="ContactPerson" aria-describedby="ContactPerson-validation" class="field-control" placeholder="e.g. Campus Facilities Office" />
+            <span id="ContactPerson-validation" asp-validation-for="ContactPerson" class="field-error"></span>
+        </div>
+    </div>
+</fieldset>
+
+<fieldset>
+    <legend>Photo</legend>
+    <div class="record-form-grid">
+        @if (hasPhoto)
+        {
+            <div class="field">
+                <p class="field-label">Current photo</p>
+                <a asp-action="Photo" asp-route-id="@Model.VenueId" target="_blank" rel="noopener">
+                    <img src="@Url.Action("Photo", new { id = Model.VenueId })" alt="Current venue photo" width="260" height="146" class="venue-photo" />
+                </a>
+            </div>
+        }
+        <div class="field @(hasPhoto ? null : "field-span-2")">
+            <label for="photo" class="field-label">Venue photo @if (photoRequired) { <span class="required" aria-hidden="true">*</span> }</label>
+            <input id="photo" name="photo" aria-describedby="@photoDescribedBy" type="file" accept="image/png,image/jpeg" class="field-control" required="@(photoRequired ? "required" : null)" />
+            <small id="photo-help" class="muted">@(photoRequired ? "A JPEG or PNG photo up to 2 MiB is required when creating a venue." : "Select a new JPEG or PNG photo up to 2 MiB to replace the current one.")</small>
+            @if (photoReselect)
+            {
+                <small id="photo-reselect" class="field-hint" data-photo-reselect>Choose the photo again to replace the current photo; the previous selection was not kept after the failed save.</small>
+            }
+            @Html.ValidationMessage("photo", null, new { id = "photo-validation", @class = "field-error" })
+        </div>
+    </div>
+</fieldset>

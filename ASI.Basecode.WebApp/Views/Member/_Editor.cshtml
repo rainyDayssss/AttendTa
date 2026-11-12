@@ -1,0 +1,14 @@
+@model MemberViewModel
+<form asp-action="Edit" method="post" data-record-form>
+    <div asp-validation-summary="All" class="field-error" tabindex="-1" data-record-errors></div>
+    <input type="hidden" asp-for="MemberId" />
+    <div class="field">
+        <label asp-for="Email" class="field-label">Email</label>
+        <input asp-for="Email" class="field-control" readonly aria-readonly="true" />
+    </div>
+    <partial name="_Form" model="Model" />
+    <footer class="record-dialog-actions">
+        <button type="button" class="button button-secondary" data-record-close>Cancel</button>
+        <button type="submit" class="button button-primary">Save changes</button>
+    </footer>
+</form>

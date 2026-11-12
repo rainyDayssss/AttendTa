@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
+using ASI.Basecode.Data.Models.Lookups;
 
 namespace ASI.Basecode.Data.Models
 {
@@ -12,6 +12,10 @@ namespace ASI.Basecode.Data.Models
         public string CreatedBy { get; set; }
         public DateTime CreatedTime { get; set; }
         public string UpdatedBy { get; set; }
-        public DateTime UpdatedTime { get; set; }
+        public DateTime? UpdatedTime { get; set; }
+        public RoleCode RoleId { get; set; }
+        public bool IsActive { get; set; }
+        public int? CreatedById { get; set; }
+        public int? UpdatedById { get; set; }
     }
 }

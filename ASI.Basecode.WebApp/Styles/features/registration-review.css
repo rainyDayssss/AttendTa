@@ -1,0 +1,58 @@
+/* Registration review queue: filter bar, hairline decision rows and their inline reason forms. */
+@layer components {
+  .review-toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; margin-bottom: 16px; }
+  .review-toolbar .queue-filter { margin: 0; }
+  .review-toolbar .field { margin: 0; min-width: min(100%, 14rem); }
+
+  /* The panel is the ground; each registration is one hairline row. */
+  .panel.review-list { padding: 0; }
+  .review-row { display: grid; gap: 8px; padding: 16px 20px; border-top: 1px solid var(--color-border); }
+  .review-row:first-child { border-top: 0; }
+  .review-row-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+  .review-row-name { margin: 0; font-size: 13.5px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+  .review-row-name a { color: var(--color-cobalt); text-decoration: none; }
+  .review-row-name a:hover { color: var(--color-cobalt-deep); text-decoration: underline; }
+  .review-row-meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; color: var(--color-ink-muted); font-size: 12.5px; }
+
+  /* Decisions read as text links so a queue of rows never becomes a wall of fills. */
+  .review-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 20px; }
+  .review-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin: 0; }
+  .review-form .button { min-height: 24px; padding: 0; border: 0; background: transparent; color: var(--color-cobalt); font-size: 12.5px; font-weight: 600; }
+  .review-form .button:hover { background: transparent; color: var(--color-cobalt-deep); text-decoration: underline; }
+  .review-form .button.button-quiet-danger { color: var(--color-ink-secondary); }
+  .review-form .button.button-quiet-danger:hover { color: var(--color-declined); }
+
+  .review-reason-label {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    color: var(--color-ink-muted);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .review-reason {
+    width: min(100%, 16rem);
+    min-height: 32px;
+    padding: 5px 8px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-control);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .review-reason:focus-visible { outline: 2px solid var(--color-cobalt); outline-offset: 2px; }
+
+  @media (max-width: 640px) {
+    .review-row { padding: 16px; }
+    .review-form,
+    .review-form-reason { width: 100%; }
+    .review-reason { width: 100%; }
+  }
+}

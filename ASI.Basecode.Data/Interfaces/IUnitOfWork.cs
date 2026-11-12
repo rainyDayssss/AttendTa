@@ -1,4 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ASI.Basecode.Data.Interfaces
 {
@@ -18,5 +21,8 @@ namespace ASI.Basecode.Data.Interfaces
         /// Saves the changes to database
         /// </summary>
         void SaveChanges();
+        Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+        Task ExecuteInTransactionAsync(Func<CancellationToken, Task> work, CancellationToken cancellationToken = default);
+        Task<T> ExecuteInTransactionAsync<T>(Func<CancellationToken, Task<T>> work, CancellationToken cancellationToken = default);
     }
 }

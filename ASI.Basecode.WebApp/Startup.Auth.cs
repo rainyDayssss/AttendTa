@@ -1,64 +1,91 @@
-﻿using ASI.Basecode.WebApp.Authentication;
-using ASI.Basecode.WebApp.Extensions.Configuration;
+using System;
+using System.Security.Claims;
+using System.Threading.Tasks;
 using ASI.Basecode.Resources.Constants;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+using ASI.Basecode.Services.Interfaces;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.AspNetCore.Mvc.Authorization;
 
 namespace ASI.Basecode.WebApp
 {
     // Authorization configuration
     internal partial class StartupConfigurer
     {
-        private readonly SymmetricSecurityKey _signingKey;
-        private readonly TokenValidationParameters _tokenValidationParameters;
-        private readonly TokenProviderOptions _tokenProviderOptions;
-
         /// <summary>
-        /// Configure authorization
+        /// Configure cookie authentication and the named authorization policies.
         /// </summary>
         private void ConfigureAuthorization()
         {
-            var token = Configuration.GetTokenAuthentication();
-            var tokenProviderOptionsFactory = this._services.BuildServiceProvider().GetService<TokenProviderOptionsFactory>();
-            var tokenValidationParametersFactory = this._services.BuildServiceProvider().GetService<TokenValidationParametersFactory>();
-            var tokenValidationParameters = tokenValidationParametersFactory.Create();
-
-            this._services.AddAuthentication(Const.AuthenticationScheme)
-            .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
-            {
-                options.TokenValidationParameters = tokenValidationParameters;
-            })
-            .AddCookie(Const.AuthenticationScheme, options =>
-            {
-                options.Cookie = new CookieBuilder()
+            this._services
+                .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+                .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
                 {
-                    IsEssential = true,
-                    SameSite = SameSiteMode.Lax,
-                    SecurePolicy = CookieSecurePolicy.SameAsRequest,
-                    Name = $"{this._environment.ApplicationName}_{token.CookieName}"
-                };
-                options.LoginPath = new PathString("/Account/Login");
-                options.AccessDeniedPath = new PathString("/html/Forbidden.html");
-                options.ReturnUrlParameter = "ReturnUrl";
-                options.TicketDataFormat = new CustomJwtDataFormat(SecurityAlgorithms.HmacSha256, _tokenValidationParameters, Configuration, tokenProviderOptionsFactory);
-            });
+                    options.Cookie.Name = AuthCookie.Name;
+                    options.Cookie.HttpOnly = true;
+                    options.Cookie.IsEssential = true;
+                    options.Cookie.SameSite = SameSiteMode.Lax;
+                    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+                    options.ExpireTimeSpan = TimeSpan.FromHours(AuthCookie.LifetimeHours);
+                    options.SlidingExpiration = false;
+                    options.LoginPath = new PathString("/Account/Login");
+                    options.AccessDeniedPath = new PathString("/Account/AccessDenied");
+                    options.ReturnUrlParameter = "ReturnUrl";
+                    options.Events = new CookieAuthenticationEvents
+                    {
+                        OnValidatePrincipal = ValidatePrincipalAsync
+                    };
+                });
+
+            this._services.AddAntiforgery(options => options.HeaderName = "RequestVerificationToken");
 
             this._services.AddAuthorization(options =>
             {
-                options.AddPolicy("RequireAuthenticatedUser", policy =>
-                {
-                    policy.RequireAuthenticatedUser();
-                });
-            });
+                options.FallbackPolicy = new AuthorizationPolicyBuilder()
+                    .RequireAuthenticatedUser()
+                    .Build();
 
-            this._services.AddMvc(options =>
-            {
-                options.Filters.Add(new AuthorizeFilter("RequireAuthenticatedUser"));
+                options.AddPolicy(Policies.Management, policy =>
+                    policy.RequireRole(RoleCodes.Admin, RoleCodes.Officer));
+
+                options.AddPolicy(Policies.Administrator, policy =>
+                    policy.RequireRole(RoleCodes.Admin));
+
+                options.AddPolicy(Policies.Member, policy =>
+                    policy.RequireRole(RoleCodes.Member));
             });
+        }
+
+        /// <summary>
+        /// Reloads the account on every request and rejects an inactive or role-changed session.
+        /// </summary>
+        private static async Task ValidatePrincipalAsync(CookieValidatePrincipalContext context)
+        {
+            var principal = context.Principal;
+            var userIdClaim = principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var roleClaim = principal?.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (!int.TryParse(userIdClaim, out var userId) || string.IsNullOrWhiteSpace(roleClaim))
+            {
+                await RejectPrincipalAsync(context);
+                return;
+            }
+
+            var accountService = context.HttpContext.RequestServices.GetRequiredService<IAccountService>();
+            var currentUser = await accountService.GetActiveUserAsync(userId, context.HttpContext.RequestAborted);
+
+            if (currentUser is null || !string.Equals(currentUser.RoleCode, roleClaim, StringComparison.Ordinal))
+            {
+                await RejectPrincipalAsync(context);
+            }
+        }
+
+        private static async Task RejectPrincipalAsync(CookieValidatePrincipalContext context)
+        {
+            context.RejectPrincipal();
+            await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         }
     }
 }

@@ -1,0 +1,16 @@
+@model string
+@{
+    var name = User.Identity?.Name ?? string.Empty;
+    var initials = string.Concat(name
+        .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+        .Take(2)
+        .Select(part => char.ToUpperInvariant(part[0])));
+    if (string.IsNullOrEmpty(initials)) initials = "?";
+}
+<span class="account-identity">
+    <span class="account-avatar" aria-hidden="true">@initials</span>
+    <span class="account-name">
+        <span class="account-name-text">@name</span>
+        <span class="role-tag">@Model</span>
+    </span>
+</span>
