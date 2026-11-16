@@ -225,6 +225,21 @@ public sealed class EventCoverServiceTests
         Assert.Equal(0, cleanup.CommitCount);
     }
 
+    [Fact]
+    public async Task UploadCommitOutcomeIsUncertainSoStagedFileIsKept()
+    {
+        var harness = new Harness(EventStatusCode.Published, OldCover) { UnitOfWork = { FailCommit = true } };
+
+        await Assert.ThrowsAsync<IOException>(() =>
+            harness.Service.UploadCoverAsync(15, new MemoryStream(ImageBytes()), ".jpg", TestContext.Current.CancellationToken));
+
+        Assert.Empty(harness.Files.DeleteAttempts);
+        Assert.Contains(OldCover, harness.Files.StoredPaths);
+        var staged = Assert.Single(harness.Files.Saves);
+        Assert.Contains(staged.Path, harness.Files.StoredPaths);
+        Assert.Equal(2, harness.Files.StoredPaths.Count);
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]

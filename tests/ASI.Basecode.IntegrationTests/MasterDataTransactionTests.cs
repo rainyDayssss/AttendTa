@@ -408,8 +408,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
             NullLoggerFactory.Instance,
             new ConfigurationBuilder().Build(),
             Mapper,
-            new RefusingVenueService(),
-            storage)
+            new RefusingVenueService())
         {
             ControllerContext = new ControllerContext { HttpContext = httpContext },
             TempData = new TempDataDictionary(httpContext, new NullTempDataProvider())
@@ -447,6 +446,11 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
             Task.FromResult(new PagedResult<VenueViewModel>(Array.Empty<VenueViewModel>(), 1, 0));
 
         public VenueViewModel GetVenue(int id) => null!;
+
+        public bool IsServablePhoto(string path) => false;
+
+        public Task<VenuePhotoStream> GetPhotoAsync(int venueId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<VenuePhotoStream>(null!);
 
         public Task AddVenueAsync(VenueViewModel model, Stream photo, string extension, CancellationToken cancellationToken = default) =>
             throw new DomainException(OutcomeCode.Invalid, "Refused.");

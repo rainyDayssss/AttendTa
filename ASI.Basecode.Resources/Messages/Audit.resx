@@ -6,6 +6,7 @@
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
   <data name="AccountRequestApproved" xml:space="preserve"><value>Account request approved.</value></data>
   <data name="AccountRequestRejected" xml:space="preserve"><value>Account request rejected.</value></data>
+  <data name="EventCreated" xml:space="preserve"><value>Event created.</value></data>
   <data name="EventUpdated" xml:space="preserve"><value>Event updated.</value></data>
   <data name="EventPublished" xml:space="preserve"><value>Event published.</value></data>
   <data name="EventCancelled" xml:space="preserve"><value>Event cancelled.</value></data>

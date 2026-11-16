@@ -73,6 +73,9 @@ namespace ASI.Basecode.Services.Services
             return ToViewModel(member);
         }
 
+        public Task<bool> HasMemberProfileAsync(int userId, CancellationToken cancellationToken = default) =>
+            _repository.UserHasMemberProfileAsync(userId, cancellationToken);
+
         public async Task CreateMemberFromApprovedAccountRequestAsync(int userId, MemberViewModel model, CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(model);

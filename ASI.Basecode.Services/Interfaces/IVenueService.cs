@@ -9,6 +9,8 @@ namespace ASI.Basecode.Services.Interfaces
     {
         Task<PagedResult<VenueViewModel>> GetPageAsync(string status, int? pageNumber, CancellationToken cancellationToken = default);
         VenueViewModel GetVenue(int id);
+        bool IsServablePhoto(string path);
+        Task<VenuePhotoStream> GetPhotoAsync(int venueId, CancellationToken cancellationToken = default);
         Task AddVenueAsync(VenueViewModel model, Stream photo, string extension, CancellationToken cancellationToken = default);
         Task UpdateVenueAsync(VenueViewModel model, Stream photo, string extension, CancellationToken cancellationToken = default);
         Task ToggleActiveAsync(int id, CancellationToken cancellationToken = default);

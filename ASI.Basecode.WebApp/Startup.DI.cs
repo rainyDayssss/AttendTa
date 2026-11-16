@@ -1,4 +1,4 @@
-﻿using ASI.Basecode.Data;
+using ASI.Basecode.Data;
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Repositories;
 using ASI.Basecode.Services.Interfaces;
@@ -93,6 +93,7 @@ namespace ASI.Basecode.WebApp
 
             // Shared server-local storage for private images, certificates and renderer files.
             this._services.AddScoped<IPrivateFileStore, PrivateFileStore>();
+            this._services.AddSingleton<PlaywrightBrowserProvider>();
             this._services.AddScoped<ICertificatePdfRenderer, PlaywrightCertificatePdfRenderer>();
             this._services.AddSingleton<IQrPassPngRenderer, QrPassPngRenderer>();
 

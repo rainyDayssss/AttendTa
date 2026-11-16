@@ -60,7 +60,7 @@ public sealed class RegistrationCancellationService(IRegistrationRepository regi
 
     private int Validate(CancellationCause cause, string reason)
     {
-        if (unitOfWork.Database.Database.CurrentTransaction == null) throw new InvalidOperationException("Cancellation requires an active transaction.");
+        if (!unitOfWork.HasActiveTransaction) throw new InvalidOperationException("Cancellation requires an active transaction.");
         if (!actor.IsAuthenticated || actor.UserId <= 0) throw new InvalidOperationException("Cancellation requires an authenticated user.");
         if (!Enum.IsDefined(cause)) throw new DomainException(OutcomeCode.Invalid, "Invalid cancellation cause.");
         if (cause != CancellationCause.MemberRequested && string.IsNullOrWhiteSpace(reason)) throw new DomainException(OutcomeCode.Invalid, "A cancellation reason is required.");

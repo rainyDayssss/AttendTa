@@ -134,37 +134,34 @@ namespace ASI.Basecode.Services.Services
             var mayHaveWritten = false;
             try
             {
-            if (image != null) newPath = await _files.SaveAsync(PrivateFileArea.EventImages, image, extension, cancellationToken);
-            return await _unitOfWork.ExecuteInTransactionAsync(async ct =>
-            {
-                var venue = await LockActiveReferencesAsync(model.TypeId, model.VenueId, ct);
-                ValidateCapacity(model, venue);
+                if (image != null) newPath = await _files.SaveAsync(PrivateFileArea.EventImages, image, extension, cancellationToken);
+                return await _unitOfWork.ExecuteInTransactionAsync(async ct =>
+                {
+                    var venue = await LockActiveReferencesAsync(model.TypeId, model.VenueId, ct);
+                    ValidateCapacity(model, venue);
 
-                var eventItem = new Event
-                {
-                    Title = title,
-                    ImagePath = newPath,
-                    Description = NormalizedDescription(model),
-                    TypeId = model.TypeId,
-                    VenueId = model.VenueId,
-                    StartsAt = model.StartsAt,
-                    RegistrationDeadline = model.RegistrationDeadline,
-                    ParticipantLimit = model.ParticipantLimit,
-                    EventStatusId = EventStatusCode.Draft,
-                    CreatedBy = actorUserId,
-                    CreatedAt = _timeProvider.GetUtcNow().UtcDateTime
-                };
-                await _events.AddEventAsync(eventItem, ct);
-                mayHaveWritten = true;
-                await _unitOfWork.SaveChangesAsync(ct);
-                if (newPath != null)
-                {
-                    _audit.Append(new AuditEntry(AuditActions.EventUpdated, "events", eventItem.EventId,
-                        OldValues: CoverAuditValues(null), NewValues: CoverAuditValues(newPath)));
+                    var eventItem = new Event
+                    {
+                        Title = title,
+                        ImagePath = newPath,
+                        Description = NormalizedDescription(model),
+                        TypeId = model.TypeId,
+                        VenueId = model.VenueId,
+                        StartsAt = model.StartsAt,
+                        RegistrationDeadline = model.RegistrationDeadline,
+                        ParticipantLimit = model.ParticipantLimit,
+                        EventStatusId = EventStatusCode.Draft,
+                        CreatedBy = actorUserId,
+                        CreatedAt = _timeProvider.GetUtcNow().UtcDateTime
+                    };
+                    await _events.AddEventAsync(eventItem, ct);
+                    mayHaveWritten = true;
                     await _unitOfWork.SaveChangesAsync(ct);
-                }
-                return eventItem.EventId;
-            }, cancellationToken);
+                    _audit.Append(new AuditEntry(AuditActions.EventCreated, "events", eventItem.EventId,
+                        NewValues: Snapshot(eventItem, coverChanged: newPath != null)));
+                    await _unitOfWork.SaveChangesAsync(ct);
+                    return eventItem.EventId;
+                }, cancellationToken);
             }
             catch
             {
@@ -191,81 +188,81 @@ namespace ASI.Basecode.Services.Services
             string newPath = null, oldPath = null;
             var mayHaveWritten = false;
             // An ambient transaction can roll back after this method returns; retain its files.
-            var ambientTransaction = (image != null || removeCover) && _unitOfWork.Database?.Database.CurrentTransaction != null;
+            var ambientTransaction = (image != null || removeCover) && _unitOfWork.HasActiveTransaction;
             try
             {
-            if (image != null) newPath = await _files.SaveAsync(PrivateFileArea.EventImages, image, extension, cancellationToken);
+                if (image != null) newPath = await _files.SaveAsync(PrivateFileArea.EventImages, image, extension, cancellationToken);
 
-            await _unitOfWork.ExecuteInTransactionAsync(async ct =>
-            {
-                var discovered = await RequireEventAsync(model.EventId, ct);
-
-                // The controller replaces the posted status with its own read before invoking us.
-                if (discovered.EventStatusId != model.EventStatusId)
+                await _unitOfWork.ExecuteInTransactionAsync(async ct =>
                 {
-                    throw new DomainException(OutcomeCode.Stale, "The event changed while it was being edited.");
-                }
+                    var discovered = await RequireEventAsync(model.EventId, ct);
 
-                if (discovered.EventStatusId == EventStatusCode.Draft)
-                {
-                    var venue = await LockActiveReferencesAsync(model.TypeId, model.VenueId, ct);
-                    ValidateCapacity(model, venue);
-                }
-                else
-                {
-                    await LockCoverReferencesAsync(discovered, ct);
-                }
+                    // The controller replaces the posted status with its own read before invoking us.
+                    if (discovered.EventStatusId != model.EventStatusId)
+                    {
+                        throw new DomainException(OutcomeCode.Stale, "The event changed while it was being edited.");
+                    }
 
-                var eventItem = await LockEventAsync(
-                    model.EventId,
-                    locked => locked.EventStatusId == discovered.EventStatusId
-                              && locked.TypeId == discovered.TypeId
-                              && locked.VenueId == discovered.VenueId,
-                    "The event changed while it was being edited.",
-                    ct);
+                    if (discovered.EventStatusId == EventStatusCode.Draft)
+                    {
+                        var venue = await LockActiveReferencesAsync(model.TypeId, model.VenueId, ct);
+                        ValidateCapacity(model, venue);
+                    }
+                    else
+                    {
+                        await LockCoverReferencesAsync(discovered, ct);
+                    }
 
-                if (eventItem.EventStatusId is not (EventStatusCode.Draft or EventStatusCode.Published))
-                {
-                    throw new DomainException(OutcomeCode.Invalid, "Only draft or published events can be edited.");
-                }
+                    var eventItem = await LockEventAsync(
+                        model.EventId,
+                        locked => locked.EventStatusId == discovered.EventStatusId
+                                  && locked.TypeId == discovered.TypeId
+                                  && locked.VenueId == discovered.VenueId,
+                        "The event changed while it was being edited.",
+                        ct);
 
-                if (removeCover && eventItem.EventStatusId != EventStatusCode.Draft)
-                    throw new DomainException(OutcomeCode.Invalid, "Only draft event covers can be removed.", "cover");
-                if (removeCover && !IsEventCover(eventItem.ImagePath))
-                    throw new DomainException(OutcomeCode.Invalid, "This draft does not have a removable cover.", "cover");
-                if ((newPath != null || removeCover) && model.CoverVersion != CoverVersion(eventItem.ImagePath))
-                    throw new DomainException(OutcomeCode.Stale, "The cover changed while you were editing. Review the current cover and try again.", "cover");
+                    if (eventItem.EventStatusId is not (EventStatusCode.Draft or EventStatusCode.Published))
+                    {
+                        throw new DomainException(OutcomeCode.Invalid, "Only draft or published events can be edited.");
+                    }
 
-                if (eventItem.EventStatusId == EventStatusCode.Published &&
-                    (model.TypeId != eventItem.TypeId || model.VenueId != eventItem.VenueId ||
-                     model.StartsAt != eventItem.StartsAt || model.RegistrationDeadline != eventItem.RegistrationDeadline ||
-                     model.ParticipantLimit != eventItem.ParticipantLimit))
-                {
-                    throw new DomainException(OutcomeCode.Invalid, "Published event schedule, type, venue and limit cannot be changed.");
-                }
+                    if (removeCover && eventItem.EventStatusId != EventStatusCode.Draft)
+                        throw new DomainException(OutcomeCode.Invalid, "Only draft event covers can be removed.", "cover");
+                    if (removeCover && !IsEventCover(eventItem.ImagePath))
+                        throw new DomainException(OutcomeCode.Invalid, "This draft does not have a removable cover.", "cover");
+                    if ((newPath != null || removeCover) && model.CoverVersion != CoverVersion(eventItem.ImagePath))
+                        throw new DomainException(OutcomeCode.Stale, "The cover changed while you were editing. Review the current cover and try again.", "cover");
 
-                var coverChanged = newPath != null || removeCover;
-                var oldValues = Snapshot(eventItem, coverChanged);
-                if (newPath != null || removeCover)
-                {
-                    oldPath = eventItem.ImagePath;
-                    eventItem.ImagePath = removeCover ? null : newPath;
-                }
-                eventItem.Title = title;
-                eventItem.Description = NormalizedDescription(model);
-                eventItem.TypeId = model.TypeId;
-                eventItem.VenueId = model.VenueId;
-                eventItem.StartsAt = model.StartsAt;
-                eventItem.RegistrationDeadline = model.RegistrationDeadline;
-                eventItem.ParticipantLimit = model.ParticipantLimit;
-                eventItem.UpdatedBy = actorUserId;
-                eventItem.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
-                await _events.UpdateEventAsync(eventItem, ct);
-                _audit.Append(new AuditEntry(AuditActions.EventUpdated, "events", eventItem.EventId,
-                    OldValues: oldValues, NewValues: Snapshot(eventItem, coverChanged)));
-                mayHaveWritten = true;
-                await _unitOfWork.SaveChangesAsync(ct);
-            }, cancellationToken);
+                    if (eventItem.EventStatusId == EventStatusCode.Published &&
+                        (model.TypeId != eventItem.TypeId || model.VenueId != eventItem.VenueId ||
+                         model.StartsAt != eventItem.StartsAt || model.RegistrationDeadline != eventItem.RegistrationDeadline ||
+                         model.ParticipantLimit != eventItem.ParticipantLimit))
+                    {
+                        throw new DomainException(OutcomeCode.Invalid, "Published event schedule, type, venue and limit cannot be changed.");
+                    }
+
+                    var coverChanged = newPath != null || removeCover;
+                    var oldValues = Snapshot(eventItem, coverChanged);
+                    if (newPath != null || removeCover)
+                    {
+                        oldPath = eventItem.ImagePath;
+                        eventItem.ImagePath = removeCover ? null : newPath;
+                    }
+                    eventItem.Title = title;
+                    eventItem.Description = NormalizedDescription(model);
+                    eventItem.TypeId = model.TypeId;
+                    eventItem.VenueId = model.VenueId;
+                    eventItem.StartsAt = model.StartsAt;
+                    eventItem.RegistrationDeadline = model.RegistrationDeadline;
+                    eventItem.ParticipantLimit = model.ParticipantLimit;
+                    eventItem.UpdatedBy = actorUserId;
+                    eventItem.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
+                    await _events.UpdateEventAsync(eventItem, ct);
+                    _audit.Append(new AuditEntry(AuditActions.EventUpdated, "events", eventItem.EventId,
+                        OldValues: oldValues, NewValues: Snapshot(eventItem, coverChanged)));
+                    mayHaveWritten = true;
+                    await _unitOfWork.SaveChangesAsync(ct);
+                }, cancellationToken);
             }
             catch
             {
@@ -579,6 +576,7 @@ namespace ASI.Basecode.Services.Services
 
             string newPath = null;
             string oldPath = null;
+            var mayHaveWritten = false;
             try
             {
                 // File I/O happens before taking any SQL row locks.
@@ -603,15 +601,17 @@ namespace ASI.Basecode.Services.Services
                     _audit.Append(new AuditEntry(AuditActions.EventUpdated, "events", eventItem.EventId,
                         OldValues: oldValues, NewValues: CoverAuditValues(newPath)));
                     await _unitOfWork.SaveChangesAsync(ct);
+                    // A failed save or commit after this point can still have persisted the new path.
+                    mayHaveWritten = true;
                 }, cancellationToken);
             }
             catch
             {
-                DeleteBestEffort(newPath);
+                if (!mayHaveWritten) DeleteBestEffort(newPath);
                 throw;
             }
 
-            if (IsEventCover(oldPath) && !string.Equals(oldPath, newPath, StringComparison.Ordinal))
+            if (!_unitOfWork.HasActiveTransaction && IsEventCover(oldPath) && !string.Equals(oldPath, newPath, StringComparison.Ordinal))
             {
                 DeleteBestEffort(oldPath);
             }
@@ -650,7 +650,10 @@ namespace ASI.Basecode.Services.Services
                 await _unitOfWork.SaveChangesAsync(ct);
             }, cancellationToken);
 
-            DeleteBestEffort(oldPath);
+            if (!_unitOfWork.HasActiveTransaction)
+            {
+                DeleteBestEffort(oldPath);
+            }
         }
 
         private sealed record EventCoverAuditValues(bool HasCover, bool CoverChanged) : IAuditValues;

@@ -11,6 +11,7 @@ public static class AuditDescriptions
     {
         AuditActions.AccountRequestApproved => Templates.GetString("AccountRequestApproved") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.AccountRequestRejected => Templates.GetString("AccountRequestRejected") ?? throw new InvalidOperationException("Missing audit template."),
+        AuditActions.EventCreated => Templates.GetString("EventCreated") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.EventUpdated => Templates.GetString("EventUpdated") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.EventPublished => Templates.GetString("EventPublished") ?? throw new InvalidOperationException("Missing audit template."),
         AuditActions.EventCancelled => Templates.GetString("EventCancelled") ?? throw new InvalidOperationException("Missing audit template."),

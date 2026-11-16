@@ -111,7 +111,7 @@ namespace ASI.Basecode.WebApp.Controllers
             if (status is not ("pending" or "confirmed" or "waitlisted" or "cancelled")) status = "pending";
             var roster = await _review.GetPageAsync(status, id, page, cancellationToken);
             async Task<int> Count(string value) => value == status ? roster.TotalCount :
-                (await _review.GetPageAsync(value, id, 1, cancellationToken)).TotalCount;
+                await _review.GetCountAsync(value, id, cancellationToken);
             var model = new EventDossierViewModel
             {
                 Event = item, Status = status, Roster = roster,
@@ -428,18 +428,6 @@ namespace ASI.Basecode.WebApp.Controllers
         {
             TempData["ErrorMessage"] = "Event not found.";
             return RedirectToRoute(EventIndexRoute);
-        }
-
-        private async Task<IActionResult> CoverViewAsync(int id, CancellationToken cancellationToken)
-        {
-            try
-            {
-                return View("Cover", await _eventService.GetCoverManagementAsync(id, cancellationToken));
-            }
-            catch (DomainException exception) when (exception.Outcome == OutcomeCode.NotFound)
-            {
-                return NotFound();
-            }
         }
 
         private async Task<IActionResult> HandleCoverErrorAsync(int id, DomainException exception, CancellationToken cancellationToken)

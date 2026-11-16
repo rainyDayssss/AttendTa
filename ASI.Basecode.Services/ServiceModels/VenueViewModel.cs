@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.IO;
 
 namespace ASI.Basecode.Services.ServiceModels
 {
@@ -25,4 +26,6 @@ namespace ASI.Basecode.Services.ServiceModels
 
         public string ImagePath { get; set; }
     }
+
+    public sealed record VenuePhotoStream(Stream Content, string ContentType);
 }

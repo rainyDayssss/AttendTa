@@ -288,11 +288,21 @@ public async Task<IReadOnlyList<MyPassRow>> GetMyPassRowsAsync(int userId, Cance
             .ToListAsync(ct);
     }
 
+    /// <summary>
+    /// Refreshes the tracked registration from a non-locking read. Callers must already hold the
+    /// owner's users row lock and the event row lock; this method deliberately takes no row lock of
+    /// its own. The persisted status is authoritative for idempotence.
+    /// </summary>
     public async Task<Registration> GetForUpdateAsync(int registrationId, CancellationToken cancellationToken = default)
     {
-        var snapshot = await GetDbSet<Registration>().AsNoTracking().SingleOrDefaultAsync(r => r.RegistrationId == registrationId, cancellationToken);
-        if (snapshot == null) return null;
-        var tracked = GetDbSet<Registration>().Local.FirstOrDefault(r => r.RegistrationId == registrationId);
+        var snapshot = await GetDbSet<Registration>().AsNoTracking()
+            .SingleOrDefaultAsync(registration => registration.RegistrationId == registrationId, cancellationToken);
+        return snapshot is null ? null : Refresh(snapshot);
+    }
+
+    private Registration Refresh(Registration snapshot)
+    {
+        var tracked = GetDbSet<Registration>().Local.FirstOrDefault(registration => registration.RegistrationId == snapshot.RegistrationId);
         if (tracked == null) { GetDbSet<Registration>().Attach(snapshot); return snapshot; }
         var entry = Context.Entry(tracked);
         Context.ChangeTracker.DetectChanges();
@@ -304,29 +314,27 @@ public async Task<IReadOnlyList<MyPassRow>> GetMyPassRowsAsync(int userId, Cance
             property.OriginalValue = value;
         }
         // The persisted status is authoritative for idempotence, even if a caller tracked it earlier.
-        entry.Property(r => r.RegistrationStatusId).CurrentValue = snapshot.RegistrationStatusId;
-        entry.Property(r => r.RegistrationStatusId).IsModified = false;
+        entry.Property(registration => registration.RegistrationStatusId).CurrentValue = snapshot.RegistrationStatusId;
+        entry.Property(registration => registration.RegistrationStatusId).IsModified = false;
         return tracked;
     }
 
     public async Task<IReadOnlyList<Registration>> GetOpenForEventAsync(int eventId, CancellationToken cancellationToken = default)
     {
-        // The status filter runs in SQL, so every returned row is already open; no in-memory re-filter
-        // is needed after the tracked refresh.
-        var ids = await GetDbSet<Registration>().AsNoTracking()
+        // One read materializes every open row; Refresh reuses any instance the caller already tracks,
+        // so cancellation no longer issues one query per registration under the event lock.
+        var snapshots = await GetDbSet<Registration>().AsNoTracking()
             .Where(ParticipationFacts.OpenRegistration)
             .Where(registration => registration.EventId == eventId)
             .OrderBy(registration => registration.RegistrationId)
-            .Select(registration => registration.RegistrationId)
             .ToListAsync(cancellationToken);
-        var result = new List<Registration>(ids.Count);
-        foreach (var id in ids)
+        var rows = new List<Registration>(snapshots.Count);
+        foreach (var snapshot in snapshots)
         {
-            var row = await GetForUpdateAsync(id, cancellationToken);
-            if (row != null) result.Add(row);
+            rows.Add(Refresh(snapshot));
         }
 
-        return result;
+        return rows;
     }
 
     public async Task<IReadOnlyList<int>> DiscoverOpenEventIdsForUserAsync(int userId, CancellationToken cancellationToken = default) =>

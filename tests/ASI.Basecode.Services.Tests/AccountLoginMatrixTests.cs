@@ -101,7 +101,7 @@ public class AccountLoginMatrixTests
     public async Task ExistingAccountTakesPrecedenceOverPendingRequest(bool active, bool correct, LoginStatus expected)
     {
         var requests = Pending();
-        var users = new FakeUsers { User = new User { Id = 42, UserId = Email, Name = "Member", IsActive = active, Password = RealHasher.Hash(Password), RoleId = RoleCode.Member } };
+        var users = new FakeUsers { User = new User { Id = 42, Email = Email, Name = "Member", IsActive = active, Password = RealHasher.Hash(Password), RoleId = RoleCode.Member } };
         var result = await Service(requests, users: users).LoginAsync(Email, correct ? Password : "wrong", TestContext.Current.CancellationToken);
         Assert.Equal(expected, result.Status);
         Assert.Equal(expected == LoginStatus.Authenticated, result.User is not null);

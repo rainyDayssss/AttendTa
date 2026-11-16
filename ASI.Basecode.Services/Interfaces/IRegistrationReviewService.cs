@@ -11,6 +11,11 @@ public interface IRegistrationReviewService
 {
     Task<IReadOnlyList<EventSelectorOption>> GetEventOptionsAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<EventSelectorOption>>(Array.Empty<EventSelectorOption>());
     Task<PagedResult<RegistrationReviewRow>> GetPageAsync(string status, int? eventId, int? page, CancellationToken ct = default);
+
+    /// <summary>
+    /// Counts one review status for an event (or the whole queue) without materializing a page.
+    /// </summary>
+    Task<int> GetCountAsync(string status, int? eventId, CancellationToken ct = default);
     Task ApproveAsync(int id, CancellationToken ct = default);
 
     /// <summary>

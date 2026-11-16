@@ -67,10 +67,41 @@ namespace ASI.Basecode.Services.Services
         private static VenueAuditValues Snapshot(Venue venue, bool photoChanged) =>
             new(venue.RoomName, venue.Capacity, venue.Location, venue.AvailabilityNotes, venue.ContactPerson, photoChanged);
 
-        private static bool IsVenuePhoto(string key) =>
-            !string.IsNullOrWhiteSpace(key) && key.StartsWith("uploads/venues/", StringComparison.Ordinal) &&
-            key.Length > "uploads/venues/".Length && key.IndexOfAny(new[] { '/', '\\' }, "uploads/venues/".Length) < 0 &&
-            key != "uploads/venues/..";
+        public bool IsServablePhoto(string path)
+        {
+            const string prefix = "uploads/venues/";
+            return !string.IsNullOrWhiteSpace(path) &&
+                path.StartsWith(prefix, StringComparison.Ordinal) &&
+                path.Length > prefix.Length &&
+                path.IndexOf('\0') < 0 &&
+                path.IndexOfAny(new[] { '/', '\\' }, prefix.Length) < 0 &&
+                Path.GetExtension(path).ToLowerInvariant() is ".jpg" or ".jpeg" or ".png";
+        }
+
+        private bool IsVenuePhoto(string key) => IsServablePhoto(key);
+
+        public async Task<VenuePhotoStream> GetPhotoAsync(int venueId, CancellationToken cancellationToken = default)
+        {
+            var venue = _repository.GetVenue(venueId);
+            if (venue == null || !IsServablePhoto(venue.ImagePath)) return null;
+
+            var contentType = Path.GetExtension(venue.ImagePath).ToLowerInvariant() switch
+            {
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                _ => null
+            };
+            if (contentType == null) return null;
+
+            try
+            {
+                return new VenuePhotoStream(await _files.OpenSafelyAsync(venue.ImagePath, cancellationToken), contentType);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or DomainException { Outcome: OutcomeCode.NotFound })
+            {
+                return null;
+            }
+        }
 
         private int RequireManagementActor(string message = "A valid authenticated user is required.")
         {
@@ -87,7 +118,7 @@ namespace ASI.Basecode.Services.Services
         {
             if (model.Capacity <= 0)
                 throw new DomainException(OutcomeCode.Invalid, "Capacity must be greater than 0.", nameof(VenueViewModel.Capacity));
-            if (_unitOfWork.Database.Database.CurrentTransaction != null || System.Transactions.Transaction.Current != null)
+            if (_unitOfWork.HasActiveTransaction || System.Transactions.Transaction.Current != null)
                 throw new InvalidOperationException("Venue writes require ownership of the transaction.");
         }
 

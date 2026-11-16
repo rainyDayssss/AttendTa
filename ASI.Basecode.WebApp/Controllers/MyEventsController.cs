@@ -2,7 +2,6 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Resources.Constants;
-using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.WebApp.Mvc;
@@ -22,7 +21,7 @@ namespace ASI.Basecode.WebApp.Controllers;
 [Authorize(Policy = Policies.PersonalParticipation)]
 public sealed class MyEventsController : ControllerBase<MyEventsController>
 {
-    private readonly IMemberRepository _members;
+    private readonly IMemberService _memberService;
     private readonly IMyEventsService _myEvents;
     private readonly IMyCertificatesService _certificates;
 
@@ -31,12 +30,12 @@ public sealed class MyEventsController : ControllerBase<MyEventsController>
         ILoggerFactory loggerFactory,
         IConfiguration configuration,
         IMapper mapper,
-        IMemberRepository members,
+        IMemberService memberService,
         IMyEventsService myEvents,
         IMyCertificatesService certificates)
         : base(httpContextAccessor, loggerFactory, configuration, mapper)
     {
-        _members = members;
+        _memberService = memberService;
         _myEvents = myEvents;
         _certificates = certificates;
     }
@@ -66,7 +65,7 @@ public sealed class MyEventsController : ControllerBase<MyEventsController>
     }
 
     private async Task SetProfileStateAsync(CancellationToken cancellationToken) =>
-        ViewData["MissingMemberProfile"] = !await _members.UserHasMemberProfileAsync(GetActorUserId(), cancellationToken);
+        ViewData["MissingMemberProfile"] = !await _memberService.HasMemberProfileAsync(GetActorUserId(), cancellationToken);
 
     [HttpGet]
     [Route("MyEvents/Certificates")]

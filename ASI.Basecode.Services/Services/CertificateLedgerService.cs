@@ -12,6 +12,7 @@ using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
+using Microsoft.Extensions.Logging;
 
 namespace ASI.Basecode.Services.Services;
 
@@ -39,7 +40,7 @@ public sealed class CertificateLedgerService(
     IActivityLogWriter audit,
     TimeProvider clock,
     ICertificatePdfRenderer renderer,
-    IPrivateFileStore files, ListReadOptions readOptions = null) : ICertificateLedgerService
+    IPrivateFileStore files, ListReadOptions readOptions = null, ILogger<CertificateLedgerService> logger = null) : ICertificateLedgerService
 {
     private const int MaxReasonLength = 1000;
     private const string NotFoundMessage = "Certificate review not found.";
@@ -534,9 +535,12 @@ public sealed class CertificateLedgerService(
             DeleteBestEffort(temporaryPath);
             throw;
         }
-        catch (Exception)
+        catch (Exception exception)
         {
-            // A renderer that throws or returns non-PDF content leaves no file behind.
+            // A renderer that throws or returns non-PDF content leaves no file behind. The exception
+            // is logged without the private storage key so the failure stays diagnosable without
+            // exposing the key.
+            logger?.LogWarning(exception, "Certificate rendering or promotion failed; no certificate file was promoted.");
             DeleteBestEffort(temporaryPath);
             throw new DomainException(OutcomeCode.Invalid, RenderFailedMessage);
         }
@@ -564,7 +568,9 @@ public sealed class CertificateLedgerService(
         }
         catch (Exception)
         {
-            // The row is unchanged; a leftover file is safer than surfacing a cleanup failure.
+            // The row is unchanged; a leftover file is safer than surfacing a cleanup failure. The
+            // private storage key is deliberately left out of the log.
+            logger?.LogWarning("Could not delete a temporary certificate file after a failed issue.");
         }
     }
 

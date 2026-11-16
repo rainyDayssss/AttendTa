@@ -133,6 +133,7 @@ public static class HotspotCertificateCommand
             return 1;
         }
 
+        var completed = false;
         try
         {
             Directory.CreateDirectory(directory);
@@ -141,6 +142,7 @@ public static class HotspotCertificateCommand
             {
                 WriteFiles(bundle, directory, password);
                 WriteSummary(bundle, directory, output);
+                completed = true;
             }
             finally
             {
@@ -155,6 +157,15 @@ public static class HotspotCertificateCommand
             error.WriteLine($"The hotspot certificate files could not be written: {exception.Message}");
             return 1;
         }
+        finally
+        {
+            // A partial run must not leave files behind: the "already contains" guard would block
+            // a retry with the same --out directory.
+            if (!completed)
+            {
+                DeleteFilesWrittenByThisRun(directory, fileNames);
+            }
+        }
 
         return 0;
     }
@@ -167,9 +178,13 @@ public static class HotspotCertificateCommand
         File.WriteAllBytes(
             Path.Combine(directory, RootCertificateFileName),
             bundle.RootPublicCertificate.Export(X509ContentType.Cert));
+
+        var rootPfxPath = Path.Combine(directory, RootPfxFileName);
         File.WriteAllBytes(
-            Path.Combine(directory, RootPfxFileName),
+            rootPfxPath,
             bundle.RootCertificate.Export(X509ContentType.Pfx, password));
+        SetOwnerOnlyUnixMode(rootPfxPath);
+
         File.WriteAllBytes(
             Path.Combine(directory, ServerCertificateFileName),
             bundle.ServerPublicCertificate.Export(X509ContentType.Cert));
@@ -180,9 +195,43 @@ public static class HotspotCertificateCommand
             bundle.ServerCertificate,
             bundle.RootPublicCertificate,
         };
+
+        var serverPfxPath = Path.Combine(directory, ServerPfxFileName);
         File.WriteAllBytes(
-            Path.Combine(directory, ServerPfxFileName),
+            serverPfxPath,
             chain.Export(X509ContentType.Pfx, password));
+        SetOwnerOnlyUnixMode(serverPfxPath);
+    }
+
+    // The private-key PFX files are host-only secrets; owner read/write keeps them off shared
+    // accounts. The public .cer files stay readable so they can be installed on phones.
+    private static void SetOwnerOnlyUnixMode(string path)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        }
+    }
+
+    private static void DeleteFilesWrittenByThisRun(string directory, IEnumerable<string> fileNames)
+    {
+        foreach (var fileName in fileNames)
+        {
+            var path = Path.Combine(directory, fileName);
+            try
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
     }
 
     private static void WriteSummary(

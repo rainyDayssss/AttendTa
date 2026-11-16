@@ -138,7 +138,7 @@ public sealed class EventDraftFlowTests(SqlServerDatabaseFixture fixture) : ICla
             Assert.Equal("Learn the basics", created.Description);
             Assert.Equal(40, created.ParticipantLimit);
             eventId = created.EventId;
-            Assert.Equal(0, await context.ActivityLogs.CountAsync(log => log.EntityType == "events" && log.EntityId == eventId, ct));
+            Assert.Equal(1, await context.ActivityLogs.CountAsync(log => log.EntityType == "events" && log.EntityId == eventId, ct));
         }
 
         var list = await officerClient.GetStringAsync("/Event", ct);
@@ -343,7 +343,7 @@ public sealed class EventDraftValidationFlowTests(SqlServerDatabaseFixture fixtu
             Assert.Equal(typeId, unchangedDraft.TypeId);
             Assert.Equal(venueId, unchangedDraft.VenueId);
             Assert.Equal(EventStatusCode.Draft, unchangedDraft.EventStatusId);
-            Assert.Equal(0, await context.ActivityLogs.CountAsync(log => log.EntityType == "events" && log.EntityId == eventId, ct));
+            Assert.Equal(1, await context.ActivityLogs.CountAsync(log => log.EntityType == "events" && log.EntityId == eventId, ct));
         }
 
         await using (var context = EventDraftTestSupport.Context(fixture.ConnectionString))
@@ -376,7 +376,7 @@ public sealed class EventDraftValidationFlowTests(SqlServerDatabaseFixture fixtu
             Assert.Equal("Published edit", unchanged.Title);
             Assert.Equal("Updated description", unchanged.Description);
             Assert.Equal(EventStatusCode.Published, unchanged.EventStatusId);
-            Assert.Equal(1, await context.ActivityLogs.CountAsync(log => log.EntityType == "events" && log.EntityId == eventId, ct));
+            Assert.Equal(2, await context.ActivityLogs.CountAsync(log => log.EntityType == "events" && log.EntityId == eventId, ct));
         }
 
         foreach (var (field, value) in new[]
@@ -403,7 +403,7 @@ public sealed class EventDraftValidationFlowTests(SqlServerDatabaseFixture fixtu
         await using (var context = EventDraftTestSupport.Context(fixture.ConnectionString))
         {
             Assert.Equal("Published edit", (await context.Events.AsNoTracking().SingleAsync(item => item.EventId == eventId, ct)).Title);
-            Assert.Equal(1, await context.ActivityLogs.CountAsync(log => log.EntityType == "events" && log.EntityId == eventId, ct));
+            Assert.Equal(2, await context.ActivityLogs.CountAsync(log => log.EntityType == "events" && log.EntityId == eventId, ct));
         }
     }
 
@@ -504,7 +504,7 @@ public sealed class EventDraftPersistenceTests(SqlServerDatabaseFixture fixture)
         Assert.Equal(new DateTime(2026, 12, 10, 1, 0, 0), created.StartsAt);
         Assert.Equal(new DateTime(2026, 12, 9, 9, 30, 0), created.RegistrationDeadline);
         Assert.Null(created.UpdatedBy);
-        Assert.Equal(0, await observer.ActivityLogs.CountAsync(log => log.EntityType == "events", ct));
+        Assert.Equal(1, await observer.ActivityLogs.CountAsync(log => log.EntityType == "events", ct));
     }
 
     internal sealed class LockOrderRecorder : DbCommandInterceptor
@@ -574,7 +574,7 @@ public sealed class EventDraftEditPersistenceTests(SqlServerDatabaseFixture fixt
         Assert.Equal(actorId, edited.UpdatedBy);
 
         var log = await observer.ActivityLogs.AsNoTracking().SingleAsync(
-            item => item.EntityType == "events" && item.EntityId == eventId, ct);
+            item => item.EntityType == "events" && item.EntityId == eventId && item.Action == AuditActions.EventUpdated, ct);
         Assert.Equal(AuditActions.EventUpdated, log.Action);
         Assert.Equal(actorId, log.ActorUserId);
         Assert.Contains("\"Title\":\"Before\"", log.OldValues, StringComparison.Ordinal);

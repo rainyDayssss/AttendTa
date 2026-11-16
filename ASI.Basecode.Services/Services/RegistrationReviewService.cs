@@ -38,6 +38,12 @@ public sealed class RegistrationReviewService(IRegistrationRepository registrati
         return new PagedResult<RegistrationReviewRow>(rows, normalized, count, PageRequest.NormalizeSize(readOptions?.PageSize));
     }
 
+    public Task<int> GetCountAsync(string status, int? eventId, CancellationToken ct = default)
+    {
+        RequireManagement();
+        return registrations.CountReviewQueueAsync(ParseStatus(status), eventId, ct);
+    }
+
     public Task ApproveAsync(int id, CancellationToken ct = default) => ExecuteAsync(id, null, ReviewOperation.Approve, ct);
     public Task DeclineAsync(int id, string reason, CancellationToken ct = default) => ExecuteAsync(id, reason, ReviewOperation.Decline, ct);
     public Task CancelAsync(int id, string reason, CancellationToken ct = default) => ExecuteAsync(id, reason, ReviewOperation.Cancel, ct);
