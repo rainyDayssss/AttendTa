@@ -80,6 +80,22 @@ Unlike the v1 release, the current standalone bundle does not support `--uninsta
 It never automatically deletes extracted files, databases, credentials, or the private
 setup root. Arrange separately approved cleanup after verifying ownership and stopping
 the app; preserve any data that must be retained.
+
+The launcher checks for the documented v1 location `%TEMP%\AttendTa\app` and asks
+whether to continue separately if that path exists. The path alone does not establish
+that it belongs to AttendTa or which version it contains. This release does not
+overwrite or upgrade the old installation. Before considering a manual uninstall,
+verify the exact legacy executable and target, back up any needed database, uploads,
+keys and credentials, and inspect the old release's uninstall instructions and effects.
+Do not run a legacy `--uninstall` until its exact target and consequences are approved.
+Extract-only mode does not run this launcher check; run the launcher after provisioning.
+
+The launcher also checks TCP listeners on port 5000 before startup. A listener might
+belong to an unrelated service; identify its owner (for example, with
+`Get-NetTCPConnection -State Listen -LocalPort 5000` and `Get-Process -Id <OwningProcess>`)
+and obtain approval before stopping or reconfiguring it. The check is advisory and
+another process can take the port afterward; startup can still fail. No existing
+installation or conflicting process is removed or stopped by this check.
 Authenticate using the separately supplied credentials and these login addresses:
 
 | Credential key | Login email |

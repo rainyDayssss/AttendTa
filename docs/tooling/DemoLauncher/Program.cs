@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net.Http;
+using System.Net.NetworkInformation;
 using System.Text.RegularExpressions;
 
 var appPath = Path.Combine(AppContext.BaseDirectory, "ASI.Basecode.WebApp.exe");
@@ -19,6 +20,32 @@ if (!File.Exists(appPath))
     Console.WriteLine("Application files are missing. Extract the entire package before starting.");
     Console.ReadLine();
     return 1;
+}
+
+var legacyPath = Path.Combine(Path.GetTempPath(), "AttendTa", "app");
+if (Directory.Exists(legacyPath) || File.Exists(legacyPath))
+{
+    Console.WriteLine($"Possible v1 installation found at: {legacyPath}");
+    Console.WriteLine("This is only a path check, not proof of ownership or version. The new release does not update or uninstall it.");
+    Console.WriteLine("Back up and verify the exact installation and its data before any separately approved manual uninstall.");
+    Console.Write("Continue with a separate installation? [y/N]: ");
+    if (!string.Equals(Console.ReadLine()?.Trim(), "y", StringComparison.OrdinalIgnoreCase)) return 1;
+}
+
+try
+{
+    if (IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(endpoint => endpoint.Port == 5000))
+    {
+        Console.WriteLine("TCP port 5000 is already in use; it may be an older AttendTa or an unrelated service.");
+        Console.WriteLine("Identify the owner and stop or reconfigure it only with approval. No process was stopped.");
+        Console.WriteLine("Press Enter to close.");
+        Console.ReadLine();
+        return 1;
+    }
+}
+catch (Exception exception) when (exception is NetworkInformationException or System.Net.Sockets.SocketException)
+{
+    Console.WriteLine("Could not inspect TCP listeners; startup will still check whether port 5000 can be bound.");
 }
 
 Console.Write("Private setup root (absolute path): ");
