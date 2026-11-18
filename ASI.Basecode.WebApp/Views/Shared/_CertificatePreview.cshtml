@@ -1,0 +1,20 @@
+<dialog id="certificate-preview" class="record-dialog certificate-preview" aria-labelledby="certificate-preview-title" aria-describedby="certificate-preview-context">
+    <header class="record-dialog-header">
+        <div class="record-dialog-heading">
+            <h2 id="certificate-preview-title">Certificate</h2>
+            <p id="certificate-preview-context" class="record-dialog-subtitle" data-pdf-context></p>
+        </div>
+        <button type="button" class="record-dialog-close" data-dialog-close aria-label="Close certificate">
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
+        </button>
+    </header>
+    <p data-pdf-message role="status" tabindex="-1">Loading certificate…</p>
+    <div class="certificate-toolbar-actions" data-pdf-actions hidden>
+        <a class="button button-secondary" data-pdf-open target="_blank" rel="noopener">Open in new tab</a>
+        <a class="button button-primary" data-pdf-download>Download PDF</a>
+    </div>
+    <p class="field-hint" data-pdf-help hidden>If the PDF does not appear, open it in a new tab or download it.</p>
+    <div class="certificate-preview-pages" data-pdf-pages role="region" aria-label="Certificate document" tabindex="0" hidden></div>
+    <button type="button" class="button button-secondary" data-pdf-retry hidden>Retry loading</button>
+    <footer class="record-dialog-actions"><button type="button" class="button button-secondary" data-dialog-close>Close</button></footer>
+</dialog>

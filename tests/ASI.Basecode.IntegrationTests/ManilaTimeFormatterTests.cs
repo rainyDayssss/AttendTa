@@ -11,16 +11,28 @@ public class ManilaTimeFormatterTests
     public void UtcDatabaseTimestampRollsOverToNextManilaDay(DateTimeKind kind)
     {
         var timestamp = new DateTime(2026, 1, 1, 18, 30, 0, kind);
-        Assert.Equal("2026-01-02 02:30 Asia/Manila", ManilaTimeFormatter.Format(timestamp));
-        Assert.Equal("2026-01-02 02:30 Asia/Manila", ManilaTimeFormatter.Format((DateTime?)timestamp));
+        Assert.Equal("2026-01-02 02:30 AM", ManilaTimeFormatter.Format(timestamp));
+        Assert.Equal("2026-01-02 02:30 AM", ManilaTimeFormatter.Format((DateTime?)timestamp));
     }
 
     [Fact]
     public void OffsetIsConvertedAsAnInstant()
     {
         var timestamp = new DateTimeOffset(2026, 1, 1, 13, 30, 0, TimeSpan.FromHours(-5));
-        Assert.Equal("2026-01-02 02:30 Asia/Manila", ManilaTimeFormatter.Format(timestamp));
-        Assert.Equal("2026-01-02 02:30 Asia/Manila", ManilaTimeFormatter.Format((DateTimeOffset?)timestamp));
+        Assert.Equal("2026-01-02 02:30 AM", ManilaTimeFormatter.Format(timestamp));
+        Assert.Equal("2026-01-02 02:30 AM", ManilaTimeFormatter.Format((DateTimeOffset?)timestamp));
+    }
+
+    [Theory]
+    [InlineData(16, "2026-01-02", "12:00 AM")]
+    [InlineData(4, "2026-01-01", "12:00 PM")]
+    [InlineData(7, "2026-01-01", "03:00 PM")]
+    public void DateAndTimeColumnsUseManilaBoundaries(int utcHour, string date, string time)
+    {
+        var timestamp = new DateTime(2026, 1, 1, utcHour, 0, 0, DateTimeKind.Utc);
+        Assert.Equal(date, ManilaTimeFormatter.FormatDate(timestamp));
+        Assert.Equal(time, ManilaTimeFormatter.FormatTime(timestamp));
+        Assert.Equal($"{date} {time}", ManilaTimeFormatter.Format(timestamp));
     }
 
     [Fact]

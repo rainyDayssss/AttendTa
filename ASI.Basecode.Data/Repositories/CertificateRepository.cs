@@ -78,4 +78,28 @@ public sealed class CertificateRepository : BaseRepository, ICertificateReposito
         GetDbSet<Certificate>().AddRange(certificates);
         return Task.CompletedTask;
     }
+
+    public async Task<IReadOnlyList<CertificateReviewSummary>> GetDecisionSummariesAsync(
+        IReadOnlyCollection<int> registrationIds,
+        CancellationToken ct = default)
+    {
+        if (registrationIds is null || registrationIds.Count == 0)
+        {
+            return Array.Empty<CertificateReviewSummary>();
+        }
+
+        // The same joins as the review queue, without its status predicate: a decided row must still
+        // resolve its own name, because the result panel is rendered after the decision.
+        return await (from registration in GetDbSet<Registration>().AsNoTracking()
+                      join member in GetDbSet<Member>().AsNoTracking() on registration.MemberId equals member.MemberId
+                      join user in GetDbSet<User>().AsNoTracking() on member.UserId equals user.Id
+                      where registrationIds.Contains(registration.RegistrationId)
+                      select new CertificateReviewSummary
+                      {
+                          RegistrationId = registration.RegistrationId,
+                          MemberName = user.Name,
+                          StudentNumber = member.StudentNumber
+                      })
+            .ToListAsync(ct);
+    }
 }

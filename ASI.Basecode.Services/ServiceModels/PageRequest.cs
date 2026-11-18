@@ -2,10 +2,12 @@ using System;
 
 namespace ASI.Basecode.Services.ServiceModels;
 
-/// <summary>Describes a requested page using the application's shared fixed page size.</summary>
-public sealed record PageRequest(int? PageNumber)
+/// <summary>Describes a requested page using a validated, bounded page size.</summary>
+public sealed record PageRequest(int? PageNumber, int? RequestedSize = null)
 {
-    public const int FixedPageSize = 25;
+    public const int DefaultPageSize = 5;
+    public int PageSize => NormalizeSize(RequestedSize);
+    public static int NormalizeSize(int? size) => Math.Clamp(size ?? DefaultPageSize, 1, 25);
 
     /// <summary>Resolves an invalid page to page one and an excessive page to the last page.</summary>
     public int NormalizePageNumber(int totalCount)
@@ -15,9 +17,9 @@ public sealed record PageRequest(int? PageNumber)
             return 1;
         }
 
-        var totalPages = (int)(((long)totalCount + FixedPageSize - 1) / FixedPageSize);
+        var totalPages = (int)(((long)totalCount + PageSize - 1) / PageSize);
         return Math.Min(PageNumber.Value, totalPages);
     }
 
-    public int GetOffset(int normalizedPageNumber) => checked((normalizedPageNumber - 1) * FixedPageSize);
+    public int GetOffset(int normalizedPageNumber) => checked((normalizedPageNumber - 1) * PageSize);
 }

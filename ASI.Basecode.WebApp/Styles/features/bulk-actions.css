@@ -1,0 +1,143 @@
+/* Shared bulk selection: the bar, the select column, the confirmation list and the result panel.
+   Every rule is a plain declaration; no @apply, so the file stays readable beside the tokens. */
+@layer components {
+  .bulk-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 24px;
+    margin: 0 0 16px;
+    padding: 12px 16px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-panel);
+    background: var(--color-surface);
+  }
+  .bulk-count {
+    margin: 0;
+    color: var(--color-ink-secondary);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+  .bulk-bar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* A ticked row carries the system's selected-row tint, so the selection is legible in the
+     table itself and not only in the count above it. The :hover variant outranks the shared
+     row-hover ground, which would otherwise erase the tint under the pointer. */
+  .data-table tbody tr:has(input[data-bulk-row]:checked) td,
+  .data-table tbody tr:has(input[data-bulk-row]:checked):hover td {
+    background: var(--color-cobalt-tint);
+  }
+
+  /* The selection column: the 44px label is the target; the box stays 16px. */
+  .data-table th.select-column,
+  .data-table td.select-column {
+    width: 44px;
+    min-width: 44px;
+    padding: 0;
+    text-align: center;
+  }
+  .select-target {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    margin: 0;
+    cursor: pointer;
+  }
+  .select-column input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--color-cobalt);
+  }
+  /* The head row keeps its 38px height on fine-pointer surfaces; only touch surfaces grow the
+     header target to 44px. Body rows keep their 44px targets everywhere. */
+  .data-table th.select-column .select-target { height: 38px; }
+  @media (pointer: coarse) {
+    .data-table th.select-column .select-target { height: 44px; }
+  }
+  .select-column input:focus-visible {
+    outline: 2px solid var(--color-cobalt);
+    outline-offset: 2px;
+  }
+
+  /* The confirmation dialog names the selected people, one per line. */
+  .bulk-dialog-list {
+    display: grid;
+    gap: 4px;
+    max-height: 240px;
+    overflow-y: auto;
+    margin: 16px 24px 0;
+    padding: 0 0 0 18px;
+    color: var(--color-ink-secondary);
+    font-size: 13px;
+  }
+  .bulk-dialog-list li { overflow-wrap: anywhere; }
+  /* The list scrolls past roughly eight names, so it takes focus to stay reachable by
+     keyboard. Match the shared focus ring. */
+  .bulk-dialog-list:focus-visible {
+    outline: 2px solid var(--color-cobalt);
+    outline-offset: 2px;
+  }
+
+  /* The result panel reports each record on its own line, with a text label beside the tint. */
+  .bulk-result {
+    margin: 0 0 16px;
+    padding: 16px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-panel);
+    background: var(--color-surface);
+  }
+  .bulk-result-title { margin: 0 0 4px; font-size: 16px; }
+  .bulk-result-counts {
+    margin: 0;
+    color: var(--color-ink-muted);
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .bulk-result-details summary {
+    width: fit-content;
+    margin-top: 8px;
+    color: var(--color-cobalt);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .bulk-result-details summary:focus-visible {
+    outline: 2px solid var(--color-cobalt);
+    outline-offset: 2px;
+  }
+  @media (pointer: coarse) {
+    .bulk-result-details summary { min-height: 44px; align-content: center; }
+  }
+  .bulk-result-list {
+    display: grid;
+    gap: 8px;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .bulk-result-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+  }
+  .bulk-result-label { color: var(--color-ink); font-weight: 600; }
+  .bulk-result-message { color: var(--color-ink-secondary); }
+
+  @media (max-width: 640px) {
+    /* The block layout already labels each cell; the checkbox needs no extra caption. */
+    .table-scroll .data-table td.select-column { padding: 0; }
+    .table-scroll .data-table td.select-column::before { display: none; }
+    .bulk-bar { align-items: flex-start; flex-direction: column; }
+  }
+}

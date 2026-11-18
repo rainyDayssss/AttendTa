@@ -12,7 +12,7 @@ public interface IMyEventsService
 {
     /// <summary>
     /// Returns the actor's own registrations across events, newest start first, one shared page
-    /// of at most <see cref="PageRequest.FixedPageSize"/> cards, with the status label and badge
+    /// of at most <see cref="PageRequest.DefaultPageSize"/> cards, with the status label and badge
     /// already resolved for the current time.
     /// </summary>
     Task<PagedResult<MyEventRegistrationCardViewModel>> GetRegistrationsAsync(
@@ -21,7 +21,7 @@ public interface IMyEventsService
 
     /// <summary>
     /// Returns the actor's own attendance records, newest recorded first, one shared page of at
-    /// most <see cref="PageRequest.FixedPageSize"/> rows, with the method label and the
+    /// most <see cref="PageRequest.DefaultPageSize"/> rows, with the method label and the
     /// invalidated state already resolved.
     /// </summary>
     Task<PagedResult<MyEventAttendanceRowViewModel>> GetAttendanceAsync(

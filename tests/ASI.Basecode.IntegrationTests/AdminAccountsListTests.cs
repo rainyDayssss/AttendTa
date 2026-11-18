@@ -69,9 +69,9 @@ public sealed class AdminAccountsListTests : IClassFixture<SqlServerDatabaseFixt
 
         var firstPage = await client.GetStringAsync("/admin/accounts", TestContext.Current.CancellationToken);
         var firstPageIds = ExtractAccountIds(firstPage);
-        Assert.Equal(25, firstPageIds.Count);
-        Assert.Equal(orderedIds.Take(25), firstPageIds);
-        Assert.Contains("Page 1 of 2", firstPage, StringComparison.Ordinal);
+        Assert.Equal(5, firstPageIds.Count);
+        Assert.Equal(orderedIds.Take(5), firstPageIds);
+        Assert.Contains("Page 1 of 6", firstPage, StringComparison.Ordinal);
         Assert.Contains("aria-label=\"Next page\"", firstPage, StringComparison.Ordinal);
         Assert.DoesNotContain("aria-label=\"Previous page\"", firstPage, StringComparison.Ordinal);
         Assert.Contains("Accounts Admin", firstPage, StringComparison.Ordinal);
@@ -96,7 +96,7 @@ public sealed class AdminAccountsListTests : IClassFixture<SqlServerDatabaseFixt
         var lastPage = await client.GetStringAsync("/admin/accounts?page=999999999", TestContext.Current.CancellationToken);
         var lastPageIds = ExtractAccountIds(lastPage);
         Assert.Equal(orderedIds.Skip(25), lastPageIds);
-        Assert.Contains("Page 2 of 2", lastPage, StringComparison.Ordinal);
+        Assert.Contains("Page 6 of 6", lastPage, StringComparison.Ordinal);
         Assert.Contains("aria-label=\"Previous page\"", lastPage, StringComparison.Ordinal);
         Assert.DoesNotContain("aria-label=\"Next page\"", lastPage, StringComparison.Ordinal);
         Assert.DoesNotContain(PasswordHashMarker, lastPage, StringComparison.Ordinal);
@@ -104,31 +104,31 @@ public sealed class AdminAccountsListTests : IClassFixture<SqlServerDatabaseFixt
         foreach (var invalidPage in new[] { "not-a-number", "0", "-1", "2147483648" })
         {
             var invalid = await client.GetStringAsync($"/admin/accounts?page={invalidPage}", TestContext.Current.CancellationToken);
-            Assert.Equal(25, ExtractAccountIds(invalid).Count);
-            Assert.Contains("Page 1 of 2", invalid, StringComparison.Ordinal);
+            Assert.Equal(5, ExtractAccountIds(invalid).Count);
+            Assert.Contains("Page 1 of 6", invalid, StringComparison.Ordinal);
         }
 
         var nameSearch = await client.GetStringAsync("/admin/accounts?search=Listed", TestContext.Current.CancellationToken);
-        Assert.Equal(25, ExtractAccountIds(nameSearch).Count);
-        Assert.Contains("Page 1 of 2", nameSearch, StringComparison.Ordinal);
+        Assert.Equal(5, ExtractAccountIds(nameSearch).Count);
+        Assert.Contains("Page 1 of 6", nameSearch, StringComparison.Ordinal);
         Assert.Contains("value=\"Listed\"", nameSearch, StringComparison.Ordinal);
         Assert.Contains("search=Listed&amp;page=2", nameSearch, StringComparison.Ordinal);
         Assert.DoesNotContain($"data-account-id=\"{orderedIds[0]}\"", nameSearch, StringComparison.Ordinal);
         Assert.DoesNotContain($"data-account-id=\"{orderedIds[1]}\"", nameSearch, StringComparison.Ordinal);
         Assert.DoesNotContain(PasswordHashMarker, nameSearch, StringComparison.Ordinal);
 
-        var filteredLastPage = await client.GetStringAsync("/admin/accounts?search=Listed&page=2", TestContext.Current.CancellationToken);
+        var filteredLastPage = await client.GetStringAsync("/admin/accounts?search=Listed&page=6", TestContext.Current.CancellationToken);
         var filteredLastPageIds = ExtractAccountIds(filteredLastPage);
         Assert.Single(filteredLastPageIds);
         Assert.Equal(orderedIds[^1], filteredLastPageIds[0]);
-        Assert.Contains("Page 2 of 2", filteredLastPage, StringComparison.Ordinal);
-        Assert.Contains("search=Listed&amp;page=1", filteredLastPage, StringComparison.Ordinal);
+        Assert.Contains("Page 6 of 6", filteredLastPage, StringComparison.Ordinal);
+        Assert.Contains("search=Listed&amp;page=5", filteredLastPage, StringComparison.Ordinal);
 
         var emailSearch = await client.GetStringAsync($"/admin/accounts?search={Uri.EscapeDataString(adminEmail)}", TestContext.Current.CancellationToken);
         var emailSearchIds = ExtractAccountIds(emailSearch);
         Assert.Single(emailSearchIds);
         Assert.Equal(orderedIds[0], emailSearchIds[0]);
-        Assert.DoesNotContain("aria-label=\"Pagination\"", emailSearch, StringComparison.Ordinal);
+        Assert.Contains("Page 1 of 1", emailSearch, StringComparison.Ordinal);
 
         var empty = await client.GetStringAsync("/admin/accounts?search=unmatched", TestContext.Current.CancellationToken);
         Assert.Contains("No accounts match your search.", empty, StringComparison.Ordinal);
@@ -175,7 +175,7 @@ public sealed class AdminAccountsListTests : IClassFixture<SqlServerDatabaseFixt
         {
             new()
             {
-                UserId = adminEmail,
+                Email = adminEmail,
                 Name = "Accounts Admin",
                 Password = hasher.Hash(Password),
                 RoleId = RoleCode.Admin,
@@ -183,7 +183,7 @@ public sealed class AdminAccountsListTests : IClassFixture<SqlServerDatabaseFixt
             },
             new()
             {
-                UserId = officerEmail,
+                Email = officerEmail,
                 Name = "Accounts Officer",
                 Password = hasher.Hash(Password),
                 RoleId = RoleCode.Officer,
@@ -195,7 +195,7 @@ public sealed class AdminAccountsListTests : IClassFixture<SqlServerDatabaseFixt
         {
             users.Add(new User
             {
-                UserId = $"listed-{index:D2}-{Guid.NewGuid():N}@attendta.test",
+                Email = $"listed-{index:D2}-{Guid.NewGuid():N}@attendta.test",
                 Name = $"Listed Account {index:D2}",
                 Password = PasswordHashMarker + index,
                 RoleId = RoleCode.Member,

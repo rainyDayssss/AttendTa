@@ -11,7 +11,7 @@ namespace ASI.Basecode.IntegrationTests;
 
 /// <summary>
 /// Proves the My Events attendance tab reads one owner-scoped cross-event page: only the actor's
-/// rows, newest recorded first, 25 per page, the method label and the valid/invalidated state with
+/// rows, newest recorded first, an explicitly requested 25 per page, the method label and the valid/invalidated state with
 /// the stored reason.
 /// </summary>
 public sealed class MyEventsAttendanceQueryTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
@@ -84,8 +84,8 @@ public sealed class MyEventsAttendanceQueryTests(SqlServerDatabaseFixture fixtur
 
         await MemberEventTestSupport.SignInAsync(client, memberEmail, password, ct);
 
-        var firstPage = await client.GetStringAsync("/MyEvents/Attendance", ct);
-        Assert.Contains("Showing 1–25 of 26 records.", firstPage, StringComparison.Ordinal);
+        var firstPage = await client.GetStringAsync("/MyEvents/Attendance?pageSize=25", ct);
+        Assert.Contains("Showing 1–25 of 26 attendance records", firstPage, StringComparison.Ordinal);
         Assert.Contains("Page 1 of 2", firstPage, StringComparison.Ordinal);
 
         var firstPageIds = AttendanceIds(firstPage);
@@ -97,7 +97,7 @@ public sealed class MyEventsAttendanceQueryTests(SqlServerDatabaseFixture fixtur
         Assert.Equal(expectedFirstPage, firstPageIds);
 
         // The newest row renders its Manila recorded time, method label and Valid badge.
-        Assert.Contains("2026-01-01 12:20 Asia/Manila", firstPage, StringComparison.Ordinal);
+        Assert.Contains("2026-01-01 12:20 PM", firstPage, StringComparison.Ordinal);
         Assert.Contains("QR code", firstPage, StringComparison.Ordinal);
         Assert.Contains("Manual search", firstPage, StringComparison.Ordinal);
         Assert.Contains("Student number", firstPage, StringComparison.Ordinal);
@@ -120,20 +120,20 @@ public sealed class MyEventsAttendanceQueryTests(SqlServerDatabaseFixture fixtur
         Assert.DoesNotContain($"data-attendance-id=\"{otherAttendance.AttendanceId}\"", firstPage, StringComparison.Ordinal);
         Assert.DoesNotContain("Other member only event", firstPage, StringComparison.Ordinal);
 
-        var secondPage = await client.GetStringAsync("/MyEvents/Attendance?page=2", ct);
-        Assert.Contains("Showing 26–26 of 26 records.", secondPage, StringComparison.Ordinal);
+        var secondPage = await client.GetStringAsync("/MyEvents/Attendance?pageSize=25&page=2", ct);
+        Assert.Contains("Showing 26–26 of 26 attendance records", secondPage, StringComparison.Ordinal);
         Assert.Contains("Page 2 of 2", secondPage, StringComparison.Ordinal);
         Assert.Equal(new[] { attendance[1].AttendanceId }, AttendanceIds(secondPage));
         Assert.Contains("Attendance event 01", secondPage, StringComparison.Ordinal);
 
-        var pastEnd = await client.GetStringAsync("/MyEvents/Attendance?page=99", ct);
+        var pastEnd = await client.GetStringAsync("/MyEvents/Attendance?pageSize=25&page=99", ct);
         Assert.Equal(AttendanceIds(secondPage), AttendanceIds(pastEnd));
         Assert.Contains("Page 2 of 2", pastEnd, StringComparison.Ordinal);
 
         // A member with no attendance sees the empty state and no pager.
         using var emptyClient = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
         await MemberEventTestSupport.SignInAsync(emptyClient, emptyEmail, emptyPassword, ct);
-        var emptyPage = await emptyClient.GetStringAsync("/MyEvents/Attendance", ct);
+        var emptyPage = await emptyClient.GetStringAsync("/MyEvents/Attendance?pageSize=25", ct);
         Assert.Contains("No attendance to show yet.", emptyPage, StringComparison.Ordinal);
         Assert.DoesNotContain("Showing ", emptyPage, StringComparison.Ordinal);
         Assert.DoesNotContain("Page ", emptyPage, StringComparison.Ordinal);

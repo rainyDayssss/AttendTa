@@ -14,19 +14,21 @@ namespace ASI.Basecode.Data.Repositories
 {
     public class EventRepository : BaseRepository, IEventRepository
     {
-        public EventRepository(IUnitOfWork unitOfWork) : base(unitOfWork)
+        private readonly ListReadOptions _readOptions;
+        public EventRepository(IUnitOfWork unitOfWork, ListReadOptions readOptions = null) : base(unitOfWork)
         {
+            _readOptions = readOptions;
         }
 
         public Task<int> CountAsync(CancellationToken cancellationToken = default) =>
-            GetDbSet<Event>().AsNoTracking().CountAsync(cancellationToken);
+            FilterEvents().CountAsync(cancellationToken);
 
         public async Task<IReadOnlyList<EventListItem>> GetPageAsync(int skip, int take, CancellationToken cancellationToken = default)
         {
             if (skip < 0) throw new ArgumentOutOfRangeException(nameof(skip));
             if (take <= 0) throw new ArgumentOutOfRangeException(nameof(take));
 
-            var events = GetDbSet<Event>().AsNoTracking();
+            var events = FilterEvents();
             var eventTypes = GetDbSet<EventType>().AsNoTracking();
             var venues = GetDbSet<Venue>().AsNoTracking();
             var users = GetDbSet<User>().AsNoTracking();
@@ -44,11 +46,13 @@ namespace ASI.Basecode.Data.Repositories
                 {
                     EventId = eventItem.EventId,
                     Title = eventItem.Title,
+                    Description = eventItem.Description,
                     TypeName = eventType.TypeName,
                     VenueName = venue.RoomName,
                     StartsAt = eventItem.StartsAt,
                     RegistrationDeadline = eventItem.RegistrationDeadline,
                     ParticipantLimit = eventItem.ParticipantLimit,
+                    HasCover = eventItem.ImagePath != null && eventItem.ImagePath.StartsWith("uploads/events/"),
                     EventStatusId = eventItem.EventStatusId,
                     IsCheckInOpen = eventItem.IsCheckInOpen,
                     CheckInOpenedByName = openedBy == null ? null : openedBy.Name,
@@ -65,7 +69,7 @@ namespace ASI.Basecode.Data.Repositories
             GetDbSet<Event>().AsNoTracking().SingleOrDefaultAsync(eventItem => eventItem.EventId == eventId, cancellationToken);
 
         public Task<int> CountPublishedAsync(CancellationToken cancellationToken = default) =>
-            GetDbSet<Event>().AsNoTracking()
+            FilterEvents()
                 .CountAsync(eventItem => eventItem.EventStatusId == EventStatusCode.Published, cancellationToken);
 
         public async Task<IReadOnlyList<PublishedEventListItem>> GetPublishedPageAsync(int skip, int take, CancellationToken cancellationToken = default)
@@ -88,7 +92,7 @@ namespace ASI.Basecode.Data.Repositories
                     cancellationToken);
 
         public Task<int> CountMemberVisibleAsync(CancellationToken cancellationToken = default) =>
-            GetDbSet<Event>().AsNoTracking()
+            FilterEvents()
                 .CountAsync(eventItem => eventItem.EventStatusId == EventStatusCode.Published
                                          || eventItem.EventStatusId == EventStatusCode.Completed, cancellationToken);
 
@@ -121,7 +125,7 @@ namespace ASI.Basecode.Data.Repositories
         /// </summary>
         private IQueryable<PublishedEventListItem> MemberVisibleEventListQuery()
         {
-            var events = GetDbSet<Event>().AsNoTracking();
+            var events = FilterEvents();
             var eventTypes = GetDbSet<EventType>().AsNoTracking();
             var venues = GetDbSet<Venue>().AsNoTracking();
             var seatHolders = ParticipationFacts.SeatHolders(GetDbSet<Registration>().AsNoTracking());
@@ -177,6 +181,22 @@ namespace ASI.Basecode.Data.Repositories
                     EventStatusId = eventItem.EventStatusId,
                     IsCheckInOpen = eventItem.IsCheckInOpen
                 };
+        }
+
+        private IQueryable<Event> FilterEvents()
+        {
+            var query = GetDbSet<Event>().AsNoTracking();
+            if (_readOptions?.IsSurface("Event", "MemberEvents") != true) return query;
+            if (!string.IsNullOrWhiteSpace(_readOptions.Search)) query = query.Where(row => row.Title.Contains(_readOptions.Search));
+            if (_readOptions.TypeId is int typeId) query = query.Where(row => row.TypeId == typeId);
+            if (Enum.TryParse<EventStatusCode>(_readOptions.Filter, true, out var status) && Enum.IsDefined(status)) query = query.Where(row => row.EventStatusId == status);
+            if (!string.IsNullOrWhiteSpace(_readOptions.Type)) {
+                var ids = GetDbSet<EventType>().Where(type => type.TypeName.Contains(_readOptions.Type)).Select(type => type.TypeId);
+                query = query.Where(row => ids.Contains(row.TypeId));
+            }
+            if (_readOptions.From is DateTime from) query = query.Where(row => row.StartsAt >= from);
+            if (_readOptions.To is DateTime to) { var end = to.Date == DateTime.MaxValue.Date ? DateTime.MaxValue : to.AddDays(1); query = query.Where(row => row.StartsAt < end); }
+            return query;
         }
 
         // Event writers must acquire this same event lock before changing competing state.

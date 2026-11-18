@@ -44,6 +44,10 @@ namespace ASI.Basecode.Services.Security
         private const int MinHashSize = 16;
         private const int MaxHashSize = 64;
 
+        // Process-local, randomly generated credential: never persisted and never accepted.
+        private static readonly string DummyHash = new Argon2PasswordHasher().Hash(
+            Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
+
         /// <inheritdoc />
         public string Hash(string password)
         {
@@ -65,17 +69,21 @@ namespace ASI.Basecode.Services.Security
         /// <inheritdoc />
         public bool Verify(string password, string hash)
         {
-            if (string.IsNullOrEmpty(password) || string.IsNullOrWhiteSpace(hash))
+            if (string.IsNullOrEmpty(password))
             {
                 return false;
             }
 
-            if (!TryParse(hash, out var salt, out var expectedHash, out var memorySize, out var iterations, out var parallelism))
-            {
-                return false;
-            }
-
+            var usable = !string.IsNullOrWhiteSpace(hash)
+                && TryParse(hash, out _, out _, out _, out _, out _);
+            // Invalid and missing credentials must still pay the normal Argon2 cost.
+            TryParse(usable ? hash : DummyHash, out var salt, out var expectedHash, out var memorySize, out var iterations, out var parallelism);
             var actualHash = Derive(password, salt, memorySize, iterations, parallelism, expectedHash.Length);
+            if (!usable)
+            {
+                return false;
+            }
+
             return CryptographicOperations.FixedTimeEquals(actualHash, expectedHash);
         }
 

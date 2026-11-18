@@ -15,4 +15,5 @@ public sealed class AccountRequestQueueItemViewModel
     public string MobileNumber { get; init; }
     public string Status { get; init; }
     public DateTime RequestedAt { get; init; }
+    public string ReviewNotes { get; init; }
 }

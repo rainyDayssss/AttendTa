@@ -32,7 +32,7 @@ public sealed class TransactionAuditTests(SqlServerDatabaseFixture fixture) : IC
         var email = $"{Guid.NewGuid():N}@example.invalid";
         await uow.ExecuteInTransactionAsync(async ct =>
         {
-            var user = new User { Name = "Test", UserId = email, Password = "test-hash", IsActive = true, RoleId = RoleCode.Admin };
+            var user = new User { Name = "Test", Email = email, Password = "test-hash", IsActive = true, RoleId = RoleCode.Admin };
             context.Users.Add(user);
             await uow.SaveChangesAsync(ct);
             actor.UserId = user.Id;

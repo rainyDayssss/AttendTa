@@ -22,7 +22,7 @@ public sealed class MyEventsService(
     IAttendanceRepository attendance,
     ICurrentActor actor,
     TimeProvider clock,
-    IMapper mapper) : IMyEventsService
+    IMapper mapper, ListReadOptions readOptions = null) : IMyEventsService
 {
     public async Task<PagedResult<MyEventRegistrationCardViewModel>> GetRegistrationsAsync(
         int? pageNumber,
@@ -44,7 +44,7 @@ public sealed class MyEventsService(
                     startCutoffPassed(new Event { StartsAt = row.StartsAt })))
             .ToList();
 
-        return new PagedResult<MyEventRegistrationCardViewModel>(cards, page, totalCount);
+        return new PagedResult<MyEventRegistrationCardViewModel>(cards, page, totalCount, PageRequest.NormalizeSize(readOptions?.PageSize));
     }
 
     public async Task<PagedResult<MyEventAttendanceRowViewModel>> GetAttendanceAsync(
@@ -63,25 +63,25 @@ public sealed class MyEventsService(
             .Select(row => mapper.Map<MyEventAttendanceRowViewModel>(row))
             .ToList();
 
-        return new PagedResult<MyEventAttendanceRowViewModel>(records, page, totalCount);
+        return new PagedResult<MyEventAttendanceRowViewModel>(records, page, totalCount, PageRequest.NormalizeSize(readOptions?.PageSize));
     }
 
     /// <summary>
     /// The one paging shape both tabs share: count, normalize the requested page, and read only that
     /// page. A tab with no records skips the page read and reports page one of zero.
     /// </summary>
-    private static async Task<(IReadOnlyList<TRow> Rows, int PageNumber, int TotalCount)> ReadPageAsync<TRow>(
+    private async Task<(IReadOnlyList<TRow> Rows, int PageNumber, int TotalCount)> ReadPageAsync<TRow>(
         Func<CancellationToken, Task<int>> countAsync,
         Func<int, int, CancellationToken, Task<IReadOnlyList<TRow>>> readPageAsync,
         int? pageNumber,
         CancellationToken cancellationToken)
     {
         var totalCount = await countAsync(cancellationToken);
-        var request = new PageRequest(pageNumber);
+        var request = new PageRequest(pageNumber, readOptions?.PageSize);
         var page = request.NormalizePageNumber(totalCount);
         var rows = totalCount == 0
             ? Array.Empty<TRow>()
-            : (await readPageAsync(request.GetOffset(page), PageRequest.FixedPageSize, cancellationToken)).ToArray();
+            : (await readPageAsync(request.GetOffset(page), PageRequest.NormalizeSize(readOptions?.PageSize), cancellationToken)).ToArray();
 
         return (rows, page, totalCount);
     }

@@ -44,6 +44,6 @@ public sealed class AccountRequestQueueViewModel : IPagedResult
     public int TotalPages => Page.TotalPages;
     public bool HasPreviousPage => Page.HasPreviousPage;
     public bool HasNextPage => Page.HasNextPage;
-    public int FirstItemNumber => TotalCount == 0 ? 0 : ((PageNumber - 1) * PageSize) + 1;
-    public int LastItemNumber => TotalCount == 0 ? 0 : Math.Min(PageNumber * PageSize, TotalCount);
+    public int FirstItemNumber => Page.FirstItemNumber;
+    public int LastItemNumber => Page.LastItemNumber;
 }

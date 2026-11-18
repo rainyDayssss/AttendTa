@@ -4,6 +4,11 @@ using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Data.Queries;
 using ASI.Basecode.Data.Repositories;
 using ASI.Basecode.Services.Services;
+using ASI.Basecode.Services.Security;
+using ASI.Basecode.IntegrationTests.Support;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Playwright;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -23,13 +28,14 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
         var ct = TestContext.Current.CancellationToken;
         var now = new DateTime(2026, 5, 1, 9, 0, 0, DateTimeKind.Utc);
         var suffix = Guid.NewGuid().ToString("N");
+        var browserPassword = $"Report-{Guid.NewGuid():N}!";
 
         await using var context = Context();
         var actor = new User
         {
-            UserId = $"report-actor-{suffix}@attendta.test",
+            Email = $"report-actor-{suffix}@attendta.test",
             Name = "Report Actor",
-            Password = "test",
+            Password = new Argon2PasswordHasher().Hash(browserPassword),
             RoleId = RoleCode.Officer,
             IsActive = true
         };
@@ -134,7 +140,7 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
 
         // The service derives every panel from that one snapshot, so the composed read is exercised
         // against real SQL rather than a fake.
-        var service = new ParticipationReportService(new EventRepository(new UnitOfWork(context)), repository);
+        var service = new ParticipationReportService(new EventRepository(new UnitOfWork(context)), repository, new ListReadOptions { PageSize = 25 });
         var report = await service.GetReportAsync(completed.EventId, null, ct);
 
         Assert.Equal(7, report.TotalCount);
@@ -156,6 +162,48 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
         var cancelledReportRow = report.Rows.Single(row => row.RegistrationId == cancelledRow.RegistrationId);
         Assert.NotNull(cancelledReportRow.CheckedInAt);
         Assert.False(cancelledReportRow.IsNoShow);
+
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        using var login = await client.GetAsync("/Account/Login", ct);
+        var loginHtml = await login.Content.ReadAsStringAsync(ct);
+        var token = Regex.Match(loginHtml, "__RequestVerificationToken[^>]*value=\"([^\"]+)\"", RegexOptions.IgnoreCase).Groups[1].Value;
+        using var signIn = await client.PostAsync("/Account/Login", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["Email"] = actor.Email, ["Password"] = browserPassword, ["__RequestVerificationToken"] = token
+        }), ct);
+        Assert.Equal(System.Net.HttpStatusCode.Redirect, signIn.StatusCode);
+        using var playwright = await Playwright.CreateAsync();
+        await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+        foreach (var width in new[] { 390, 1440 })
+        {
+            var page = await browser.NewPageAsync(new() { ViewportSize = new() { Width = width, Height = 900 } });
+            await page.RouteAsync("**/*", async route =>
+            {
+                using var request = new HttpRequestMessage(new HttpMethod(route.Request.Method), route.Request.Url);
+                using var response = await client.SendAsync(request, ct);
+                var headers = response.Headers.Concat(response.Content.Headers)
+                    .Where(header => header.Key is not ("Transfer-Encoding" or "Content-Length" or "Content-Encoding"))
+                    .ToDictionary(header => header.Key, header => string.Join(", ", header.Value));
+                await route.FulfillAsync(new() { Status = (int)response.StatusCode, Headers = headers, BodyBytes = await response.Content.ReadAsByteArrayAsync(ct) });
+            });
+            await page.GotoAsync($"http://localhost/Reports/Participation?eventId={completed.EventId}");
+            var cards = page.Locator(".report-summary .panel");
+            Assert.Equal(4, await cards.CountAsync());
+            Assert.Equal(new[] { "4", "2", "50%", "2" }, await cards.Locator(".report-value").AllInnerTextsAsync());
+            Assert.True(await cards.EvaluateAllAsync<bool>("cards => cards.every(card => getComputedStyle(card).marginTop === '0px')"));
+            if (width == 1440)
+                Assert.True(await cards.EvaluateAllAsync<bool>("cards => cards.every(card => Math.abs(card.getBoundingClientRect().top - cards[0].getBoundingClientRect().top) < 1)"));
+            else
+                Assert.True(await cards.EvaluateAllAsync<bool>("cards => cards.every((card, i) => i === 0 || card.getBoundingClientRect().top >= cards[i - 1].getBoundingClientRect().bottom)"));
+            if (Environment.GetEnvironmentVariable("ATTENDTA_VISUAL_DIR") is string visualDir)
+                await page.ScreenshotAsync(new() { Path = System.IO.Path.Combine(visualDir, $"attendta-report-{width}.png"), FullPage = true });
+            await page.GotoAsync($"http://localhost/Reports/Participation?eventId={completed.EventId}&type=attended");
+            Assert.Equal(new[] { "4", "2", "50%", "2" }, await page.Locator(".report-summary .report-value").AllInnerTextsAsync());
+            Assert.Contains("filters apply to participants only", await page.Locator(".report-scope").InnerTextAsync());
+            Assert.Equal(2, await page.Locator("[data-registration-id]").CountAsync());
+            await page.CloseAsync();
+        }
     }
 
     [Fact]
@@ -168,7 +216,7 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
         await using var context = Context();
         var actor = new User
         {
-            UserId = $"report-page-actor-{suffix}@attendta.test",
+            Email = $"report-page-actor-{suffix}@attendta.test",
             Name = "Report Actor",
             Password = "test",
             RoleId = RoleCode.Officer,
@@ -303,7 +351,7 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
         await using var context = Context();
         var actor = new User
         {
-            UserId = $"report-mixed-actor-{suffix}@attendta.test",
+            Email = $"report-mixed-actor-{suffix}@attendta.test",
             Name = "Report Actor",
             Password = "test",
             RoleId = RoleCode.Officer,
@@ -391,13 +439,13 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
         await context.SaveChangesAsync(ct);
 
         var repository = new ParticipationReportRepository(new UnitOfWork(context));
-        var service = new ParticipationReportService(new EventRepository(new UnitOfWork(context)), repository);
+        var service = new ParticipationReportService(new EventRepository(new UnitOfWork(context)), repository, new ListReadOptions { PageSize = 25 });
 
         var firstPage = await service.GetReportAsync(completed.EventId, 1, ct);
         var secondPage = await service.GetReportAsync(completed.EventId, 2, ct);
         var defaultPage = await service.GetReportAsync(completed.EventId, null, ct);
 
-        // The page carries 25 rows, the totals do not follow it.
+        // The explicitly requested page carries 25 rows, the totals do not follow it.
         Assert.Equal(25, firstPage.Rows.Count);
         Assert.Equal(5, secondPage.Rows.Count);
         Assert.Equal(25, defaultPage.Rows.Count);
@@ -444,7 +492,7 @@ public sealed class ParticipationReportRepositoryTests(SqlServerDatabaseFixture 
         await using var context = Context();
         var user = new User
         {
-            UserId = email,
+            Email = email,
             Name = name,
             Password = "test",
             RoleId = RoleCode.Member,

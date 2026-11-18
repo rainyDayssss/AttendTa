@@ -12,6 +12,7 @@ using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
+using Microsoft.Extensions.Logging;
 
 namespace ASI.Basecode.Services.Services;
 
@@ -39,7 +40,7 @@ public sealed class CertificateLedgerService(
     IActivityLogWriter audit,
     TimeProvider clock,
     ICertificatePdfRenderer renderer,
-    IPrivateFileStore files) : ICertificateLedgerService
+    IPrivateFileStore files, ListReadOptions readOptions = null, ILogger<CertificateLedgerService> logger = null) : ICertificateLedgerService
 {
     private const int MaxReasonLength = 1000;
     private const string NotFoundMessage = "Certificate review not found.";
@@ -67,7 +68,13 @@ public sealed class CertificateLedgerService(
         CancellationToken cancellationToken = default)
     {
         var read = await ReadAsync(eventId, cancellationToken);
-        return BuildPage(read, tab, page);
+        var result = BuildPage(read, tab, page);
+        foreach (var row in result.Rows.Where(row => row.Status == CertificateStatusCode.Issued))
+        {
+            var certificate = await certificates.GetByRegistrationIdNoTrackingAsync(row.RegistrationId, cancellationToken);
+            row.HasDocument = await CertificateFileAvailability.IsAvailableAsync(files, certificate?.FilePath, cancellationToken);
+        }
+        return result;
     }
 
     /// <summary>
@@ -113,7 +120,7 @@ public sealed class CertificateLedgerService(
     }
 
     /// <summary>Builds one tab's page from a full read.</summary>
-    private static CertificateLedgerViewModel BuildPage(
+    private CertificateLedgerViewModel BuildPage(
         CertificateLedgerRead read,
         CertificateLedgerTab tab,
         int? page)
@@ -123,14 +130,16 @@ public sealed class CertificateLedgerService(
         var issuedCount = read.Rows.Count(row => row.Status == CertificateStatusCode.Issued);
         var filtered = read.Rows
             .Where(row => (row.Status == CertificateStatusCode.Issued) == (tab == CertificateLedgerTab.Issued))
+            .Where(row => string.IsNullOrWhiteSpace(readOptions?.Search) || row.MemberName.Contains(readOptions.Search, StringComparison.OrdinalIgnoreCase) || row.StudentNumber.Contains(readOptions.Search, StringComparison.OrdinalIgnoreCase) || (row.CertificateNumber?.Contains(readOptions.Search, StringComparison.OrdinalIgnoreCase) ?? false))
+            .Where(row => string.IsNullOrWhiteSpace(readOptions?.Filter) || string.Equals(row.Status.ToString(), readOptions.Filter, StringComparison.OrdinalIgnoreCase))
             .OrderBy(row => row.MemberName, StringComparer.OrdinalIgnoreCase)
             .ThenBy(row => row.RegistrationId)
             .ToList();
-        var request = new PageRequest(page);
+        var request = new PageRequest(page, readOptions?.PageSize);
         var normalized = request.NormalizePageNumber(filtered.Count);
         var items = filtered
             .Skip(request.GetOffset(normalized))
-            .Take(PageRequest.FixedPageSize)
+            .Take(PageRequest.NormalizeSize(readOptions?.PageSize))
             .ToList();
 
         return new CertificateLedgerViewModel
@@ -139,7 +148,7 @@ public sealed class CertificateLedgerService(
             EligibilityCount = read.Rows.Count - issuedCount,
             IssuedCount = issuedCount,
             Rows = items,
-            Page = new PagedResult<CertificateLedgerRowViewModel>(items, normalized, filtered.Count),
+            Page = new PagedResult<CertificateLedgerRowViewModel>(items, normalized, filtered.Count, PageRequest.NormalizeSize(readOptions?.PageSize)),
             Selector = new EventSelectorViewModel
             {
                 Label = read.Selector.Label,
@@ -171,6 +180,74 @@ public sealed class CertificateLedgerService(
         await unitOfWork.ExecuteInTransactionAsync(
             token => DecideInsideTransactionAsync(registrationId, approve, reason, actorUserId, identity, token),
             cancellationToken);
+    }
+
+    /// <summary>
+    /// Approves the selected pending reviews through <see cref="DecideAsync"/>, one record at a time.
+    /// Each call owns its transaction, lock order and audit entry, so a refusal rolls back only that
+    /// record and the next id still runs. Display identity is resolved in one read before any
+    /// decision, because an approved row has already left the pending page by the time the result
+    /// panel renders.
+    /// </summary>
+    public async Task<IReadOnlyList<CertificateApprovalOutcome>> ApproveManyAsync(
+        IReadOnlyCollection<int> registrationIds,
+        CancellationToken cancellationToken = default)
+    {
+        // Validate the actor once for the whole batch. DecideAsync re-checks it per record, which is
+        // defence in depth rather than a second authorization path.
+        RequireManagement();
+
+        if (registrationIds is null || registrationIds.Count == 0)
+        {
+            throw new DomainException(OutcomeCode.Invalid, BulkApproval.EmptySelectionMessageFor("certificate review"));
+        }
+
+        if (registrationIds.Count > BulkApproval.MaxBatchSize)
+        {
+            throw new DomainException(OutcomeCode.Invalid, BulkApproval.OverBoundMessageFor("certificate review"));
+        }
+
+        // Deduplicate in first-seen order so a repeated id is decided once and reported once.
+        var distinctIds = new List<int>(registrationIds.Count);
+        var seen = new HashSet<int>();
+        foreach (var registrationId in registrationIds)
+        {
+            if (seen.Add(registrationId))
+            {
+                distinctIds.Add(registrationId);
+            }
+        }
+
+        var summaries = await certificates.GetDecisionSummariesAsync(distinctIds, cancellationToken);
+        var identities = new Dictionary<int, CertificateReviewSummary>(summaries.Count);
+        foreach (var summary in summaries)
+        {
+            identities[summary.RegistrationId] = summary;
+        }
+
+        var outcomes = new List<CertificateApprovalOutcome>(distinctIds.Count);
+        foreach (var registrationId in distinctIds)
+        {
+            var identity = identities.TryGetValue(registrationId, out var summary) ? summary : null;
+            var label = string.IsNullOrWhiteSpace(identity?.MemberName)
+                ? $"Registration {registrationId}"
+                : identity.MemberName;
+
+            // No outer transaction: DecideAsync owns its transaction, so a refusal rolls back only
+            // its own record. Catch only DomainException -- cancellation and unexpected faults must
+            // surface instead of becoming a refusal.
+            try
+            {
+                await DecideAsync(registrationId, true, null, cancellationToken);
+                outcomes.Add(new CertificateApprovalOutcome(registrationId, label, identity?.StudentNumber, true, "Approved."));
+            }
+            catch (DomainException exception)
+            {
+                outcomes.Add(new CertificateApprovalOutcome(registrationId, label, identity?.StudentNumber, false, exception.Message));
+            }
+        }
+
+        return outcomes;
     }
 
     public async Task IssueAsync(int registrationId, CancellationToken cancellationToken = default)
@@ -260,6 +337,8 @@ public sealed class CertificateLedgerService(
     {
         RequireManagement();
         var (certificate, identity) = await RequireIssuedDocumentAsync(registrationId, cancellationToken);
+
+        if (!await CertificateFileAvailability.IsAvailableAsync(files, certificate.FilePath, cancellationToken)) throw NotFound();
 
         return new CertificateViewerViewModel
         {
@@ -456,9 +535,10 @@ public sealed class CertificateLedgerService(
             DeleteBestEffort(temporaryPath);
             throw;
         }
-        catch (Exception)
+        catch (Exception exception)
         {
-            // A renderer that throws or returns non-PDF content leaves no file behind.
+            // Exception messages and stack traces can contain private paths. Record only the type.
+            logger?.LogWarning("Certificate rendering or promotion failed ({FailureType}); no certificate file was promoted.", exception.GetType().Name);
             DeleteBestEffort(temporaryPath);
             throw new DomainException(OutcomeCode.Invalid, RenderFailedMessage);
         }
@@ -486,7 +566,9 @@ public sealed class CertificateLedgerService(
         }
         catch (Exception)
         {
-            // The row is unchanged; a leftover file is safer than surfacing a cleanup failure.
+            // The row is unchanged; a leftover file is safer than surfacing a cleanup failure. The
+            // private storage key is deliberately left out of the log.
+            logger?.LogWarning("Could not delete a temporary certificate file after a failed issue.");
         }
     }
 
@@ -530,7 +612,9 @@ public sealed class CertificateLedgerService(
             await using var stream = await files.OpenReadAsync(certificate.FilePath, cancellationToken);
             using var copy = new MemoryStream();
             await stream.CopyToAsync(copy, cancellationToken);
-            return new CertificateDocument(copy.ToArray(), certificate.CertificateNumber);
+            var bytes = copy.ToArray();
+            if (bytes.Length < 5 || !bytes.AsSpan(0, 5).SequenceEqual("%PDF-"u8)) throw NotFound();
+            return new CertificateDocument(bytes, certificate.CertificateNumber);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException)
         {

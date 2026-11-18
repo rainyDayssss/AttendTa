@@ -48,8 +48,10 @@ public sealed class CertificatePdfRendererTests(SqlServerDatabaseFixture fixture
         Assert.Contains("at-2026-000042", normalizedText, StringComparison.Ordinal);
         Assert.Contains("eventstart", normalizedText, StringComparison.Ordinal);
         Assert.Contains("dateissued", normalizedText, StringComparison.Ordinal);
-        Assert.Contains("2026-01-0202:30asia/manila", normalizedText, StringComparison.Ordinal);
-        Assert.Contains("2026-01-0211:15asia/manila", normalizedText, StringComparison.Ordinal);
+        Assert.Contains("2026-01-0202:30", normalizedText, StringComparison.Ordinal);
+        Assert.Contains("2026-01-0211:15", normalizedText, StringComparison.Ordinal);
+        Assert.DoesNotContain("manilatime", normalizedText, StringComparison.Ordinal);
+        Assert.DoesNotContain("philippinetime", normalizedText, StringComparison.Ordinal);
         Assert.Contains("universityofcebu", normalizedText, StringComparison.Ordinal);
         Assert.Contains("christiankyleducay", normalizedText, StringComparison.Ordinal);
         Assert.Contains("organizationpresident", normalizedText, StringComparison.Ordinal);

@@ -3,6 +3,7 @@ using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Data.Repositories;
+using ASI.Basecode.IntegrationTests.Support;
 using ASI.Basecode.Resources;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
@@ -18,6 +19,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Globalization;
 using System.Security.Claims;
 using Xunit;
 
@@ -69,10 +71,12 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
 
     private static string UniqueName(string prefix) => $"{prefix}-{Guid.NewGuid():N}";
 
+    private static string UniqueStudentNumber() => ProfileFixtures.NewStudentNumber();
+
     private static User NewUser() => new()
     {
         Name = "Master Data Actor",
-        UserId = $"{Guid.NewGuid():N}@example.invalid",
+        Email = $"{Guid.NewGuid():N}@example.invalid",
         Password = "test",
         IsActive = true,
         RoleId = RoleCode.Admin
@@ -92,10 +96,10 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
     {
         FullName = "Linked Member",
         StudentNumber = studentNumber,
-        Course = "Computing",
+        Course = "BSIT",
         YearLevel = 1,
         Section = "A",
-        MobileNumber = "555-0100",
+        MobileNumber = "09171234567",
         MembershipType = "Regular",
         Status = "active"
     };
@@ -274,7 +278,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         var unitOfWork = new UnitOfWork(writer);
         var (actorId, linkedUserId) = await SeedUsersAsync(ct);
         var service = MemberWriter(new MemberRepositoryThatSavesThenFails(new MemberRepository(unitOfWork), unitOfWork), unitOfWork, actorId);
-        var studentNumber = UniqueName("SN");
+        var studentNumber = UniqueStudentNumber();
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), ct));
 
@@ -291,7 +295,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         var unitOfWork = new UnitOfWork(writer);
         var (actorId, linkedUserId) = await SeedUsersAsync(ct);
         var service = MemberWriter(new MemberRepository(unitOfWork), unitOfWork, actorId);
-        var studentNumber = UniqueName("SN");
+        var studentNumber = UniqueStudentNumber();
 
         await service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), ct);
 
@@ -307,7 +311,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         var unitOfWork = new UnitOfWork(writer);
         var (actorId, linkedUserId) = await SeedUsersAsync(ct);
         var service = MemberWriter(new MemberRepository(unitOfWork), unitOfWork, actorId);
-        var studentNumber = UniqueName("SN");
+        var studentNumber = UniqueStudentNumber();
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => unitOfWork.ExecuteInTransactionAsync(async inner =>
         {
@@ -373,16 +377,16 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         var unitOfWork = new UnitOfWork(writer);
         var (actorId, linkedUserId) = await SeedUsersAsync(ct);
         var service = MemberWriter(new MemberRepository(unitOfWork), unitOfWork, actorId);
-        var studentNumber = UniqueName("SN");
+        var studentNumber = UniqueStudentNumber();
 
         var unauthenticated = MemberWriter(new MemberRepository(unitOfWork), unitOfWork, new TestActor(actorId, authenticated: false));
         Assert.Equal(OutcomeCode.Forbidden, (await Assert.ThrowsAsync<DomainException>(() => unauthenticated.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), ct))).Outcome);
         Assert.Equal(OutcomeCode.Invalid, (await Assert.ThrowsAsync<DomainException>(() => service.CreateMemberFromApprovedAccountRequestAsync(0, MemberModel(studentNumber), ct))).Outcome);
-        Assert.Equal(OutcomeCode.NotFound, (await Assert.ThrowsAsync<DomainException>(() => service.UpdateMemberAsync(new MemberViewModel { MemberId = int.MaxValue, StudentNumber = studentNumber, Course = "Computing", YearLevel = 1, Section = "A", Status = "active" }, ct))).Outcome);
+        Assert.Equal(OutcomeCode.NotFound, (await Assert.ThrowsAsync<DomainException>(() => service.UpdateMemberAsync(new MemberViewModel { MemberId = int.MaxValue, StudentNumber = studentNumber, Course = "BSIT", YearLevel = 1, Section = "A", Status = "active" }, ct))).Outcome);
         Assert.False(await observer.Members.AnyAsync(m => m.StudentNumber == studentNumber, ct));
 
         await service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(studentNumber), ct);
-        var duplicateProfile = await Assert.ThrowsAsync<DomainException>(() => service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(UniqueName("SN")), ct));
+        var duplicateProfile = await Assert.ThrowsAsync<DomainException>(() => service.CreateMemberFromApprovedAccountRequestAsync(linkedUserId, MemberModel(UniqueStudentNumber()), ct));
         Assert.Equal(OutcomeCode.Duplicate, duplicateProfile.Outcome);
 
         var otherUserId = await SeedUserAsync(ct);
@@ -404,8 +408,7 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
             NullLoggerFactory.Instance,
             new ConfigurationBuilder().Build(),
             Mapper,
-            new RefusingVenueService(),
-            storage)
+            new RefusingVenueService())
         {
             ControllerContext = new ControllerContext { HttpContext = httpContext },
             TempData = new TempDataDictionary(httpContext, new NullTempDataProvider())
@@ -443,6 +446,11 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
             Task.FromResult(new PagedResult<VenueViewModel>(Array.Empty<VenueViewModel>(), 1, 0));
 
         public VenueViewModel GetVenue(int id) => null!;
+
+        public bool IsServablePhoto(string path) => false;
+
+        public Task<VenuePhotoStream> GetPhotoAsync(int venueId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<VenuePhotoStream>(null!);
 
         public Task AddVenueAsync(VenueViewModel model, Stream photo, string extension, CancellationToken cancellationToken = default) =>
             throw new DomainException(OutcomeCode.Invalid, "Refused.");
@@ -518,6 +526,8 @@ public class MasterDataTransactionTests(SqlServerDatabaseFixture fixture) : ICla
         public Task<MemberRecord> GetMemberRecordByUserIdAsync(int userId, CancellationToken cancellationToken = default) => inner.GetMemberRecordByUserIdAsync(userId, cancellationToken);
         public Task<Member> GetMemberByUserIdAsync(int userId, CancellationToken cancellationToken = default) => inner.GetMemberByUserIdAsync(userId, cancellationToken);
         public Task<Member> GetMemberAsync(int memberId, CancellationToken cancellationToken = default) => inner.GetMemberAsync(memberId, cancellationToken);
+        public void EnsureMemberCanRefresh(int memberId) => inner.EnsureMemberCanRefresh(memberId);
+        public Task<Member> GetMemberForEditAsync(int memberId, CancellationToken cancellationToken = default) => inner.GetMemberForEditAsync(memberId, cancellationToken);
         public Task<bool> UserHasMemberProfileAsync(int userId, CancellationToken cancellationToken = default) => inner.UserHasMemberProfileAsync(userId, cancellationToken);
         public Task<bool> StudentNumberExistsAsync(string studentNumber, int? excludeId = null, CancellationToken cancellationToken = default) => inner.StudentNumberExistsAsync(studentNumber, excludeId, cancellationToken);
         public Task UpdateMemberAsync(Member member, CancellationToken cancellationToken = default) => inner.UpdateMemberAsync(member, cancellationToken);

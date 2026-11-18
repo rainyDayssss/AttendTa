@@ -21,7 +21,11 @@ namespace ASI.Basecode.WebApp.Formatting
         public static string Format(DateTime? value) => value.HasValue ? Format(value.Value) : string.Empty;
 
         public static string Format(DateTimeOffset value) =>
-            TimeZoneInfo.ConvertTime(value, Manila).ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + " Asia/Manila";
+            TimeZoneInfo.ConvertTime(value, Manila).ToString("yyyy-MM-dd hh:mm tt", CultureInfo.InvariantCulture);
+
+        public static string FormatDate(DateTime value) => ToLocal(value).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        public static string FormatTime(DateTime value) => ToLocal(value).ToString("hh:mm tt", CultureInfo.InvariantCulture);
 
         public static string Format(DateTimeOffset? value) => value.HasValue ? Format(value.Value) : string.Empty;
 

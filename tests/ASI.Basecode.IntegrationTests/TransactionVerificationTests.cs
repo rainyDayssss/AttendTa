@@ -18,8 +18,8 @@ public class TransactionVerificationTests(SqlServerDatabaseFixture fixture) : IC
 {
     private AsiBasecodeDBContext Context() => new(new DbContextOptionsBuilder<AsiBasecodeDBContext>().UseSqlServer(fixture.ConnectionString).Options);
     private static string Email() => $"{Guid.NewGuid():N}@example.invalid";
-    private static User User(string email) => new() { Name = "Test", UserId = email, Password = "test", IsActive = true, RoleId = RoleCode.Member };
-    private static AccountRequest Request(string email) => new() { StudentNumber = Guid.NewGuid().ToString("N"), FullName = "Test", Email = email, PasswordHash = "test", Course = "Computing", YearLevel = 1, Section = "A", AccountRequestStatusId = AccountRequestStatusCode.Pending };
+    private static User User(string email) => new() { Name = "Test", Email = email, Password = "test", IsActive = true, RoleId = RoleCode.Member };
+    private static AccountRequest Request(string email) => new() { StudentNumber = Guid.NewGuid().ToString("N"), FullName = "Test", Email = email, PasswordHash = "test", Course = "BSIT", YearLevel = 1, Section = "A", AccountRequestStatusId = AccountRequestStatusCode.Pending };
     private sealed class Actor(int id, bool authenticated = true) : ICurrentActor { public bool IsAuthenticated => authenticated; public int UserId => id; public string Role => "member"; }
     private sealed class Clock : TimeProvider { public override DateTimeOffset GetUtcNow() => new(2026, 1, 2, 3, 4, 5, TimeSpan.Zero); }
     private sealed record Values(string Status, int Count) : IAuditValues;
@@ -42,10 +42,10 @@ public class TransactionVerificationTests(SqlServerDatabaseFixture fixture) : IC
         await uow.ExecuteInTransactionAsync(async outer =>
         {
             await uow.ExecuteInTransactionAsync(async inner => { owner.Users.Add(User(email)); writer.Append(Entry(new Values("approved", 2))); Assert.Equal(DateTimeKind.Utc, owner.ChangeTracker.Entries<ActivityLog>().Single().Entity.OccurredAt.Kind); await uow.SaveChangesAsync(inner); }, outer);
-            Assert.False(await observer.Users.AnyAsync(u => u.UserId == email, outer));
+            Assert.False(await observer.Users.AnyAsync(u => u.Email == email, outer));
             Assert.Equal(0, await observer.ActivityLogs.CountAsync(a => a.ActorUserId == actor.Id, outer));
         }, ct);
-        Assert.True(await observer.Users.AnyAsync(u => u.UserId == email, ct));
+        Assert.True(await observer.Users.AnyAsync(u => u.Email == email, ct));
         var audit = await observer.ActivityLogs.SingleAsync(a => a.ActorUserId == actor.Id, ct);
         Assert.Equal(ActorTypeCode.User, audit.ActorTypeId); Assert.Equal(actor.Id, audit.ActorUserId);
         Assert.Equal(new DateTime(2026, 1, 2, 3, 4, 5), audit.OccurredAt);
@@ -59,7 +59,7 @@ public class TransactionVerificationTests(SqlServerDatabaseFixture fixture) : IC
             throw new InvalidOperationException();
         }, ct));
         Assert.Empty(owner.ChangeTracker.Entries());
-        Assert.False(await observer.Users.AnyAsync(u => u.UserId == rollbackEmail, ct));
+        Assert.False(await observer.Users.AnyAsync(u => u.Email == rollbackEmail, ct));
         Assert.Equal(1, await observer.ActivityLogs.CountAsync(a => a.ActorUserId == actor.Id, ct));
     }
 
@@ -169,7 +169,7 @@ public class TransactionVerificationTests(SqlServerDatabaseFixture fixture) : IC
         }, ct));
         Assert.Same(original, thrown); Assert.Empty(context.ChangeTracker.Entries());
         await Assert.ThrowsAnyAsync<Exception>(() => transaction.CommitAsync(ct));
-        Assert.False(await observer.Users.AnyAsync(x => x.UserId == email, ct));
+        Assert.False(await observer.Users.AnyAsync(x => x.Email == email, ct));
     }
 
     [Fact]
@@ -180,11 +180,11 @@ public class TransactionVerificationTests(SqlServerDatabaseFixture fixture) : IC
         await using var transaction = await context.Database.BeginTransactionAsync(ct);
         await uow.ExecuteInTransactionAsync(async token => { context.Users.Add(User(saved)); await uow.SaveChangesAsync(token); }, ct);
         await uow.ExecuteInTransactionAsync(_ => { context.Users.Add(User(unsaved)); return Task.CompletedTask; }, ct);
-        Assert.False(await observer.Users.AnyAsync(x => x.UserId == saved, ct));
-        Assert.Equal(EntityState.Added, context.ChangeTracker.Entries<User>().Single(x => x.Entity.UserId == unsaved).State);
+        Assert.False(await observer.Users.AnyAsync(x => x.Email == saved, ct));
+        Assert.Equal(EntityState.Added, context.ChangeTracker.Entries<User>().Single(x => x.Entity.Email == unsaved).State);
         await transaction.CommitAsync(ct);
-        Assert.True(await observer.Users.AnyAsync(x => x.UserId == saved, ct));
-        Assert.False(await observer.Users.AnyAsync(x => x.UserId == unsaved, ct));
+        Assert.True(await observer.Users.AnyAsync(x => x.Email == saved, ct));
+        Assert.False(await observer.Users.AnyAsync(x => x.Email == unsaved, ct));
     }
 
     [Fact]

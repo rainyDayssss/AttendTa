@@ -3,15 +3,15 @@ using System;
 
 namespace ASI.Basecode.Services.ServiceModels;
 
-/// <summary>A fixed-size page of records and its navigation metadata.</summary>
+/// <summary>A page of records with its effective page size and its navigation metadata.</summary>
 public sealed class PagedResult<T> : IPagedResult
 {
-    public PagedResult(IReadOnlyList<T> items, int pageNumber, int totalCount)
+    public PagedResult(IReadOnlyList<T> items, int pageNumber, int totalCount, int? pageSize = null)
     {
         Items = items ?? throw new ArgumentNullException(nameof(items));
         if (totalCount < 0) throw new ArgumentOutOfRangeException(nameof(totalCount));
 
-        PageSize = PageRequest.FixedPageSize;
+        PageSize = PageRequest.NormalizeSize(pageSize);
         TotalCount = totalCount;
         TotalPages = totalCount == 0 ? 0 : (int)(((long)totalCount + PageSize - 1) / PageSize);
         PageNumber = TotalPages == 0 ? 1 : Math.Clamp(pageNumber, 1, TotalPages);
@@ -25,5 +25,5 @@ public sealed class PagedResult<T> : IPagedResult
     public bool HasPreviousPage => PageNumber > 1;
     public bool HasNextPage => PageNumber < TotalPages;
     public int FirstItemNumber => TotalCount == 0 ? 0 : ((PageNumber - 1) * PageSize) + 1;
-    public int LastItemNumber => TotalCount == 0 ? 0 : Math.Min(PageNumber * PageSize, TotalCount);
+    public int LastItemNumber => TotalCount == 0 ? 0 : (int)Math.Min((long)PageNumber * PageSize, TotalCount);
 }

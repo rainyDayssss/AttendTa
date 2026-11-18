@@ -39,7 +39,7 @@
 </fieldset>
 
 <fieldset>
-    <legend>Availability</legend>
+    <legend>Booking and contact</legend>
     <div class="record-form-grid">
         <div class="field field-span-2">
             <label asp-for="AvailabilityNotes" class="field-label">Availability notes</label>
@@ -67,9 +67,9 @@
             </div>
         }
         <div class="field @(hasPhoto ? null : "field-span-2")">
-            <label for="photo" class="field-label">Venue photo @if (photoRequired) { <span class="required" aria-hidden="true">*</span> }</label>
+            <label for="photo" class="field-label">@(hasPhoto ? "Replace venue photo" : "Upload venue photo") @if (photoRequired) { <span class="required" aria-hidden="true">*</span> }</label>
             <input id="photo" name="photo" aria-describedby="@photoDescribedBy" type="file" accept="image/png,image/jpeg" class="field-control" required="@(photoRequired ? "required" : null)" />
-            <small id="photo-help" class="muted">@(photoRequired ? "A JPEG or PNG photo up to 2 MiB is required when creating a venue." : "Select a new JPEG or PNG photo up to 2 MiB to replace the current one.")</small>
+            <small id="photo-help" class="muted">@(photoRequired ? "A JPEG or PNG photo up to 2 MiB is required when creating a venue." : hasPhoto ? "Select a new JPEG or PNG photo up to 2 MiB to replace the current one." : "Select a JPEG or PNG photo up to 2 MiB.")</small>
             @if (photoReselect)
             {
                 <small id="photo-reselect" class="field-hint" data-photo-reselect>Choose the photo again to replace the current photo; the previous selection was not kept after the failed save.</small>

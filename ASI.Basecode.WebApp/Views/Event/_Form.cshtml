@@ -20,6 +20,7 @@
     var startsInvalid = Invalid(nameof(EventViewModel.StartsAt));
     var deadlineInvalid = Invalid(nameof(EventViewModel.RegistrationDeadline));
     var limitInvalid = Invalid(nameof(EventViewModel.ParticipantLimit));
+    var earliest = Model.EventId == 0 ? ViewData["EventCreationToday"] as string : null;
 }
 
 <fieldset>
@@ -42,8 +43,8 @@
     <div class="record-summary" role="group" aria-label="Locked event details">
         <p class="record-summary-row"><span class="record-summary-label">Event type:</span> <span class="record-summary-value">@Model.TypeName</span></p>
         <p class="record-summary-row"><span class="record-summary-label">Venue:</span> <span class="record-summary-value">@Model.VenueName</span></p>
-        <p class="record-summary-row"><span class="record-summary-label">Starts (Asia/Manila):</span> <span class="record-summary-value">@Model.StartsAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)</span></p>
-        <p class="record-summary-row"><span class="record-summary-label">Signup deadline (Asia/Manila):</span> <span class="record-summary-value">@Model.RegistrationDeadline.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)</span></p>
+        <p class="record-summary-row"><span class="record-summary-label">Event starts:</span> <span class="record-summary-value">@Model.StartsAt.ToString("yyyy-MM-dd hh:mm tt", CultureInfo.InvariantCulture)</span></p>
+        <p class="record-summary-row"><span class="record-summary-label">Registration closes:</span> <span class="record-summary-value">@Model.RegistrationDeadline.ToString("yyyy-MM-dd hh:mm tt", CultureInfo.InvariantCulture)</span></p>
         <p class="record-summary-row"><span class="record-summary-label">Participant limit:</span> <span class="record-summary-value">@Model.ParticipantLimit</span></p>
     </div>
     <input type="hidden" name="TypeId" value="@Model.TypeId" />
@@ -77,19 +78,19 @@ else
                         <option value="@venue.VenueId" selected="@(venue.VenueId == Model.VenueId)">@venue.RoomName (capacity @venue.Capacity)</option>
                     }
                 </select>
-                <small id="VenueId-help" class="muted">The participant limit cannot exceed the selected venue capacity.</small>
+                <small id="VenueId-help" class="field-hint">The participant limit cannot exceed the selected venue capacity.</small>
                 <span id="VenueId-validation" asp-validation-for="VenueId" class="field-error"></span>
             </div>
             <div class="field">
-                <label asp-for="StartsAt" class="field-label">Starts (Asia/Manila) <span class="required" aria-hidden="true">*</span></label>
-                <input asp-for="StartsAt" type="datetime-local" value="@startsValue" aria-describedby="StartsAt-validation StartsAt-help" aria-required="true" aria-invalid="@(startsInvalid ? "true" : null)" class="field-control" required />
-                <small id="StartsAt-help" class="muted">Enter the start date and time in Asia/Manila.</small>
+                <label asp-for="StartsAt" class="field-label">Event starts <span class="required" aria-hidden="true">*</span></label>
+                <input asp-for="StartsAt" type="datetime-local" min="@earliest" data-manila-date-min="@(earliest != null ? "true" : null)" value="@startsValue" aria-describedby="StartsAt-validation StartsAt-help" aria-required="true" aria-invalid="@(startsInvalid ? "true" : null)" class="field-control" required />
+                <small id="StartsAt-help" class="field-hint">@(Model.EventId == 0 ? "Choose today or a later date. Times are in Manila time." : "When the event itself begins.")</small>
                 <span id="StartsAt-validation" asp-validation-for="StartsAt" class="field-error"></span>
             </div>
             <div class="field">
-                <label asp-for="RegistrationDeadline" class="field-label">Signup deadline (Asia/Manila) <span class="required" aria-hidden="true">*</span></label>
-                <input asp-for="RegistrationDeadline" type="datetime-local" value="@deadlineValue" aria-describedby="RegistrationDeadline-validation RegistrationDeadline-help" aria-required="true" aria-invalid="@(deadlineInvalid ? "true" : null)" class="field-control" required />
-                <small id="RegistrationDeadline-help" class="muted">The signup deadline cannot be after the event start.</small>
+                <label asp-for="RegistrationDeadline" class="field-label">Registration closes <span class="required" aria-hidden="true">*</span></label>
+                <input asp-for="RegistrationDeadline" type="datetime-local" min="@earliest" data-manila-date-min="@(earliest != null ? "true" : null)" value="@deadlineValue" aria-describedby="RegistrationDeadline-validation RegistrationDeadline-help" aria-required="true" aria-invalid="@(deadlineInvalid ? "true" : null)" class="field-control" required />
+                <small id="RegistrationDeadline-help" class="field-hint">@(Model.EventId == 0 ? "Choose today or a later date, no later than the event start. Times are in Manila time." : "The signup deadline cannot be after the event start.")</small>
                 <span id="RegistrationDeadline-validation" asp-validation-for="RegistrationDeadline" class="field-error"></span>
             </div>
             <div class="field">
@@ -100,3 +101,32 @@ else
         </div>
     </fieldset>
 }
+
+<fieldset>
+    <legend>Cover image</legend>
+    @if (Model.EventId > 0) { <input type="hidden" asp-for="CoverVersion" /> }
+    <div class="record-form-grid">
+        @if (Model.HasCover)
+        {
+            <div class="field">
+                <p class="field-label">Current cover</p>
+                <img src="@Url.Action("Image", "EventCover", new { id = Model.EventId })" alt="Current event cover" width="260" height="146" class="venue-photo" />
+            </div>
+        }
+        <div class="field @(Model.HasCover ? null : "field-span-2")">
+            <label for="cover" class="field-label">@(Model.HasCover ? "Replace event cover" : "Upload event cover")</label>
+            <input id="cover" name="cover" type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" class="field-control @(Invalid("cover") ? "input-validation-error" : null)" aria-invalid="@(Invalid("cover") ? "true" : null)" aria-describedby="cover-help cover-validation@(ViewData["CoverReselect"] is true ? " cover-reselect" : "")" />
+            <small id="cover-help" class="field-hint">Optional for drafts. JPEG or PNG, up to 2 MiB. A cover is required to publish.</small>
+            @if (ViewData["CoverReselect"] is true)
+            {
+                <small id="cover-reselect" class="field-hint">Choose the image again; the previous selection was not retained.</small>
+            }
+            @Html.ValidationMessage("cover", null, new { id = "cover-validation", @class = "field-error" })
+            <div data-record-preview data-record-preview-alt="Preview of selected event cover" hidden></div>
+            @if (Model.HasCover && Model.EventStatusId == EventStatusCode.Draft)
+            {
+                <label class="cover-remove"><input type="checkbox" name="removeCover" value="true" /> Remove current cover</label>
+            }
+        </div>
+    </div>
+</fieldset>

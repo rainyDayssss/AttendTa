@@ -22,9 +22,10 @@ namespace ASI.Basecode.WebApp.Controllers;
 /// published events can produce a pass, and one authorized GET serves both the inline QR image and
 /// its download.
 /// </summary>
-[Authorize(Policy = Policies.Member)]
+[Authorize(Policy = Policies.PersonalParticipation)]
 public sealed class PassesController : ControllerBase<PassesController>
 {
+    private readonly IMemberService _memberService;
     private readonly IPassService _passes;
     private readonly IQrPassPngRenderer _renderer;
 
@@ -33,10 +34,12 @@ public sealed class PassesController : ControllerBase<PassesController>
         ILoggerFactory loggerFactory,
         IConfiguration configuration,
         IMapper mapper,
+        IMemberService memberService,
         IPassService passes,
         IQrPassPngRenderer renderer)
         : base(httpContextAccessor, loggerFactory, configuration, mapper)
     {
+        _memberService = memberService;
         _passes = passes;
         _renderer = renderer;
     }
@@ -46,6 +49,7 @@ public sealed class PassesController : ControllerBase<PassesController>
     [Route("Passes/Index")]
     public async Task<IActionResult> Index()
     {
+        ViewData["MissingMemberProfile"] = !await _memberService.HasMemberProfileAsync(GetActorUserId(), HttpContext.RequestAborted);
         var model = await _passes.GetMyPassesAsync(HttpContext.RequestAborted);
         return View(Decorate(model));
     }

@@ -128,7 +128,7 @@ public sealed class EventPublicationFlowTests(SqlServerDatabaseFixture fixture) 
         await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
         var users = Enumerable.Range(1, 3).Select(index => new User
         {
-            Name = $"Fact user {index}", UserId = $"fact-user-{Guid.NewGuid():N}@attendta.test", Password = "test",
+            Name = $"Fact user {index}", Email = $"fact-user-{Guid.NewGuid():N}@attendta.test", Password = "test",
             RoleId = RoleCode.Member, IsActive = index != 3
         }).ToArray();
         context.Users.AddRange(users);

@@ -1,3 +1,4 @@
+using ASI.Basecode.Data.Queries;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,8 +12,20 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ASI.Basecode.Data.Repositories;
 
-public sealed class AccountRequestRepository(IUnitOfWork unitOfWork) : BaseRepository(unitOfWork), IAccountRequestRepository
+public sealed class AccountRequestRepository(IUnitOfWork unitOfWork, ListReadOptions readOptions = null) : BaseRepository(unitOfWork), IAccountRequestRepository
 {
+    public Task<PendingRequestCredential> GetPendingCredentialAsync(string email, CancellationToken cancellationToken = default) =>
+        GetDbSet<AccountRequest>().AsNoTracking()
+            .Where(request => request.AccountRequestStatusId == AccountRequestStatusCode.Pending && request.Email == email)
+            .Select(request => new PendingRequestCredential(request.RequestId, request.PasswordHash))
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public Task<bool> IsPendingCredentialAsync(int requestId, string passwordHash, CancellationToken cancellationToken = default) =>
+        GetDbSet<AccountRequest>().AsNoTracking().AnyAsync(request => request.RequestId == requestId
+            && request.AccountRequestStatusId == AccountRequestStatusCode.Pending
+            // The terminator also defeats SQL Server's trailing-space padding on equality.
+            && EF.Functions.Collate(request.PasswordHash + "|", "Latin1_General_100_BIN2") == passwordHash + "|", cancellationToken);
+
     public Task<int> CountByStatusAsync(AccountRequestStatusCode? status, string search, CancellationToken cancellationToken = default) =>
         FilterByStatus(status, search).CountAsync(cancellationToken);
 
@@ -59,7 +72,29 @@ public sealed class AccountRequestRepository(IUnitOfWork unitOfWork) : BaseRepos
                 Section = request.Section,
                 MobileNumber = request.MobileNumber,
                 Status = request.AccountRequestStatusId,
-                RequestedAt = request.RequestedAt
+                RequestedAt = request.RequestedAt,
+                ReviewNotes = request.ReviewNotes
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<AccountRequestSummary>> GetSummariesAsync(
+        IReadOnlyCollection<int> requestIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (requestIds is null || requestIds.Count == 0)
+        {
+            return Array.Empty<AccountRequestSummary>();
+        }
+
+        return await GetDbSet<AccountRequest>()
+            .AsNoTracking()
+            .Where(request => requestIds.Contains(request.RequestId))
+            .Select(request => new AccountRequestSummary
+            {
+                RequestId = request.RequestId,
+                FullName = request.FullName,
+                StudentNumber = request.StudentNumber
             })
             .ToListAsync(cancellationToken);
     }
@@ -102,6 +137,12 @@ public sealed class AccountRequestRepository(IUnitOfWork unitOfWork) : BaseRepos
     private IQueryable<AccountRequest> FilterByStatus(AccountRequestStatusCode? status, string search)
     {
         var query = GetDbSet<AccountRequest>().AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(readOptions?.Course)) {
+            var course = readOptions.Course;
+            var legacy = course == "BSIT" ? "BS Information Technology" : course == "BSCS" ? "BS Computer Science" : course;
+            query = query.Where(row => row.Course == course || row.Course == legacy);
+        }
+        if (readOptions?.Year is int year) query = query.Where(row => row.YearLevel == year);
         if (status is not null)
         {
             query = query.Where(request => request.AccountRequestStatusId == status);

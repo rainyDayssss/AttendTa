@@ -288,7 +288,7 @@ public sealed class VenuePhotoFlowTests(SqlServerDatabaseFixture fixture) : ICla
     private static User CreateUser(string email, RoleCode role, Argon2PasswordHasher hasher, string password) => new()
     {
         Name = "Venue photo test user",
-        UserId = email,
+        Email = email,
         Password = hasher.Hash(password),
         RoleId = role,
         IsActive = true

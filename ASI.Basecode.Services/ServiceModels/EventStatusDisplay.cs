@@ -24,7 +24,7 @@ public static class EventStatusDisplay
     {
         EventStatusCode.Draft => "badge-closed",
         EventStatusCode.Published => "badge-open",
-        EventStatusCode.Cancelled => "badge-inactive",
+        EventStatusCode.Cancelled => "badge-cancelled",
         EventStatusCode.Completed => "badge-completed",
         _ => "badge-member"
     };

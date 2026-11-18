@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
 namespace ASI.Basecode.WebApp.Hotspot;
@@ -150,9 +151,10 @@ public static class HotspotCertificateCommand
                 bundle.ServerPublicCertificate.Dispose();
             }
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or CryptographicException)
         {
             error.WriteLine($"The hotspot certificate files could not be written: {exception.Message}");
+            error.WriteLine("Output files may remain. Inspect them and choose a new --out directory before retrying.");
             return 1;
         }
 
@@ -164,13 +166,16 @@ public static class HotspotCertificateCommand
         string directory,
         string password)
     {
-        File.WriteAllBytes(
+        WriteNewFile(
             Path.Combine(directory, RootCertificateFileName),
             bundle.RootPublicCertificate.Export(X509ContentType.Cert));
-        File.WriteAllBytes(
-            Path.Combine(directory, RootPfxFileName),
-            bundle.RootCertificate.Export(X509ContentType.Pfx, password));
-        File.WriteAllBytes(
+
+        var rootPfxPath = Path.Combine(directory, RootPfxFileName);
+        WriteNewFile(
+            rootPfxPath,
+            bundle.RootCertificate.Export(X509ContentType.Pfx, password), privateKey: true);
+
+        WriteNewFile(
             Path.Combine(directory, ServerCertificateFileName),
             bundle.ServerPublicCertificate.Export(X509ContentType.Cert));
 
@@ -180,9 +185,22 @@ public static class HotspotCertificateCommand
             bundle.ServerCertificate,
             bundle.RootPublicCertificate,
         };
-        File.WriteAllBytes(
-            Path.Combine(directory, ServerPfxFileName),
-            chain.Export(X509ContentType.Pfx, password));
+
+        var serverPfxPath = Path.Combine(directory, ServerPfxFileName);
+        WriteNewFile(
+            serverPfxPath,
+            chain.Export(X509ContentType.Pfx, password), privateKey: true);
+    }
+
+    private static void WriteNewFile(string path, byte[] contents, bool privateKey = false)
+    {
+        var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None };
+        if (privateKey && !OperatingSystem.IsWindows())
+        {
+            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        }
+        using var stream = new FileStream(path, options);
+        stream.Write(contents);
     }
 
     private static void WriteSummary(

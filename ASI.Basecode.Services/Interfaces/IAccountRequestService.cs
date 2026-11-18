@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Services.ServiceModels;
@@ -28,6 +29,20 @@ namespace ASI.Basecode.Services.Interfaces
         /// and recording the audit entry in the caller-owned transaction.
         /// </summary>
         Task ApproveAsync(int requestId, int actorUserId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Approves a bounded, deduplicated batch by calling <see cref="ApproveAsync"/> once per
+        /// id. Each record keeps its own transaction, member creation and audit entry, so one
+        /// refusal never rolls back another record. Returns one outcome per distinct id.
+        /// </summary>
+        /// <exception cref="ASI.Basecode.Resources.DomainException">
+        /// Thrown with <c>Forbidden</c> for a non-management actor and <c>Invalid</c> for an empty
+        /// or over-bound batch. Per-record refusals are returned, not thrown.
+        /// </exception>
+        Task<IReadOnlyList<AccountRequestApprovalOutcome>> ApproveManyAsync(
+            IReadOnlyCollection<int> requestIds,
+            int actorUserId,
+            CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Rejects a pending account request, recording the reason and audit entry in the

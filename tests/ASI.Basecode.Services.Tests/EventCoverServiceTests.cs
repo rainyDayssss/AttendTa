@@ -20,6 +20,95 @@ public sealed class EventCoverServiceTests
 {
     private const string OldCover = "uploads/events/ffffffffffffffffffffffffffffffff.jpg";
 
+    private static EventViewModel EditModel(EventStatusCode status = EventStatusCode.Draft) => new()
+    {
+        EventId = 15, Title = "Edited", TypeId = 2, VenueId = 3, ParticipantLimit = 10,
+        StartsAt = new DateTime(2026, 12, 1), RegistrationDeadline = new DateTime(2026, 11, 30),
+        EventStatusId = status,
+        CoverVersion = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(OldCover)))
+    };
+
+    [Fact]
+    public async Task CombinedEditSavesCoverAndDetailsUnderOrderedLocks()
+    {
+        var harness = new Harness(EventStatusCode.Draft, OldCover);
+        await harness.Service.UpdateDraftWithCoverAsync(EditModel(), new MemoryStream(ImageBytes()), ".jpg", false, TestContext.Current.CancellationToken);
+        Assert.Equal("Edited", harness.Events.Item.Title);
+        Assert.NotEqual(OldCover, harness.Events.Item.ImagePath);
+        Assert.Contains(OldCover, harness.Files.Deleted);
+        Assert.Equal(new[] { "type", "venue", "event" }, harness.Locks);
+        var audit = Assert.Single(harness.Audit.Entries);
+        var oldValues = JsonSerializer.Serialize(audit.OldValues, audit.OldValues.GetType());
+        var newValues = JsonSerializer.Serialize(audit.NewValues, audit.NewValues.GetType());
+        Assert.Contains("\"Title\":\"Cover event\"", oldValues);
+        Assert.Contains("\"Title\":\"Edited\"", newValues);
+        Assert.Contains("\"HasCover\":true", oldValues);
+        Assert.Contains("\"HasCover\":true", newValues);
+        Assert.Contains("\"CoverChanged\":true", newValues);
+        Assert.DoesNotContain("uploads/", oldValues);
+        Assert.DoesNotContain("uploads/", newValues);
+    }
+
+    [Fact]
+    public async Task CombinedEditDoesNotDeleteCoverChangedSinceEditorOpened()
+    {
+        var harness = new Harness(EventStatusCode.Draft, OldCover);
+        var newer = "uploads/events/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg";
+        harness.Events.BeforeLock = item => item.ImagePath = newer;
+        var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.UpdateDraftWithCoverAsync(
+            EditModel(), new MemoryStream(ImageBytes()), ".jpg", false, TestContext.Current.CancellationToken));
+        Assert.Equal(OutcomeCode.Stale, error.Outcome);
+        Assert.DoesNotContain(newer, harness.Files.Deleted);
+        Assert.Single(harness.Files.Deleted);
+    }
+
+    [Fact]
+    public async Task ConflictingCoverActionsAreRejectedBeforeStaging()
+    {
+        var harness = new Harness(EventStatusCode.Draft, OldCover);
+        await Assert.ThrowsAsync<DomainException>(() => harness.Service.UpdateDraftWithCoverAsync(
+            EditModel(), new MemoryStream(ImageBytes()), ".jpg", true, TestContext.Current.CancellationToken));
+        Assert.Empty(harness.Files.Saves);
+        Assert.Equal(OldCover, harness.Events.Item.ImagePath);
+    }
+
+    [Fact]
+    public async Task FailedCombinedWriteKeepsBothFilesWhenCommitOutcomeIsUncertain()
+    {
+        var harness = new Harness(EventStatusCode.Draft, OldCover) { UnitOfWork = { FailSave = true } };
+        await Assert.ThrowsAsync<IOException>(() => harness.Service.UpdateDraftWithCoverAsync(
+            EditModel(), new MemoryStream(ImageBytes()), ".jpg", false, TestContext.Current.CancellationToken));
+        Assert.Equal(OldCover, harness.Events.Item.ImagePath);
+        Assert.Empty(harness.Files.Deleted);
+        Assert.Equal(2, harness.Files.StoredPaths.Count);
+    }
+
+    [Fact]
+    public async Task TextOnlyEditRetainsConcurrentCoverAndOriginalAuditShape()
+    {
+        var harness = new Harness(EventStatusCode.Draft, OldCover);
+        var newer = "uploads/events/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg";
+        harness.Events.BeforeLock = item => item.ImagePath = newer;
+        await harness.Service.UpdateDraftWithCoverAsync(EditModel(), null, null, false, TestContext.Current.CancellationToken);
+        Assert.Equal(newer, harness.Events.Item.ImagePath);
+        Assert.Empty(harness.Files.Deleted);
+        var audit = Assert.Single(harness.Audit.Entries);
+        var json = JsonSerializer.Serialize(audit.NewValues, audit.NewValues.GetType());
+        Assert.DoesNotContain("HasCover", json);
+        Assert.DoesNotContain("CoverChanged", json);
+    }
+
+    [Fact]
+    public async Task UncertainCommitKeepsOldAndStagedFiles()
+    {
+        var harness = new Harness(EventStatusCode.Draft, OldCover) { UnitOfWork = { FailCommit = true } };
+        await Assert.ThrowsAsync<IOException>(() => harness.Service.UpdateDraftWithCoverAsync(
+            EditModel(), new MemoryStream(ImageBytes()), ".jpg", false, TestContext.Current.CancellationToken));
+        Assert.Empty(harness.Files.Deleted);
+        Assert.Contains(OldCover, harness.Files.StoredPaths);
+        Assert.Equal(2, harness.Files.StoredPaths.Count);
+    }
+
     [Fact]
     public async Task UploadLocksTypeVenueEventCommitsAuditThenRemovesPreviousCover()
     {
@@ -134,6 +223,21 @@ public sealed class EventCoverServiceTests
         var cleanup = Assert.Single(harness.Files.DeleteAttempts);
         Assert.False(cleanup.InTransaction);
         Assert.Equal(0, cleanup.CommitCount);
+    }
+
+    [Fact]
+    public async Task UploadCommitOutcomeIsUncertainSoStagedFileIsKept()
+    {
+        var harness = new Harness(EventStatusCode.Published, OldCover) { UnitOfWork = { FailCommit = true } };
+
+        await Assert.ThrowsAsync<IOException>(() =>
+            harness.Service.UploadCoverAsync(15, new MemoryStream(ImageBytes()), ".jpg", TestContext.Current.CancellationToken));
+
+        Assert.Empty(harness.Files.DeleteAttempts);
+        Assert.Contains(OldCover, harness.Files.StoredPaths);
+        var staged = Assert.Single(harness.Files.Saves);
+        Assert.Contains(staged.Path, harness.Files.StoredPaths);
+        Assert.Equal(2, harness.Files.StoredPaths.Count);
     }
 
     [Theory]
@@ -435,6 +539,7 @@ public sealed class EventCoverServiceTests
         public Task<bool> HasIssuedCertificateForEventAsync(int eventId, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<int> CountReviewQueueAsync(RegistrationStatusCode status, int? eventId, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<RegistrationReviewRow>> GetReviewQueueAsync(RegistrationStatusCode status, int? eventId, int offset, int limit, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<RegistrationSummary>> GetSummariesAsync(IReadOnlyCollection<int> registrationIds, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<Registration> GetForUpdateAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<Registration>> GetOpenForEventAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<int>> DiscoverOpenEventIdsForUserAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
@@ -459,9 +564,10 @@ public sealed class EventCoverServiceTests
     private sealed class TransactionUnitOfWork(MemoryEvents events, RecordingAudit audit) : IUnitOfWork
     {
         public bool FailSave { get; set; }
+        public bool FailCommit { get; set; }
         public bool IsInTransaction { get; private set; }
         public int CommitCount { get; private set; }
-        public DbContext Database => throw new NotSupportedException();
+        public DbContext Database => null!;
         public void SaveChanges() => throw new NotSupportedException();
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
             FailSave ? Task.FromException<int>(new IOException("simulated database failure")) : Task.FromResult(1);
@@ -482,6 +588,7 @@ public sealed class EventCoverServiceTests
             try
             {
                 var result = await work(cancellationToken);
+                if (FailCommit) throw new IOException("simulated uncertain commit");
                 CommitCount++;
                 return result;
             }

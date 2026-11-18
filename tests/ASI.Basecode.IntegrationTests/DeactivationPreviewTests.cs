@@ -98,7 +98,7 @@ public sealed class DeactivationPreviewTests : IClassFixture<SqlServerDatabaseFi
         var ct = TestContext.Current.CancellationToken;
         var before = await SnapshotAsync(ct);
 
-        await MemberEventTestSupport.SignInAsync(client, admin.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(client, admin.Email, password, ct);
         var response = await client.GetAsync($"/DeactivationPreview/{memberUser.Id}", ct);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -111,8 +111,8 @@ public sealed class DeactivationPreviewTests : IClassFixture<SqlServerDatabaseFi
         Assert.Contains("Preview Second Event", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Preview Attended Event", html, StringComparison.Ordinal);
         Assert.Contains(memberUser.Name, html, StringComparison.Ordinal);
-        Assert.Contains(memberUser.UserId, html, StringComparison.Ordinal);
-        Assert.Contains("Asia/Manila", html, StringComparison.Ordinal);
+        Assert.Contains(memberUser.Email, html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Asia/Manila", html, StringComparison.Ordinal);
         Assert.Contains("method=\"dialog\"", html, StringComparison.Ordinal);
         Assert.True(html.IndexOf("Preview First Event", StringComparison.Ordinal) < html.IndexOf("Preview Second Event", StringComparison.Ordinal),
             "The preview must be ordered by start time.");
@@ -128,7 +128,7 @@ public sealed class DeactivationPreviewTests : IClassFixture<SqlServerDatabaseFi
     public async Task EmptyPreviewShowsTheEmptyStateAndNoRows()
     {
         var ct = TestContext.Current.CancellationToken;
-        await MemberEventTestSupport.SignInAsync(client, admin.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(client, admin.Email, password, ct);
 
         var response = await client.GetAsync($"/DeactivationPreview/{emptyUser.Id}", ct);
 
@@ -139,14 +139,14 @@ public sealed class DeactivationPreviewTests : IClassFixture<SqlServerDatabaseFi
         // Identity is shown even with no impact, and the server-read name is encoded as text.
         Assert.Contains("Preview &lt;Empty&gt; &amp; Co", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Preview <Empty>", html, StringComparison.Ordinal);
-        Assert.Contains(emptyUser.UserId, html, StringComparison.Ordinal);
+        Assert.Contains(emptyUser.Email, html, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task UnknownAccountReturnsNotFound()
     {
         var ct = TestContext.Current.CancellationToken;
-        await MemberEventTestSupport.SignInAsync(client, admin.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(client, admin.Email, password, ct);
 
         var response = await client.GetAsync($"/DeactivationPreview/{int.MaxValue}", ct);
 
@@ -176,13 +176,13 @@ public sealed class DeactivationPreviewTests : IClassFixture<SqlServerDatabaseFi
             await db.SaveChangesAsync(ct);
         }
 
-        await MemberEventTestSupport.SignInAsync(client, admin.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(client, admin.Email, password, ct);
         var response = await client.GetAsync($"/DeactivationPreview/{inactiveUser.Id}", ct);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var html = await response.Content.ReadAsStringAsync(ct);
         Assert.Contains("Inactive Preview Target", html, StringComparison.Ordinal);
-        Assert.Contains(inactiveUser.UserId, html, StringComparison.Ordinal);
+        Assert.Contains(inactiveUser.Email, html, StringComparison.Ordinal);
         Assert.Contains("data-registration-id=\"" + registration.RegistrationId + "\"", html, StringComparison.Ordinal);
         Assert.Contains("Preview Inactive Upcoming", html, StringComparison.Ordinal);
         Assert.DoesNotContain("No upcoming registrations will be cancelled.", html, StringComparison.Ordinal);
@@ -199,33 +199,34 @@ public sealed class DeactivationPreviewTests : IClassFixture<SqlServerDatabaseFi
         Assert.StartsWith("/Account/Login", LocationPath(anonymous), StringComparison.Ordinal);
 
         using var memberClient = CreateClient();
-        await MemberEventTestSupport.SignInAsync(memberClient, memberUser.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(memberClient, memberUser.Email, password, ct);
         var denied = await memberClient.GetAsync(url, ct);
         Assert.Equal(HttpStatusCode.Redirect, denied.StatusCode);
         Assert.StartsWith("/Account/AccessDenied", LocationPath(denied), StringComparison.Ordinal);
 
         using var officerClient = CreateClient();
-        await MemberEventTestSupport.SignInAsync(officerClient, officer.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(officerClient, officer.Email, password, ct);
         var officerPreview = await officerClient.GetAsync(url, ct);
         Assert.Equal(HttpStatusCode.OK, officerPreview.StatusCode);
         Assert.Contains("data-registration-id=", await officerPreview.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
 
-        await MemberEventTestSupport.SignInAsync(client, admin.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(client, admin.Email, password, ct);
         var adminPreview = await client.GetAsync(url, ct);
         Assert.Equal(HttpStatusCode.OK, adminPreview.StatusCode);
         Assert.Contains("data-registration-id=", await adminPreview.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task AccountsListExposesThePreviewTrigger()
+    public async Task AccountsListKeepsAccessConfirmationWithoutASeparatePreviewTrigger()
     {
         var ct = TestContext.Current.CancellationToken;
-        await MemberEventTestSupport.SignInAsync(client, admin.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(client, admin.Email, password, ct);
 
-        var html = await client.GetStringAsync($"/admin/accounts?search={Uri.EscapeDataString(memberUser.UserId)}", ct);
+        var html = await client.GetStringAsync($"/admin/accounts?search={Uri.EscapeDataString(memberUser.Email)}", ct);
 
-        Assert.Contains("Preview deactivation", html, StringComparison.Ordinal);
-        Assert.Contains($"data-deactivation-preview=\"/DeactivationPreview/{memberUser.Id}\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Preview deactivation", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-deactivation-preview", html, StringComparison.Ordinal);
+        Assert.Contains($"data-access-dialog=\"/admin/accounts/{memberUser.Id}/access\"", html, StringComparison.Ordinal);
         Assert.Contains($"/admin/accounts/{memberUser.Id}/role", html, StringComparison.Ordinal);
     }
 

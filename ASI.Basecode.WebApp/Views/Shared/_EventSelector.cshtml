@@ -1,7 +1,8 @@
 @model EventSelectorViewModel
 @if (Model.HasOptions)
 {
-    <form method="get" action="@Model.FormAction" class="event-selector spacing-bottom">
+    @* A POST re-render sets ListPath so the selector keeps pointing at the GET list route. *@
+    <form method="get" action="@(Model.FormAction ?? ViewData["ListPath"] as string)" class="event-selector spacing-bottom">
         @foreach (var hidden in Model.HiddenValues)
         {
             <input type="hidden" name="@hidden.Key" value="@hidden.Value" />

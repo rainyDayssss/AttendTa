@@ -16,4 +16,5 @@ public sealed class AccountRequestQueueItem
     public string MobileNumber { get; set; }
     public AccountRequestStatusCode Status { get; set; }
     public DateTime RequestedAt { get; set; }
+    public string ReviewNotes { get; set; }
 }

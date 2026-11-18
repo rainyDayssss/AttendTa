@@ -13,6 +13,7 @@ namespace ASI.Basecode.Resources.Constants
 
         /// <summary>Member only.</summary>
         public const string Member = "Member";
+        public const string PersonalParticipation = "PersonalParticipation";
     }
 
     /// <summary>

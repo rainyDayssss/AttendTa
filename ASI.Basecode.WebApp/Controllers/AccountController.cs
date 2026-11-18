@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
+using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.WebApp.Models;
 using ASI.Basecode.WebApp.Mvc;
 using AutoMapper;
@@ -78,8 +79,14 @@ namespace ASI.Basecode.WebApp.Controllers
                 return View(model);
             }
 
-            var user = await _accountService.AuthenticateAsync(model.Email, model.Password, cancellationToken);
-            if (user is null)
+            var outcome = await _accountService.LoginAsync(model.Email, model.Password, cancellationToken);
+            if (outcome.Status == LoginStatus.Pending)
+            {
+                ViewData["PendingRequest"] = true;
+                return View(model);
+            }
+            var user = outcome.User;
+            if (outcome.Status != LoginStatus.Authenticated || user is null)
             {
                 ModelState.AddModelError(string.Empty, GenericLoginFailure);
                 return View(model);

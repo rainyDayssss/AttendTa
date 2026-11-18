@@ -10,6 +10,12 @@
     </div>
 </div>
 
+@if (ViewData["MissingMemberProfile"] as bool? == true)
+{
+    <partial name="_MissingMemberProfile" />
+}
+else
+{
 <section class="passes-section" aria-labelledby="active-passes-heading">
     <div class="section-head">
         <h2 id="active-passes-heading">Active passes</h2>
@@ -47,3 +53,5 @@
         </div>
     }
 </section>
+
+}

@@ -2,6 +2,8 @@
 @using System
 @using System.Linq
 @{
+    ViewData["ListControls"] = true;
+    ViewData["Feature"] = "bulk-selection";
     ViewData["Title"] = "Account requests";
     ViewData["ResultNoun"] = "request";
     var filters = new[]
@@ -19,6 +21,37 @@
     var reopenInDialog = isRejection && decisionRequestId is not null && Model.Items.Any(item => item.RequestId == decisionRequestId);
     var reasonHintId = reopenInDialog ? $"reason-error-{decisionRequestId}" : "reject-reason-hint";
     var query = Context.Request.QueryString.ToString();
+    // A POST re-render sets ListPath so every list link keeps pointing at the GET queue route.
+    var listPath = ViewData["ListPath"] as string;
+    var bulkError = ViewBag.BulkError as string;
+    var bulkResult = ViewBag.BulkResult as BulkResultViewModel;
+    // Carry the current view into the POST so the queue re-renders where the reader was. The
+    // course/year filters feed ListReadOptions from the POST query string.
+    var bulkRoute = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    foreach (var key in new[] { "status", "search", "sort", "course", "year", "page" })
+    {
+        var value = Context.Request.Query[key].ToString();
+        if (!string.IsNullOrWhiteSpace(value)) bulkRoute[key] = value;
+    }
+    // The dialog posts to the page the reader is on, so a batch approved from "All" stays on
+    // "All" instead of being dropped onto Pending.
+    bulkRoute["status"] = Model.Status;
+    // Only a pending row can be selected, so the selection surface and its column appear only
+    // where there is something to select. A decided-only tab shows the table alone.
+    var hasSelectableRows = Model.Items.Any(item => item.Status == "Pending");
+    var columnCount = hasSelectableRows ? 6 : 5;
+    var bulkSelection = new BulkSelectionViewModel
+    {
+        ActionLabel = "Approve selected",
+        DialogId = "bulk-approve-dialog",
+        DialogTitle = "Approve selected requests",
+        Consequence = "Each approved request creates an active member account and lets the applicant sign in with the password they chose. A request that cannot be approved is reported on its own and stays pending.",
+        SubmitLabel = "Approve selected",
+        SubmittingLabel = "Approving…",
+        Controller = "AccountRequest",
+        Action = "ApproveSelected",
+        RouteValues = bulkRoute
+    };
 
     string BadgeClass(string status) => status switch
     {
@@ -46,32 +79,23 @@
     }
 }
 
+@if (bulkError != null)
+{
+    <div class="notice notice-error" role="alert">@bulkError</div>
+}
+
+@if (bulkResult != null)
+{
+    <partial name="_BulkResultPanel" model="bulkResult" />
+}
+
+<partial name="_ListToolbar" model='@(new ListToolbarViewModel("Search name, email, or student number", new ListFilterField[] { ListToolbarViewModel.Course, ListToolbarViewModel.Year }))' />
 <div class="sheet-keys">
-    <form asp-action="Index" method="get" class="search-group" role="search">
-        <input type="hidden" name="status" value="@Model.Status" />
-        <input type="hidden" name="sort" value="@Model.Sort" />
-        <input id="request-search"
-               name="search"
-               value="@Model.Search"
-               type="search"
-               class="field-control"
-               placeholder="Search name, email, or student number"
-               aria-label="Search account requests" />
-        <button type="submit" class="button button-secondary">Search</button>
-        @if (!string.IsNullOrWhiteSpace(Model.Search))
-        {
-            <a class="button button-secondary" asp-action="Index" asp-route-status="@Model.Status" asp-route-sort="@Model.Sort">Clear</a>
-        }
-    </form>
 
     <nav class="filter-tabs" aria-label="Request status">
         @foreach (var filter in filters)
         {
-            <a class="filter-tab"
-               asp-action="Index"
-               asp-route-status="@filter.Key"
-               asp-route-search="@Model.Search"
-               asp-route-sort="@Model.Sort"
+            <a href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["status"] = filter.Key }, listPath)' class="filter-tab"
                aria-current="@(Model.Status == filter.Key ? "page" : null)">
                 @filter.Label
                 <span class="filter-tab-count">@filter.Count</span>
@@ -79,82 +103,108 @@
         }
     </nav>
 </div>
+<p class="muted" data-list-status role="status" data-list-busy-label="Loading records…"></p>
 
-<div class="table-scroll" role="region" aria-label="Account request table" tabindex="0">
-    <table class="data-table table-sticky request-table">
-        <thead>
-            <tr>
-                <th scope="col">Full Name</th>
-                <th scope="col">Student Number</th>
-                <th scope="col">Email</th>
-                <th scope="col">Course</th>
-                <th scope="col">Year</th>
-                <th scope="col">Section</th>
-                <th scope="col">Mobile</th>
-                <th scope="col">
-                    <a asp-action="Index"
-                       asp-route-status="@Model.Status"
-                       asp-route-search="@Model.Search"
-                       asp-route-sort="@Model.NextSort"
-                       aria-label="Sort by requested time, currently @(Model.Sort == "oldest" ? "oldest first" : "newest first")">
-                        Requested @(Model.Sort == "oldest" ? "↑" : "↓")
-                    </a>
-                </th>
-                <th scope="col">Status</th>
-                <th scope="col" class="actions actions-wide">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @if (Model.Items.Count == 0)
-            {
+<div data-bulk-root data-bulk-noun="request">
+    @if (hasSelectableRows)
+    {
+        <partial name="_BulkSelectionBar" model="bulkSelection" />
+    }
+
+    <div class="table-scroll" role="region" aria-label="Account request table" tabindex="0" data-list-region>
+        <table class="data-table table-sticky request-table">
+            <thead>
                 <tr>
-                    <td colspan="10" class="empty-state">No @emptyLabel found.</td>
+                    @if (hasSelectableRows)
+                    {
+                        <th scope="col" class="select-column">
+                            <label class="select-target">
+                                <input type="checkbox" data-bulk-all aria-label="Select all pending requests on this page" />
+                            </label>
+                        </th>
+                    }
+                    <th scope="col">Full Name</th>
+                    <th scope="col">Course / year</th>
+                    <th scope="col">
+                        <a href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["sort"] = Model.NextSort }, listPath)'
+                           aria-label="Sort by requested time, currently @(Model.Sort == "oldest" ? "oldest first" : "newest first")">
+                            Requested @(Model.Sort == "oldest" ? "↑" : "↓")
+                        </a>
+                    </th>
+                    <th scope="col">Status</th>
+                    <th scope="col" class="actions actions-wide actions-decision">Actions</th>
                 </tr>
-            }
-            else
-            {
-                foreach (var request in Model.Items)
+            </thead>
+            <tbody>
+                @if (Model.Items.Count == 0)
                 {
-                    <tr data-request-id="@request.RequestId">
-                        <td class="cell-name"><span class="cell-strong">@request.FullName</span></td>
-                        <td class="numeric cell-identifier">@request.StudentNumber</td>
-                        <td class="cell-email">@request.Email</td>
-                        <td>@request.Course</td>
-                        <td class="numeric">@request.YearLevel</td>
-                        <td>@request.Section</td>
-                        <td class="numeric cell-identifier">@request.MobileNumber</td>
-                        <td class="numeric cell-date"><time datetime="@(DateTime.SpecifyKind(request.RequestedAt, DateTimeKind.Utc).ToString("O"))" aria-label="Requested at in Asia/Manila">@ManilaTimeFormatter.Format(request.RequestedAt)</time></td>
-                        <td><span class="@BadgeClass(request.Status)">@request.Status</span></td>
-                        <td class="actions actions-wide">
-                            @if (request.Status == "Pending")
-                            {
-                                <div class="row-actions">
-                                    <button type="button"
-                                            class="button button-small button-primary"
-                                            data-dialog-open="approve-dialog"
-                                            data-dialog-value-id="@request.RequestId"
-                                            data-dialog-value-summary="Approve @request.FullName (@request.StudentNumber)?">
-                                        Approve
-                                    </button>
-                                    <button type="button"
-                                            class="button button-small button-secondary"
-                                            data-dialog-open="reject-dialog"
-                                            data-dialog-value-id="@request.RequestId"
-                                            data-dialog-value-summary="Decline the request from @request.FullName (@request.StudentNumber)?">
-                                        Decline
-                                    </button>
-                                </div>
-                            }
-                            else
-                            {
-                                <span class="muted">Reviewed</span>
-                            }
-                        </td>
+                    <tr>
+                        <td colspan="@columnCount" class="empty-state">No @emptyLabel found.</td>
                     </tr>
                 }
-            }
-        </tbody>
-    </table>
+                else
+                {
+                    foreach (var request in Model.Items)
+                    {
+                        <tr data-request-id="@request.RequestId">
+                            @if (hasSelectableRows)
+                            {
+                                if (request.Status == "Pending")
+                                {
+                                    <td data-label="Select" class="select-column">
+                                        <label class="select-target">
+                                            <input type="checkbox"
+                                                   data-bulk-row
+                                                   value="@request.RequestId"
+                                                   data-bulk-label="@request.FullName (@request.StudentNumber)"
+                                                   aria-label="Select @request.FullName (@request.StudentNumber)" />
+                                        </label>
+                                    </td>
+                                }
+                                else
+                                {
+                                    <td class="select-column" aria-hidden="true"></td>
+                                }
+                            }
+                            <td data-label="Full Name" class="cell-name"><span class="cell-strong">@request.FullName<small class="cell-meta">@request.StudentNumber</small></span></td>
+                            <td data-label="Course / year">@request.Course · @request.YearLevel</td>
+                            <td data-label="Requested" class="numeric cell-date"><time datetime="@(DateTime.SpecifyKind(request.RequestedAt, DateTimeKind.Utc).ToString("O"))" aria-label="Requested at in Asia/Manila">@ManilaTimeFormatter.Format(request.RequestedAt)</time></td>
+                            <td data-label="Status"><span class="@BadgeClass(request.Status)">@request.Status</span></td>
+                            <td data-label="Actions" class="actions actions-wide">
+                                <div class="row-actions">
+
+                                @if (request.Status == "Pending")
+                                {
+
+                                        <button type="button"
+                                                class="button button-small button-primary"
+                                                data-dialog-open="approve-dialog"
+                                                data-dialog-value-id="@request.RequestId"
+                                                data-dialog-value-summary="Approve @request.FullName (@request.StudentNumber)?">
+                                            Approve
+                                        </button>
+                                        <button type="button"
+                                                class="button button-small button-quiet-danger"
+                                                data-dialog-open="reject-dialog"
+                                                data-dialog-value-id="@request.RequestId"
+                                                data-dialog-value-summary="Decline the request from @request.FullName (@request.StudentNumber)?">
+                                            Decline
+                                        </button>
+                                }
+                                    <partial name="_DetailsButton" model='@(new RecordDetailsViewModel($"request-details-{request.RequestId}", request.FullName, new Dictionary<string, string> { ["Student number"] = request.StudentNumber, ["Email"] = request.Email, ["Course"] = request.Course, ["Year"] = request.YearLevel.ToString(), ["Section"] = request.Section, ["Mobile"] = request.MobileNumber, ["Requested"] = ManilaTimeFormatter.Format(request.RequestedAt), ["Review notes"] = request.ReviewNotes }, null))' />
+                            </div>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (hasSelectableRows)
+    {
+        <partial name="_BulkConfirmDialog" model="bulkSelection" />
+    }
 </div>
 
 <partial name="_Pager" model="Model" />

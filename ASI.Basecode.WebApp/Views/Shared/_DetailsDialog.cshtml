@@ -1,0 +1,11 @@
+@model RecordDetailsViewModel
+<dialog id="@Model.Id" class="task-dialog details-dialog" aria-labelledby="@Model.Id-title">
+    <header class="dialog-header"><h2 id="@Model.Id-title">@Model.Title</h2><button type="button" class="dialog-close" data-dialog-close aria-label="Close details"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.6" /></svg></button></header>
+    <div class="dialog-body">
+        @if (!string.IsNullOrWhiteSpace(Model.ImageUrl)) { <img class="details-image" src="@Model.ImageUrl" alt="@Model.Title" loading="lazy" /> }
+        <dl class="details-list">
+            @foreach (var field in Model.Fields) { <div><dt>@field.Key</dt><dd>@(string.IsNullOrWhiteSpace(field.Value) ? "Not provided" : field.Value)</dd></div> }
+        </dl>
+    </div>
+    <footer class="dialog-actions"><button type="button" class="button button-secondary" data-dialog-close>Close</button></footer>
+</dialog>

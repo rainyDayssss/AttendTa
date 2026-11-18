@@ -119,11 +119,11 @@ BEGIN TRY
 
     IF @OfficerMemberId IS NULL
     BEGIN
-        IF EXISTS (SELECT 1 FROM dbo.members WHERE [student_number] = N'UC-2026-0101')
+        IF EXISTS (SELECT 1 FROM dbo.members WHERE [student_number] = N'23184502')
             THROW 51039, 'The scenario officer student number already belongs to another member; resolve it manually.', 1;
 
         INSERT INTO dbo.members ([user_id], [student_number], [course], [year_level], [section], [mobile_number], [membership_type], [membership_status_id], [created_by])
-        VALUES (@OfficerUserId, N'UC-2026-0101', N'BS Information Technology', 4, N'A', N'0917-000-0101', N'Officer', 1, @AdminUserId);
+        VALUES (@OfficerUserId, N'23184502', N'BSIT', 4, N'A', N'09170000101', N'Officer', 1, @AdminUserId);
         SET @OfficerMemberId = CAST(SCOPE_IDENTITY() AS int);
     END
 
@@ -143,14 +143,14 @@ BEGIN TRY
 
     INSERT INTO @Participants ([Ordinal], [FullName], [Email], [StudentNumber], [Course], [YearLevel], [Section], [MembershipType])
     VALUES
-        (1, @MemberName,      @MemberEmail,                 N'UC-2026-0102', N'BS Information Technology', 3, N'B', N'Regular'),
-        (2, N'Joshua Reyes',  N'joshua.reyes@uc.edu.ph',    N'UC-2026-0103', N'BS Computer Science',       3, N'A', N'Regular'),
-        (3, N'Angela Dela Cruz', N'angela.delacruz@uc.edu.ph', N'UC-2026-0104', N'BS Information Systems', 2, N'C', N'Regular'),
-        (4, N'Mark Villanueva', N'mark.villanueva@uc.edu.ph', N'UC-2026-0105', N'BS Computer Science',     4, N'B', N'Regular'),
-        (5, N'Sofia Mendoza', N'sofia.mendoza@uc.edu.ph',   N'UC-2026-0106', N'BS Information Technology', 2, N'A', N'Regular'),
-        (6, N'Daniel Navarro', N'daniel.navarro@uc.edu.ph', N'UC-2026-0107', N'BS Computer Science',       1, N'C', N'Regular'),
-        (7, N'Beatrice Lim',  N'beatrice.lim@uc.edu.ph',    N'UC-2026-0108', N'BS Information Systems',    3, N'B', N'Regular'),
-        (8, N'Paolo Gutierrez', N'paolo.gutierrez@uc.edu.ph', N'UC-2026-0109', N'BS Information Technology', 4, N'A', N'Regular');
+        (1, @MemberName,      @MemberEmail,                 N'22771903', N'BSIT', 3, N'B', N'Regular'),
+        (2, N'Joshua Reyes',  N'joshua.reyes@gmail.com',    N'24150382', N'BSCS',       3, N'A', N'Regular'),
+        (3, N'Angela Dela Cruz', N'angela.delacruz@gmail.com', N'23771946', N'BSIT', 2, N'C', N'Regular'),
+        (4, N'Mark Villanueva', N'mark.villanueva@gmail.com', N'21945028', N'BSCS',     4, N'B', N'Regular'),
+        (5, N'Sofia Mendoza', N'sofia.mendoza@gmail.com',   N'23018475', N'BSIT', 2, N'A', N'Regular'),
+        (6, N'Daniel Navarro', N'daniel.navarro@gmail.com', N'24560219', N'BSCS',       1, N'C', N'Regular'),
+        (7, N'Beatrice Lim',  N'beatrice.lim@gmail.com',    N'22730184', N'BSIT',    3, N'B', N'Regular'),
+        (8, N'Paolo Gutierrez', N'paolo.gutierrez@gmail.com', N'23294861', N'BSIT', 4, N'A', N'Regular');
 
     DECLARE @MemberIds TABLE ([Ordinal] int PRIMARY KEY, [UserId] int NOT NULL, [MemberId] int NOT NULL);
 
@@ -203,10 +203,10 @@ BEGIN TRY
     CLOSE participant_cursor;
     DEALLOCATE participant_cursor;
 
-    /* Fill a realistic mobile number on the seeded participants only when it is still empty,
+    /* Fill an eleven-digit mobile number on the seeded participants only when it is still empty,
        so a later manual correction in the app is never overwritten. */
     UPDATE m
-    SET [mobile_number] = CONCAT(N'0917-000-', RIGHT(N'0000' + CAST(p.[Ordinal] + 101 AS nvarchar(4)), 4))
+    SET [mobile_number] = CONCAT(N'0917', RIGHT(N'0000000' + CAST(p.[Ordinal] + 101 AS nvarchar(4)), 7))
     FROM dbo.members AS m
     INNER JOIN @MemberIds AS ids ON ids.[MemberId] = m.[member_id]
     INNER JOIN @Participants AS p ON p.[Ordinal] = ids.[Ordinal]
@@ -549,13 +549,13 @@ BEGIN TRY
     /* One pending membership request, so the Account requests queue opens populated and the
        presenter can demonstrate approval without leaving the signed-in session. The request is
        only inserted when that email has no account and no pending request yet. */
-    IF NOT EXISTS (SELECT 1 FROM dbo.users WHERE [email] = N'camille.torres@uc.edu.ph')
-       AND NOT EXISTS (SELECT 1 FROM dbo.account_requests WHERE [email] = N'camille.torres@uc.edu.ph' AND [account_request_status_id] = 1)
-       AND NOT EXISTS (SELECT 1 FROM dbo.account_requests WHERE [student_number] = N'UC-2026-0110' AND [account_request_status_id] = 1)
+    IF NOT EXISTS (SELECT 1 FROM dbo.users WHERE [email] = N'camille.torres@gmail.com')
+       AND NOT EXISTS (SELECT 1 FROM dbo.account_requests WHERE [email] = N'camille.torres@gmail.com' AND [account_request_status_id] = 1)
+       AND NOT EXISTS (SELECT 1 FROM dbo.account_requests WHERE [student_number] = N'21887640' AND [account_request_status_id] = 1)
     BEGIN
         INSERT INTO dbo.account_requests ([student_number], [full_name], [email], [password_hash], [course], [year_level], [section], [mobile_number], [account_request_status_id], [requested_at])
-        VALUES (N'UC-2026-0110', N'Camille Torres', N'camille.torres@uc.edu.ph', @MemberPasswordHash,
-                N'BS Information Technology', 2, N'C', N'0917-000-0110', 1, DATEADD(hour, -4, @Now));
+        VALUES (N'21887640', N'Camille Torres', N'camille.torres@gmail.com', @MemberPasswordHash,
+                N'BSIT', 2, N'C', N'09170000110', 1, DATEADD(hour, -4, @Now));
     END
 
     /* One realistic system audit row on the first run, so the Activity Log opens with

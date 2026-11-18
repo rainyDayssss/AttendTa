@@ -1,15 +1,35 @@
 @model LoginViewModel
-@{ ViewData["Title"] = "Sign in"; }
-<section class="login-card">
-    <h1>Sign in to your account</h1>
-    <p class="muted">Enter the email address registered to your account.</p>
-    <form method="post" asp-controller="Account" asp-action="Login" id="loginForm">
-        <input type="hidden" asp-for="ReturnUrl" />
-        <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
-        <div class="field"><label asp-for="Email"></label><input asp-for="Email" aria-describedby="Email-validation" type="email" autocomplete="username" placeholder="name@uc.edu.ph" /><span id="Email-validation" asp-validation-for="Email" class="field-error"></span></div>
-        <div class="field"><label asp-for="Password"></label><input asp-for="Password" aria-describedby="Password-validation" type="password" autocomplete="current-password" placeholder="Your password" /><span id="Password-validation" asp-validation-for="Password" class="field-error"></span></div>
-        <button class="button button-primary full-width" type="submit">Sign in</button>
-    </form>
-    <p class="muted">New to AttendTa? <a asp-controller="AccountRequest" asp-action="Request">Request membership</a></p>
-</section>
+@{
+    ViewData["Title"] = "Sign in";
+    ViewData["ShellWidth"] = "public-auth";
+    ViewData["Feature"] = "password-visibility";
+}
+<div class="auth-layout auth-layout-login">
+    <header class="auth-intro">
+        <h1>Sign in to your account</h1>
+        <p>Use the email and password associated with your account or membership request.</p>
+        <div class="auth-intro-note">
+            <h2>New to AttendTa?</h2>
+            <p>Request membership and an officer will review your details before you can sign in.</p>
+            <a asp-controller="AccountRequest" asp-action="Request">Request membership</a>
+        </div>
+    </header>
+    <section class="login-card public-form" aria-labelledby="login-form-heading">
+        <div class="auth-form-heading">
+            <h2 id="login-form-heading">Account sign in</h2>
+            <p>Enter your account details to continue.</p>
+        </div>
+        @if (ViewData["PendingRequest"] is true)
+        {
+            <div class="pending-feedback" role="status"><strong>Request awaiting approval</strong><p>An officer has not yet reviewed your membership request. You can sign in once it is approved.</p></div>
+        }
+        <form method="post" asp-controller="Account" asp-action="Login" id="loginForm">
+            <input type="hidden" asp-for="ReturnUrl" />
+            <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
+            <div class="field"><label asp-for="Email"></label><input asp-for="Email" aria-describedby="Email-validation" type="email" autocomplete="username" placeholder="name@gmail.com" /><span id="Email-validation" asp-validation-for="Email" class="field-error"></span></div>
+            <div class="field"><label asp-for="Password"></label><div class="password-control"><input asp-for="Password" aria-describedby="Password-validation" type="password" autocomplete="current-password" placeholder="Your password" /><partial name="_PasswordVisibilityToggle" model='@("Password")' /></div><span id="Password-validation" asp-validation-for="Password" class="field-error"></span></div>
+            <button class="button button-primary full-width" type="submit">Sign in</button>
+        </form>
+    </section>
+</div>
 @section Scripts { <partial name="_ValidationScriptsPartial" /> }

@@ -1,3 +1,4 @@
+using ASI.Basecode.Data.Queries;
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
@@ -13,10 +14,12 @@ namespace ASI.Basecode.Data.Repositories;
 
 public sealed class AttendanceRepository : BaseRepository, IAttendanceRepository
 {
+    private readonly ListReadOptions _readOptions;
     private const int RecentLogLimit = 25;
 
-    public AttendanceRepository(IUnitOfWork unitOfWork) : base(unitOfWork)
+    public AttendanceRepository(IUnitOfWork unitOfWork, ListReadOptions readOptions = null) : base(unitOfWork)
     {
+        _readOptions = readOptions;
     }
 
     // Attendance writers must acquire this same row lock before deciding to insert or repeat.
@@ -69,14 +72,14 @@ public sealed class AttendanceRepository : BaseRepository, IAttendanceRepository
     }
 
     public Task<int> CountMyAttendanceAsync(int userId, CancellationToken cancellationToken = default) =>
-        (from attendance in GetDbSet<Attendance>().AsNoTracking()
+        (from attendance in FilterMyAttendance()
          join registration in GetDbSet<Registration>().AsNoTracking() on attendance.RegistrationId equals registration.RegistrationId
          join member in GetDbSet<Member>().AsNoTracking() on registration.MemberId equals member.MemberId
          where member.UserId == userId
          select attendance.AttendanceId).CountAsync(cancellationToken);
 
     public async Task<IReadOnlyList<MyAttendanceRow>> GetMyAttendanceAsync(int userId, int skip, int take, CancellationToken cancellationToken = default) =>
-        await (from attendance in GetDbSet<Attendance>().AsNoTracking()
+        await (from attendance in FilterMyAttendance()
                join registration in GetDbSet<Registration>().AsNoTracking() on attendance.RegistrationId equals registration.RegistrationId
                join member in GetDbSet<Member>().AsNoTracking() on registration.MemberId equals member.MemberId
                join eventItem in GetDbSet<Event>().AsNoTracking() on registration.EventId equals eventItem.EventId
@@ -93,4 +96,16 @@ public sealed class AttendanceRepository : BaseRepository, IAttendanceRepository
             .Skip(skip)
             .Take(take)
             .ToListAsync(cancellationToken);
+    private IQueryable<Attendance> FilterMyAttendance()
+    {
+        var query = GetDbSet<Attendance>().AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(_readOptions?.Search)) {
+            var events = GetDbSet<Event>().Where(row => row.Title.Contains(_readOptions.Search)).Select(row => row.EventId);
+            var registrations = GetDbSet<Registration>().Where(row => events.Contains(row.EventId)).Select(row => row.RegistrationId);
+            query = query.Where(row => registrations.Contains(row.RegistrationId));
+        }
+        if (_readOptions?.Filter == "valid") query = query.Where(row => row.InvalidatedAt == null);
+        if (_readOptions?.Filter == "invalidated") query = query.Where(row => row.InvalidatedAt != null);
+        return query;
+    }
 }

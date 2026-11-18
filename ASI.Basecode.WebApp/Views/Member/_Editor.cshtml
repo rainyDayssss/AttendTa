@@ -1,6 +1,8 @@
 @model MemberViewModel
-<form asp-action="Edit" method="post" data-record-form>
-    <div asp-validation-summary="All" class="field-error" tabindex="-1" data-record-errors></div>
+@{ ViewData["MemberEditRecoveryId"] = "member-edit-recovery-dialog"; }
+<form asp-action="Edit" asp-route-id="" method="post" data-record-form>
+    <div asp-validation-summary="ModelOnly" class="field-error" tabindex="-1" data-record-errors aria-describedby="@(ViewData["MemberEditConflict"] is true ? ViewData["MemberEditRecoveryId"] : null)"></div>
+    <partial name="_EditRecovery" model="Model" />
     <input type="hidden" asp-for="MemberId" />
     <div class="field">
         <label asp-for="Email" class="field-label">Email</label>

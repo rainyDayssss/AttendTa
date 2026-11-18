@@ -47,7 +47,7 @@ public sealed class VenueTransactionPhotoTests(SqlServerDatabaseFixture fixture)
     private async Task<(int ActorId, int VenueId, int TypeId)> SeedAsync(string photo, CancellationToken ct)
     {
         await using var context = Context();
-        var actor = new User { Name = "Venue tester", UserId = $"{Guid.NewGuid():N}@example.invalid", Password = "test", RoleId = RoleCode.Officer, IsActive = true };
+        var actor = new User { Name = "Venue tester", Email = $"{Guid.NewGuid():N}@example.invalid", Password = "test", RoleId = RoleCode.Officer, IsActive = true };
         context.Users.Add(actor);
         await context.SaveChangesAsync(ct);
         var venue = new Venue { RoomName = "Original room", Capacity = 40, ImagePath = photo, IsActive = true, CreatedBy = actor.Id, CreatedAt = DateTime.UtcNow };

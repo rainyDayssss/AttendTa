@@ -23,7 +23,7 @@ public sealed class CheckInService(
     IAttendanceRepository attendance,
     IAttendanceRecordingService recording) : ICheckInService
 {
-    private const string BlankTokenMessage = "Scan or enter a pass code to check in.";
+    private const string BlankTokenMessage = "Scan a pass or use manual lookup to check in.";
     private const string InvalidPassMessage = "This pass is not valid for this event.";
     private const string WindowClosedMessage = "Check-in is closed for this event. Open it before scanning.";
 

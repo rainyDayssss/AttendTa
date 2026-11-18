@@ -1,7 +1,9 @@
 @model PagedResult<MemberEventListItemViewModel>
 @using ASI.Basecode.Data.Models.Lookups
 @{
+    ViewData["ListControls"] = true;
     ViewData["Title"] = "Events";
+    var completed = string.Equals(Context.Request.Query["filter"], "Completed", StringComparison.OrdinalIgnoreCase);
 }
 
 <header class="page-heading">
@@ -11,13 +13,20 @@
     </div>
 </header>
 
+<partial name="_ListToolbar" model='@(new ListToolbarViewModel("Search event title"))' />
+<nav class="filter-tabs" aria-label="Event availability">
+    <a class="filter-tab" href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["filter"] = null })' aria-current="@(!completed ? "page" : null)">Active</a>
+    <a class="filter-tab" href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["filter"] = "Completed" })' aria-current="@(completed ? "page" : null)">Completed</a>
+</nav>
+<p class="muted">@(completed ? "Completed events are available for reference." : "Active events include upcoming published events. Check each event's signup availability.")</p>
+<p class="muted" data-list-status role="status" data-list-busy-label="Loading records…"></p>
 @if (Model.Items.Count == 0)
 {
-    <p class="empty-state">No published events are available yet.</p>
+    <p class="empty-state">No matching @(completed ? "completed" : "active") events. Try another search or section.</p>
 }
 else
 {
-    <div class="event-grid">
+    <div class="event-grid" data-paging-grid>
         @foreach (var eventItem in Model.Items)
         {
             var remainingSeats = Math.Max(0, eventItem.ParticipantLimit - eventItem.ConfirmedCount);
@@ -90,3 +99,5 @@ else
 
     <partial name="_Pager" model="Model" />
 }
+
+<partial name="_ResultCount" model="Model" />

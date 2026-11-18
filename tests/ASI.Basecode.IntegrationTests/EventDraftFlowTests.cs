@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using ASI.Basecode.Data;
 using ASI.Basecode.Data.Interfaces;
@@ -17,10 +18,63 @@ using AutoMapper;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace ASI.Basecode.IntegrationTests;
+
+public sealed class EventCombinedDraftFlowTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
+{
+    [Fact]
+    public async Task CreateWithCoverIsAtomicAndInvalidImageRetainsForm()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var suffix = Guid.NewGuid().ToString("N");
+        var email = $"event-combined-{suffix}@attendta.test";
+        var password = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)) + "aA1!";
+        var actor = await EventDraftTestSupport.SeedUsersAsync(fixture.ConnectionString, email, $"member-{suffix}@attendta.test", password, ct);
+        var (typeId, venueId) = await EventDraftTestSupport.SeedActiveReferencesAsync(fixture.ConnectionString, actor, 40, ct);
+        await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        factory.ConfigureServicesForTesting = services => services.AddSingleton<TimeProvider>(EventDraftTestSupport.DraftClock);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await EventDraftTestSupport.SignInAsync(client, email, password, ct);
+        var token = await EventDraftTestSupport.AntiforgeryTokenAsync(client, "/Event/Create", ct);
+        MultipartFormDataContent FormWithCover(byte[] bytes)
+        {
+            var content = new MultipartFormDataContent();
+            foreach (var (key, value) in new Dictionary<string, string>
+            {
+                ["Title"] = "Combined cover event", ["TypeId"] = typeId.ToString(CultureInfo.InvariantCulture),
+                ["VenueId"] = venueId.ToString(CultureInfo.InvariantCulture), ["StartsAt"] = "2026-12-10T09:00",
+                ["RegistrationDeadline"] = "2026-12-09T17:30", ["ParticipantLimit"] = "20", ["__RequestVerificationToken"] = token
+            }) content.Add(new StringContent(value), key);
+            content.Add(new ByteArrayContent(bytes), "cover", "cover.jpg");
+            return content;
+        }
+        using (var invalid = FormWithCover([1, 2, 3]))
+        {
+            var response = await client.PostAsync("/Event/Create", invalid, ct);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var html = await response.Content.ReadAsStringAsync(ct);
+            Assert.Contains("Combined cover event", html, StringComparison.Ordinal);
+            Assert.Contains("Choose the image again", html, StringComparison.Ordinal);
+            await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+            Assert.False(await context.Events.AnyAsync(e => e.Title == "Combined cover event", ct));
+        }
+        using (var valid = FormWithCover([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0]))
+        {
+            var response = await client.PostAsync("/Event/Create", valid, ct);
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+            await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+            var created = await context.Events.AsNoTracking().SingleAsync(e => e.Title == "Combined cover event", ct);
+            Assert.StartsWith("uploads/events/", created.ImagePath, StringComparison.Ordinal);
+            Assert.Equal(EventStatusCode.Draft, created.EventStatusId);
+            Assert.Equal(1, await context.ActivityLogs.CountAsync(a => a.EntityId == created.EventId && a.EntityType == "events", ct));
+        }
+    }
+
+}
 
 public sealed class EventDraftFlowTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
 {
@@ -37,6 +91,7 @@ public sealed class EventDraftFlowTests(SqlServerDatabaseFixture fixture) : ICla
         await EventDraftTestSupport.SeedInactiveReferencesAsync(fixture.ConnectionString, officerId, ct);
 
         await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        factory.ConfigureServicesForTesting = services => services.AddSingleton<TimeProvider>(EventDraftTestSupport.DraftClock);
         using var officerClient = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
         using var memberClient = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
 
@@ -56,6 +111,7 @@ public sealed class EventDraftFlowTests(SqlServerDatabaseFixture fixture) : ICla
         Assert.Contains(">Events</a>", empty, StringComparison.Ordinal);
 
         var createPage = await officerClient.GetStringAsync("/Event/Create", ct);
+        Assert.Contains("min=\"2026-11-20T00:00\"", createPage, StringComparison.Ordinal);
         Assert.Contains("Active Type", createPage, StringComparison.Ordinal);
         Assert.Contains("Active Room", createPage, StringComparison.Ordinal);
         Assert.DoesNotContain("Inactive Type", createPage, StringComparison.Ordinal);
@@ -82,18 +138,19 @@ public sealed class EventDraftFlowTests(SqlServerDatabaseFixture fixture) : ICla
             var created = await context.Events.AsNoTracking().SingleAsync(item => item.Title == "Cyber Security Seminar", ct);
             Assert.Equal(EventStatusCode.Draft, created.EventStatusId);
             Assert.Equal(officerId, created.CreatedBy);
+            Assert.Equal(EventDraftTestSupport.DraftClock.GetUtcNow().UtcDateTime, created.CreatedAt);
             Assert.Equal(new DateTime(2026, 12, 10, 1, 0, 0), created.StartsAt);
             Assert.Equal(new DateTime(2026, 12, 9, 9, 30, 0), created.RegistrationDeadline);
             Assert.Equal("Learn the basics", created.Description);
             Assert.Equal(40, created.ParticipantLimit);
             eventId = created.EventId;
-            Assert.Equal(0, await context.ActivityLogs.CountAsync(log => log.EntityType == "events" && log.EntityId == eventId, ct));
+            Assert.Equal(1, await context.ActivityLogs.CountAsync(log => log.EntityType == "events" && log.EntityId == eventId, ct));
         }
 
         var list = await officerClient.GetStringAsync("/Event", ct);
         Assert.Contains($"data-event-id=\"{eventId}\"", list, StringComparison.Ordinal);
-        Assert.Contains("2026-12-10 09:00 Asia/Manila", list, StringComparison.Ordinal);
-        Assert.Contains("2026-12-09 17:30 Asia/Manila", list, StringComparison.Ordinal);
+        Assert.Contains("2026-12-10 09:00 AM", list, StringComparison.Ordinal);
+        Assert.Contains("2026-12-09 05:30 PM", list, StringComparison.Ordinal);
         Assert.Contains("Active Type", list, StringComparison.Ordinal);
         Assert.Contains("Active Room", list, StringComparison.Ordinal);
         Assert.Contains($"href=\"/Event/Edit?id={eventId}\"", list, StringComparison.Ordinal);
@@ -185,6 +242,7 @@ public sealed class EventDraftValidationFlowTests(SqlServerDatabaseFixture fixtu
         var (inactiveTypeId, inactiveVenueId) = await EventDraftTestSupport.SeedInactiveReferencesAsync(fixture.ConnectionString, officerId, ct);
 
         await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        factory.ConfigureServicesForTesting = services => services.AddSingleton<TimeProvider>(EventDraftTestSupport.DraftClock);
         using var officerClient = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
         await EventDraftTestSupport.SignInAsync(officerClient, officerEmail, password, ct);
 
@@ -292,7 +350,7 @@ public sealed class EventDraftValidationFlowTests(SqlServerDatabaseFixture fixtu
             Assert.Equal(typeId, unchangedDraft.TypeId);
             Assert.Equal(venueId, unchangedDraft.VenueId);
             Assert.Equal(EventStatusCode.Draft, unchangedDraft.EventStatusId);
-            Assert.Equal(0, await context.ActivityLogs.CountAsync(log => log.EntityType == "events" && log.EntityId == eventId, ct));
+            Assert.Equal(1, await context.ActivityLogs.CountAsync(log => log.EntityType == "events" && log.EntityId == eventId, ct));
         }
 
         await using (var context = EventDraftTestSupport.Context(fixture.ConnectionString))
@@ -325,7 +383,7 @@ public sealed class EventDraftValidationFlowTests(SqlServerDatabaseFixture fixtu
             Assert.Equal("Published edit", unchanged.Title);
             Assert.Equal("Updated description", unchanged.Description);
             Assert.Equal(EventStatusCode.Published, unchanged.EventStatusId);
-            Assert.Equal(1, await context.ActivityLogs.CountAsync(log => log.EntityType == "events" && log.EntityId == eventId, ct));
+            Assert.Equal(2, await context.ActivityLogs.CountAsync(log => log.EntityType == "events" && log.EntityId == eventId, ct));
         }
 
         foreach (var (field, value) in new[]
@@ -352,7 +410,7 @@ public sealed class EventDraftValidationFlowTests(SqlServerDatabaseFixture fixtu
         await using (var context = EventDraftTestSupport.Context(fixture.ConnectionString))
         {
             Assert.Equal("Published edit", (await context.Events.AsNoTracking().SingleAsync(item => item.EventId == eventId, ct)).Title);
-            Assert.Equal(1, await context.ActivityLogs.CountAsync(log => log.EntityType == "events" && log.EntityId == eventId, ct));
+            Assert.Equal(2, await context.ActivityLogs.CountAsync(log => log.EntityType == "events" && log.EntityId == eventId, ct));
         }
     }
 
@@ -369,6 +427,110 @@ public sealed class EventDraftValidationFlowTests(SqlServerDatabaseFixture fixtu
         var token = await EventDraftTestSupport.AntiforgeryTokenAsync(client, "/Event", cancellationToken);
         values["__RequestVerificationToken"] = token;
         return await client.PostAsync("/Event/Edit", EventDraftTestSupport.Form(values), cancellationToken);
+    }
+}
+
+public sealed class EventCreateValidationTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
+{
+    // 23:00 UTC is already 07:00 the following day in Manila.
+    private static readonly DateTimeOffset Now = new(2026, 11, 19, 23, 0, 0, TimeSpan.Zero);
+
+    [Fact]
+    public async Task CreateValidationUsesManilaDateAndDisplaysFieldErrorsOnlyBesideFields()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var suffix = Guid.NewGuid().ToString("N");
+        var email = $"validation-{suffix}@attendta.test";
+        var password = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)) + "aA1!";
+        var actor = await EventDraftTestSupport.SeedUsersAsync(fixture.ConnectionString, email, $"member-{suffix}@attendta.test", password, ct);
+        var (typeId, venueId) = await EventDraftTestSupport.SeedActiveReferencesAsync(fixture.ConnectionString, actor, 40, ct);
+        await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        factory.ConfigureServicesForTesting = services => services.AddSingleton<TimeProvider>(new FixedClock());
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await EventDraftTestSupport.SignInAsync(client, email, password, ct);
+        client.DefaultRequestHeaders.Add("X-Record-Dialog", "true");
+
+        var create = await client.GetStringAsync("/Event/Create", ct);
+        foreach (var field in new[] { "StartsAt", "RegistrationDeadline" })
+        {
+            var input = Input(create, field);
+            Assert.Contains("min=\"2026-11-20T00:00\"", input, StringComparison.Ordinal);
+        }
+
+        async Task<HttpResponseMessage> Post(string title, string start, string deadline, string venue)
+        {
+            var token = await EventDraftTestSupport.AntiforgeryTokenAsync(client, "/Event/Create", ct);
+            return await client.PostAsync("/Event/Create", EventDraftTestSupport.Form(new Dictionary<string, string>
+            {
+                ["Title"] = title, ["TypeId"] = typeId.ToString(CultureInfo.InvariantCulture),
+                ["VenueId"] = venue, ["StartsAt"] = start, ["RegistrationDeadline"] = deadline,
+                ["ParticipantLimit"] = "10", ["__RequestVerificationToken"] = token
+            }), ct);
+        }
+
+        var validVenue = venueId.ToString(CultureInfo.InvariantCulture);
+        var missingVenue = await Post($"Missing venue {suffix}", "2026-11-21T09:00", "2026-11-20T09:00", "");
+        Assert.Equal(HttpStatusCode.OK, missingVenue.StatusCode);
+        var invalidHtml = await missingVenue.Content.ReadAsStringAsync(ct);
+        AssertFieldError(invalidHtml, "VenueId", "Select a venue.");
+
+        foreach (var (title, start, deadline, field) in new[]
+        {
+            ($"Past start {suffix}", "2026-11-19T23:00", "2026-11-19T22:00", "StartsAt"),
+            ($"Past deadline {suffix}", "2026-11-21T09:00", "2026-11-19T23:00", "RegistrationDeadline"),
+            ($"Deadline after start {suffix}", "2026-11-20T05:00", "2026-11-20T05:01", "RegistrationDeadline")
+        })
+        {
+            var response = await Post(title, start, deadline, validVenue);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var html = await response.Content.ReadAsStringAsync(ct);
+            var error = Regex.Match(html, $@"<span\b[^>]*id=""{field}-validation""[^>]*>(.*?)</span>", RegexOptions.Singleline);
+            Assert.True(error.Success, $"Missing validation span for {field}.");
+            var message = WebUtility.HtmlDecode(Regex.Replace(error.Groups[1].Value, "<[^>]+>", "")).Trim();
+            Assert.False(string.IsNullOrEmpty(message));
+            AssertFieldError(html, field, message);
+            await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+            Assert.False(await context.Events.AnyAsync(e => e.Title == title, ct));
+        }
+
+        var acceptedTitle = $"Earlier today {suffix}";
+        var accepted = await Post(acceptedTitle, "2026-11-20T06:00", "2026-11-20T05:00", validVenue);
+        Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+        using var result = JsonDocument.Parse(await accepted.Content.ReadAsStringAsync(ct));
+        Assert.True(result.RootElement.GetProperty("saved").GetBoolean());
+        await using var observer = EventDraftTestSupport.Context(fixture.ConnectionString);
+        var draft = await observer.Events.AsNoTracking().SingleAsync(e => e.Title == acceptedTitle, ct);
+        Assert.Equal(EventStatusCode.Draft, draft.EventStatusId);
+        Assert.False(await observer.Events.AnyAsync(e => e.Title == $"Missing venue {suffix}", ct));
+
+        var edit = await client.GetStringAsync($"/Event/Edit?id={draft.EventId}", ct);
+        foreach (var field in new[] { "StartsAt", "RegistrationDeadline" })
+            Assert.DoesNotContain(" min=", Input(edit, field), StringComparison.Ordinal);
+    }
+
+    private static string Input(string html, string field)
+    {
+        var match = Regex.Match(html, $@"<input\b(?=[^>]*\bname=""{field}"")[^>]*>", RegexOptions.IgnoreCase);
+        Assert.True(match.Success, $"Missing input for {field}.");
+        return match.Value;
+    }
+
+    private static void AssertFieldError(string html, string field, string message)
+    {
+        var decoded = WebUtility.HtmlDecode(html);
+        var span = Regex.Match(decoded, $@"<span\b[^>]*id=""{field}-validation""[^>]*>(.*?)</span>", RegexOptions.Singleline);
+        Assert.True(span.Success, $"Missing validation span for {field}.");
+        Assert.Contains(message, span.Groups[1].Value, StringComparison.Ordinal);
+        var validationSpans = Regex.Matches(decoded, @"<span\b[^>]*data-valmsg-for=""[^""]+""[^>]*>.*?</span>", RegexOptions.Singleline);
+        Assert.Equal(1, validationSpans.Cast<Match>().Count(item => item.Value.Contains(message, StringComparison.Ordinal)));
+        var summary = Regex.Match(decoded, @"<div\b[^>]*data-record-errors[^>]*>.*?</div>", RegexOptions.Singleline);
+        if (summary.Success)
+            Assert.DoesNotContain(message, summary.Value, StringComparison.Ordinal);
+    }
+
+    private sealed class FixedClock : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => Now;
     }
 }
 
@@ -391,13 +553,13 @@ public sealed class EventDraftPagingFlowTests(SqlServerDatabaseFixture fixture) 
         await EventDraftTestSupport.SignInAsync(officerClient, officerEmail, password, ct);
 
         var firstPage = await officerClient.GetStringAsync("/Event", ct);
-        Assert.Contains("Page 1 of 2", firstPage, StringComparison.Ordinal);
+        Assert.Contains("Page 1 of 6", firstPage, StringComparison.Ordinal);
         Assert.Equal(pageOne, EventIds(firstPage));
         Assert.Contains("aria-label=\"Next page\"", firstPage, StringComparison.Ordinal);
         Assert.DoesNotContain("aria-label=\"Previous page\"", firstPage, StringComparison.Ordinal);
 
-        var lastPage = await officerClient.GetStringAsync("/Event?page=2", ct);
-        Assert.Contains("Page 2 of 2", lastPage, StringComparison.Ordinal);
+        var lastPage = await officerClient.GetStringAsync("/Event?page=6", ct);
+        Assert.Contains("Page 6 of 6", lastPage, StringComparison.Ordinal);
         Assert.Equal(pageTwo, EventIds(lastPage));
         Assert.Contains("aria-label=\"Previous page\"", lastPage, StringComparison.Ordinal);
         Assert.DoesNotContain("aria-label=\"Next page\"", lastPage, StringComparison.Ordinal);
@@ -429,7 +591,7 @@ public sealed class EventDraftPersistenceTests(SqlServerDatabaseFixture fixture)
         var (typeId, venueId) = await EventDraftTestSupport.SeedActiveReferencesAsync(fixture.ConnectionString, actorId, capacity: 30, ct);
         var recorder = new LockOrderRecorder();
         await using var context = EventDraftTestSupport.Context(fixture.ConnectionString, recorder);
-        var service = EventDraftTestSupport.Service(context, actorId);
+        var service = EventDraftTestSupport.Service(context, actorId, EventDraftTestSupport.DraftClock);
 
         var id = await service.CreateDraftAsync(new EventViewModel
         {
@@ -450,10 +612,11 @@ public sealed class EventDraftPersistenceTests(SqlServerDatabaseFixture fixture)
         var created = await observer.Events.AsNoTracking().SingleAsync(item => item.EventId == id, ct);
         Assert.Equal(EventStatusCode.Draft, created.EventStatusId);
         Assert.Equal(actorId, created.CreatedBy);
+        Assert.Equal(EventDraftTestSupport.DraftClock.GetUtcNow().UtcDateTime, created.CreatedAt);
         Assert.Equal(new DateTime(2026, 12, 10, 1, 0, 0), created.StartsAt);
         Assert.Equal(new DateTime(2026, 12, 9, 9, 30, 0), created.RegistrationDeadline);
         Assert.Null(created.UpdatedBy);
-        Assert.Equal(0, await observer.ActivityLogs.CountAsync(log => log.EntityType == "events", ct));
+        Assert.Equal(1, await observer.ActivityLogs.CountAsync(log => log.EntityType == "events", ct));
     }
 
     internal sealed class LockOrderRecorder : DbCommandInterceptor
@@ -484,7 +647,7 @@ public sealed class EventDraftEditPersistenceTests(SqlServerDatabaseFixture fixt
         int eventId;
         await using (var seed = EventDraftTestSupport.Context(fixture.ConnectionString))
         {
-            eventId = await EventDraftTestSupport.Service(seed, actorId).CreateDraftAsync(new EventViewModel
+            eventId = await EventDraftTestSupport.Service(seed, actorId, EventDraftTestSupport.DraftClock).CreateDraftAsync(new EventViewModel
             {
                 Title = "Before",
                 TypeId = typeId,
@@ -497,7 +660,7 @@ public sealed class EventDraftEditPersistenceTests(SqlServerDatabaseFixture fixt
 
         var recorder = new EventDraftPersistenceTests.LockOrderRecorder();
         await using var context = EventDraftTestSupport.Context(fixture.ConnectionString, recorder);
-        var service = EventDraftTestSupport.Service(context, actorId);
+        var service = EventDraftTestSupport.Service(context, actorId, EventDraftTestSupport.DraftClock);
 
         await service.UpdateDraftAsync(new EventViewModel
         {
@@ -523,7 +686,7 @@ public sealed class EventDraftEditPersistenceTests(SqlServerDatabaseFixture fixt
         Assert.Equal(actorId, edited.UpdatedBy);
 
         var log = await observer.ActivityLogs.AsNoTracking().SingleAsync(
-            item => item.EntityType == "events" && item.EntityId == eventId, ct);
+            item => item.EntityType == "events" && item.EntityId == eventId && item.Action == AuditActions.EventUpdated, ct);
         Assert.Equal(AuditActions.EventUpdated, log.Action);
         Assert.Equal(actorId, log.ActorUserId);
         Assert.Contains("\"Title\":\"Before\"", log.OldValues, StringComparison.Ordinal);
@@ -535,6 +698,14 @@ public sealed class EventDraftEditPersistenceTests(SqlServerDatabaseFixture fixt
 
 internal static class EventDraftTestSupport
 {
+    // December fixtures must remain in the future regardless of the machine's date.
+    public static readonly TimeProvider DraftClock = new FixedDraftClock();
+
+    private sealed class FixedDraftClock : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => new(2026, 11, 19, 23, 0, 0, TimeSpan.Zero);
+    }
+
     public static readonly IMapper Mapper = new MapperConfiguration(config =>
     {
         config.CreateMap<EventViewModel, Event>();
@@ -549,7 +720,8 @@ internal static class EventDraftTestSupport
     public static EventLifecycleService Service(AsiBasecodeDBContext context, int actorId, TimeProvider? clock = null,
         Func<IActivityLogWriter, IActivityLogWriter>? wrapAudit = null,
         IEnumerable<IEventCompletionHandler>? completionHandlers = null,
-        Func<IUnitOfWork, IEnumerable<IEventCompletionHandler>>? completionHandlerFactory = null)
+        Func<IUnitOfWork, IEnumerable<IEventCompletionHandler>>? completionHandlerFactory = null,
+        IPrivateFileStore? files = null)
     {
         var unitOfWork = new UnitOfWork(context);
         var actor = new Actor(actorId);
@@ -574,7 +746,7 @@ internal static class EventDraftTestSupport
             timeProvider,
             audit,
             actor,
-            new UnusedPrivateFileStore(),
+            files ?? new UnusedPrivateFileStore(),
             NullLogger<EventLifecycleService>.Instance);
     }
 
@@ -584,7 +756,7 @@ internal static class EventDraftTestSupport
         var actor = new User
         {
             Name = "Event Draft Tester",
-            UserId = $"{Guid.NewGuid():N}@example.invalid",
+            Email = $"{Guid.NewGuid():N}@example.invalid",
             Password = "test",
             RoleId = RoleCode.Officer,
             IsActive = true
@@ -600,7 +772,7 @@ internal static class EventDraftTestSupport
         await using var context = Context(connectionString);
         var officer = new User
         {
-            UserId = officerEmail,
+            Email = officerEmail,
             Name = "Event Draft Officer",
             Password = hasher.Hash(password),
             RoleId = RoleCode.Officer,
@@ -608,7 +780,7 @@ internal static class EventDraftTestSupport
         };
         var member = new User
         {
-            UserId = memberEmail,
+            Email = memberEmail,
             Name = "Event Draft Member",
             Password = hasher.Hash(password),
             RoleId = RoleCode.Member,
@@ -699,7 +871,7 @@ internal static class EventDraftTestSupport
         await context.SaveChangesAsync(cancellationToken);
 
         var ordered = events.OrderBy(item => item.StartsAt).ThenBy(item => item.EventId).Select(item => item.EventId).ToArray();
-        return (ordered[..25], ordered[25..]);
+        return (ordered[..5], ordered[25..]);
     }
 
     public static FormUrlEncodedContent Form(Dictionary<string, string> values) => new(values);

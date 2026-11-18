@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace ASI.Basecode.IntegrationTests;
@@ -453,13 +454,70 @@ public sealed class CertificateIssuanceTests(SqlServerDatabaseFixture fixture) :
         }
     }
 
+    [Fact]
+    public async Task PromotionFailureLogsFailureTypeWithoutPrivateTemporaryPath()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (store, basePath, _) = CreateStore();
+        try
+        {
+            var setup = await SeedAsync();
+            await using var context = EventDraftTestSupport.Context(fixture.ConnectionString);
+            var files = new MissingPromotionFileStore(store);
+            var logger = new CapturingLogger();
+            var service = Service(context, setup.OfficerId, RoleCodes.Officer, new FakePdfRenderer(), files, logger: logger);
+
+            await Assert.ThrowsAsync<DomainException>(() => service.IssueAsync(setup.RegistrationId, ct));
+
+            Assert.NotNull(files.RemovedPath);
+            Assert.Null(logger.Exception);
+            Assert.NotNull(logger.Message);
+            Assert.Contains(nameof(FileNotFoundException), logger.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain(files.RemovedPath, logger.Message, StringComparison.OrdinalIgnoreCase);
+            await AssertUnchangedAsync(setup.CertificateId, CertificateStatusCode.Eligible);
+        }
+        finally
+        {
+            Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    private sealed class CapturingLogger : ILogger<CertificateLedgerService>
+    {
+        public Exception? Exception { get; private set; }
+        public string? Message { get; private set; }
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            Exception = exception;
+            Message = formatter(state, exception);
+        }
+    }
+
+    private sealed class MissingPromotionFileStore(IPrivateFileStore inner) : IPrivateFileStore
+    {
+        public string? RemovedPath { get; private set; }
+        public Task<string> SaveAsync(PrivateFileArea area, Stream content, string extension, CancellationToken cancellationToken = default) => inner.SaveAsync(area, content, extension, cancellationToken);
+        public string CreateTemporaryPath(string extension) => inner.CreateTemporaryPath(extension);
+        public Task<Stream> OpenReadAsync(string relativePath, CancellationToken cancellationToken = default) => inner.OpenReadAsync(relativePath, cancellationToken);
+        public void Delete(string relativePath) => inner.Delete(relativePath);
+        public Task<string> PromoteAsync(string temporaryPath, PrivateFileArea area, CancellationToken cancellationToken = default)
+        {
+            RemovedPath = temporaryPath;
+            File.Delete(temporaryPath);
+            return inner.PromoteAsync(temporaryPath, area, cancellationToken);
+        }
+    }
+
     private static CertificateLedgerService Service(
         AsiBasecodeDBContext context,
         int actorId,
         string role,
         ICertificatePdfRenderer renderer,
         IPrivateFileStore files,
-        IActivityLogWriter? audit = null)
+        IActivityLogWriter? audit = null,
+        ILogger<CertificateLedgerService>? logger = null)
     {
         var unitOfWork = new UnitOfWork(context);
         var actor = new Actor(actorId, role);
@@ -475,7 +533,8 @@ public sealed class CertificateIssuanceTests(SqlServerDatabaseFixture fixture) :
             audit ?? new ActivityLogWriter(context, actor, clock),
             clock,
             renderer,
-            files);
+            files,
+            logger: logger!);
     }
 
     private async Task<Setup> SeedAsync(

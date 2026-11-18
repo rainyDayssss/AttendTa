@@ -55,4 +55,7 @@ public sealed class MemberEventDetailViewModel
 
     /// <summary>True when the actor is an eligible participant and signup is still open.</summary>
     public bool CanRegister { get; set; }
+
+    /// <summary>True when the actor has a linked member profile, active or inactive.</summary>
+    public bool HasMemberProfile { get; set; }
 }

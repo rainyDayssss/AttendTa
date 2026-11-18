@@ -1,3 +1,4 @@
+using ASI.Basecode.Data.Queries;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -15,7 +16,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace ASI.Basecode.Data.Repositories;
 
-public sealed class AccountAdministrationRepository(IUnitOfWork unitOfWork) : BaseRepository(unitOfWork), IAccountAdministrationRepository
+public sealed class AccountAdministrationRepository(IUnitOfWork unitOfWork, ListReadOptions readOptions = null) : BaseRepository(unitOfWork), IAccountAdministrationRepository
 {
     private const string LastAdministratorLockResource = "attendta:last-admin";
     private const int LastAdministratorLockTimeoutMilliseconds = 5000;
@@ -39,7 +40,7 @@ public sealed class AccountAdministrationRepository(IUnitOfWork unitOfWork) : Ba
                       {
                           AccountId = user.Id,
                           FullName = user.Name,
-                          Email = user.UserId,
+                          Email = user.Email,
                           RoleCode = role.Code,
                           RoleLabel = role.Label,
                           IsActive = user.IsActive
@@ -63,7 +64,7 @@ public sealed class AccountAdministrationRepository(IUnitOfWork unitOfWork) : Ba
                       {
                           AccountId = user.Id,
                           FullName = user.Name,
-                          Email = user.UserId,
+                          Email = user.Email,
                           RoleCode = role.Code,
                           RoleLabel = role.Label,
                           IsActive = user.IsActive
@@ -137,10 +138,16 @@ public sealed class AccountAdministrationRepository(IUnitOfWork unitOfWork) : Ba
     private IQueryable<User> Filter(string search)
     {
         var query = GetDbSet<User>().AsNoTracking();
+        if (readOptions?.Filter == "active") query = query.Where(row => row.IsActive);
+        if (readOptions?.Filter == "inactive") query = query.Where(row => !row.IsActive);
+        if (!string.IsNullOrWhiteSpace(readOptions?.Role)) {
+            var roles = GetDbSet<RoleLookup>().Where(role => role.Code == readOptions.Role).Select(role => role.RoleId);
+            query = query.Where(row => roles.Contains(row.RoleId));
+        }
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
-            query = query.Where(user => user.Name.Contains(term) || user.UserId.Contains(term));
+            query = query.Where(user => user.Name.Contains(term) || user.Email.Contains(term));
         }
 
         return query;

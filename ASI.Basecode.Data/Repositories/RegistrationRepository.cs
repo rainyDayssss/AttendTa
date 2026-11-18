@@ -14,8 +14,10 @@ namespace ASI.Basecode.Data.Repositories;
 
 public sealed class RegistrationRepository : BaseRepository, IRegistrationRepository
 {
-    public RegistrationRepository(IUnitOfWork unitOfWork) : base(unitOfWork)
+    private readonly ListReadOptions _readOptions;
+    public RegistrationRepository(IUnitOfWork unitOfWork, ListReadOptions readOptions = null) : base(unitOfWork)
     {
+        _readOptions = readOptions;
     }
 
     public Task<bool> IsConfirmedAsync(int registrationId, CancellationToken cancellationToken = default) =>
@@ -35,13 +37,13 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
         .SingleOrDefaultAsync(cancellationToken);
 
     public Task<int> CountMyRegistrationsAsync(int userId, CancellationToken cancellationToken = default) =>
-        (from registration in GetDbSet<Registration>().AsNoTracking()
+        (from registration in FilterMyRegistrations()
          join member in GetDbSet<Member>().AsNoTracking() on registration.MemberId equals member.MemberId
          where member.UserId == userId
          select registration.RegistrationId).CountAsync(cancellationToken);
 
     public async Task<IReadOnlyList<MyEventRegistrationRow>> GetMyRegistrationsAsync(int userId, int skip, int take, CancellationToken cancellationToken = default) =>
-        await (from registration in GetDbSet<Registration>().AsNoTracking()
+        await (from registration in FilterMyRegistrations()
                join member in GetDbSet<Member>().AsNoTracking() on registration.MemberId equals member.MemberId
                join eventItem in GetDbSet<Event>().AsNoTracking() on registration.EventId equals eventItem.EventId
                join eventType in GetDbSet<EventType>().AsNoTracking() on eventItem.TypeId equals eventType.TypeId
@@ -61,7 +63,18 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
             .Take(take)
             .ToListAsync(cancellationToken);
 
-    public async Task<IReadOnlyList<MyPassRow>> GetMyPassRowsAsync(int userId, CancellationToken cancellationToken = default) =>
+        private IQueryable<Registration> FilterMyRegistrations()
+    {
+        var query = GetDbSet<Registration>().AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(_readOptions?.Search)) {
+            var ids = GetDbSet<Event>().Where(row => row.Title.Contains(_readOptions.Search)).Select(row => row.EventId);
+            query = query.Where(row => ids.Contains(row.EventId));
+        }
+        if (Enum.TryParse<RegistrationStatusCode>(_readOptions?.Filter, true, out var status) && Enum.IsDefined(status)) query = query.Where(row => row.RegistrationStatusId == status);
+        return query;
+    }
+
+public async Task<IReadOnlyList<MyPassRow>> GetMyPassRowsAsync(int userId, CancellationToken cancellationToken = default) =>
         await (from registration in ParticipationFacts.SeatHolders(GetDbSet<Registration>().AsNoTracking())
                join member in GetDbSet<Member>().AsNoTracking() on registration.MemberId equals member.MemberId
                join user in GetDbSet<User>().AsNoTracking() on member.UserId equals user.Id
@@ -241,6 +254,10 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
                    join e in GetDbSet<Event>().AsNoTracking() on r.EventId equals e.EventId
                    where r.RegistrationStatusId == status && (!eventId.HasValue || r.EventId == eventId.Value)
                    select new { r, m, u, e };
+        if (!string.IsNullOrWhiteSpace(_readOptions?.Search)) {
+            var term = _readOptions.Search;
+            rows = rows.Where(row => row.u.Name.Contains(term) || row.m.StudentNumber.Contains(term) || row.e.Title.Contains(term));
+        }
         // The waitlist screen must show the same order the promotion command uses.
         var ordered = status == RegistrationStatusCode.Waitlisted
             ? rows.OrderBy(row => row.r.ReviewedAt).ThenBy(row => row.r.RegistrationId)
@@ -256,11 +273,36 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
     public async Task<IReadOnlyList<RegistrationReviewRow>> GetReviewQueueAsync(RegistrationStatusCode status, int? eventId, int offset, int limit, CancellationToken ct = default) =>
         await ReviewQueue(status, eventId).Skip(offset).Take(limit).ToListAsync(ct);
 
+    public async Task<IReadOnlyList<RegistrationSummary>> GetSummariesAsync(IReadOnlyCollection<int> registrationIds, CancellationToken ct = default)
+    {
+        if (registrationIds is null || registrationIds.Count == 0) return Array.Empty<RegistrationSummary>();
+
+        // The same joins as the review queue without its status predicate: a decided row must still
+        // resolve its own name, because the result panel is rendered after the decision.
+        return await (from r in GetDbSet<Registration>().AsNoTracking()
+                      join m in GetDbSet<Member>().AsNoTracking() on r.MemberId equals m.MemberId
+                      join u in GetDbSet<User>().AsNoTracking() on m.UserId equals u.Id
+                      join e in GetDbSet<Event>().AsNoTracking() on r.EventId equals e.EventId
+                      where registrationIds.Contains(r.RegistrationId)
+                      select new RegistrationSummary(r.RegistrationId, r.EventId, e.Title, u.Name, m.StudentNumber, r.SubmittedAt, r.RegistrationStatusId))
+            .ToListAsync(ct);
+    }
+
+    /// <summary>
+    /// Refreshes the tracked registration from a non-locking read. Callers must already hold the
+    /// owner's users row lock and the event row lock; this method deliberately takes no row lock of
+    /// its own. The persisted status is authoritative for idempotence.
+    /// </summary>
     public async Task<Registration> GetForUpdateAsync(int registrationId, CancellationToken cancellationToken = default)
     {
-        var snapshot = await GetDbSet<Registration>().AsNoTracking().SingleOrDefaultAsync(r => r.RegistrationId == registrationId, cancellationToken);
-        if (snapshot == null) return null;
-        var tracked = GetDbSet<Registration>().Local.FirstOrDefault(r => r.RegistrationId == registrationId);
+        var snapshot = await GetDbSet<Registration>().AsNoTracking()
+            .SingleOrDefaultAsync(registration => registration.RegistrationId == registrationId, cancellationToken);
+        return snapshot is null ? null : Refresh(snapshot);
+    }
+
+    private Registration Refresh(Registration snapshot)
+    {
+        var tracked = GetDbSet<Registration>().Local.FirstOrDefault(registration => registration.RegistrationId == snapshot.RegistrationId);
         if (tracked == null) { GetDbSet<Registration>().Attach(snapshot); return snapshot; }
         var entry = Context.Entry(tracked);
         Context.ChangeTracker.DetectChanges();
@@ -272,29 +314,27 @@ public sealed class RegistrationRepository : BaseRepository, IRegistrationReposi
             property.OriginalValue = value;
         }
         // The persisted status is authoritative for idempotence, even if a caller tracked it earlier.
-        entry.Property(r => r.RegistrationStatusId).CurrentValue = snapshot.RegistrationStatusId;
-        entry.Property(r => r.RegistrationStatusId).IsModified = false;
+        entry.Property(registration => registration.RegistrationStatusId).CurrentValue = snapshot.RegistrationStatusId;
+        entry.Property(registration => registration.RegistrationStatusId).IsModified = false;
         return tracked;
     }
 
     public async Task<IReadOnlyList<Registration>> GetOpenForEventAsync(int eventId, CancellationToken cancellationToken = default)
     {
-        // The status filter runs in SQL, so every returned row is already open; no in-memory re-filter
-        // is needed after the tracked refresh.
-        var ids = await GetDbSet<Registration>().AsNoTracking()
+        // One read materializes every open row; Refresh reuses any instance the caller already tracks,
+        // so cancellation no longer issues one query per registration under the event lock.
+        var snapshots = await GetDbSet<Registration>().AsNoTracking()
             .Where(ParticipationFacts.OpenRegistration)
             .Where(registration => registration.EventId == eventId)
             .OrderBy(registration => registration.RegistrationId)
-            .Select(registration => registration.RegistrationId)
             .ToListAsync(cancellationToken);
-        var result = new List<Registration>(ids.Count);
-        foreach (var id in ids)
+        var rows = new List<Registration>(snapshots.Count);
+        foreach (var snapshot in snapshots)
         {
-            var row = await GetForUpdateAsync(id, cancellationToken);
-            if (row != null) result.Add(row);
+            rows.Add(Refresh(snapshot));
         }
 
-        return result;
+        return rows;
     }
 
     public async Task<IReadOnlyList<int>> DiscoverOpenEventIdsForUserAsync(int userId, CancellationToken cancellationToken = default) =>

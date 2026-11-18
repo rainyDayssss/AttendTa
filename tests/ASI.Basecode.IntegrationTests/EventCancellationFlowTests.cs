@@ -321,6 +321,150 @@ public sealed class EventCancellationFlowTests(SqlServerDatabaseFixture fixture)
 {
     private static readonly DateTime Now = new(2026, 11, 6, 12, 0, 0, DateTimeKind.Utc);
 
+    [Theory]
+    [InlineData(EventStatusCode.Draft)]
+    [InlineData(EventStatusCode.Published)]
+    public async Task CancelFromListCancelsOnceAndPreservesQuery(EventStatusCode status)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var suffix = Guid.NewGuid().ToString("N");
+        var email = $"list-success-{suffix}@attendta.test";
+        var password = MemberEventTestSupport.NewPassword();
+        var actor = await EventDraftTestSupport.SeedUsersAsync(fixture.ConnectionString, email, $"member-{suffix}@attendta.test", password, ct);
+        var (type, venue) = await MemberEventTestSupport.SeedReferencesAsync(fixture.ConnectionString, actor, ct);
+        var item = await MemberEventTestSupport.SeedEventAsync(fixture.ConnectionString, actor, type, venue, status,
+            Now.AddDays(10), Now.AddDays(9), 20, null, $"List success {suffix}", ct);
+        for (var index = 0; index < 5; index++)
+            await MemberEventTestSupport.SeedEventAsync(fixture.ConnectionString, actor, type, venue, status,
+                Now.AddDays(index + 1), Now.AddDays(index), 20, null, $"Earlier {suffix} {index}", ct);
+        await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await EventDraftTestSupport.SignInAsync(client, email, password, ct);
+        var url = $"/Event?search={suffix}&filter={status}&page=2&pageSize=5&typeId={type}";
+        var html = await client.GetStringAsync(url, ct);
+        Assert.Contains("Page 2 of 2", html, StringComparison.Ordinal);
+        Assert.Contains($"data-dialog-value-id=\"{item.EventId}\"", html, StringComparison.Ordinal);
+        Assert.Contains("This cannot be undone.", html, StringComparison.Ordinal);
+        var token = await EventDraftTestSupport.AntiforgeryTokenAsync(client, url, ct);
+        var response = await client.PostAsync("/Event/CancelFromList", EventDraftTestSupport.Form(new()
+        {
+            ["id"] = item.EventId.ToString(), ["reason"] = "  Schedule changed  ", ["returnUrl"] = url,
+            ["__RequestVerificationToken"] = token
+        }), ct);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal(url, response.Headers.Location!.OriginalString);
+        Assert.Contains("Event cancelled.", await client.GetStringAsync(url, ct), StringComparison.Ordinal);
+        await using var observer = MemberEventTestSupport.Context(fixture.ConnectionString);
+        var row = await observer.Events.AsNoTracking().SingleAsync(e => e.EventId == item.EventId, ct);
+        Assert.Equal(EventStatusCode.Cancelled, row.EventStatusId);
+        Assert.Equal("Schedule changed", row.CancellationReason);
+        Assert.Equal(1, await observer.ActivityLogs.CountAsync(log => log.EntityType == "events" && log.EntityId == item.EventId && log.Action == AuditActions.EventCancelled, ct));
+    }
+
+    [Fact]
+    public async Task ListCancellationRejectsBlankUnauthorizedAndMissingTokenWithoutChanges()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var suffix = Guid.NewGuid().ToString("N");
+        var officerEmail = $"list-guard-{suffix}@attendta.test";
+        var memberEmail = $"list-member-{suffix}@attendta.test";
+        var password = MemberEventTestSupport.NewPassword();
+        var actor = await EventDraftTestSupport.SeedUsersAsync(fixture.ConnectionString, officerEmail, memberEmail, password, ct);
+        var (type, venue) = await MemberEventTestSupport.SeedReferencesAsync(fixture.ConnectionString, actor, ct);
+        var item = await MemberEventTestSupport.SeedEventAsync(fixture.ConnectionString, actor, type, venue, EventStatusCode.Draft,
+            Now.AddDays(10), Now.AddDays(9), 20, null, $"List guarded {suffix}", ct);
+        await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var officer = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        using var member = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        using var anonymous = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await EventDraftTestSupport.SignInAsync(officer, officerEmail, password, ct);
+        await EventDraftTestSupport.SignInAsync(member, memberEmail, password, ct);
+        var url = $"/Event?search={suffix}&page=1&pageSize=5";
+        var token = await EventDraftTestSupport.AntiforgeryTokenAsync(officer, url, ct);
+        FormUrlEncodedContent Form(string reason, string? antiforgery) => EventDraftTestSupport.Form(new()
+        {
+            ["id"] = item.EventId.ToString(), ["reason"] = reason, ["returnUrl"] = url,
+            ["__RequestVerificationToken"] = antiforgery ?? ""
+        });
+        var missingToken = await officer.PostAsync("/Event/CancelFromList", Form("Denied", null), ct);
+        Assert.Equal(HttpStatusCode.BadRequest, missingToken.StatusCode);
+        var memberToken = await EventDraftTestSupport.AntiforgeryTokenAsync(member, "/Home/Index", ct);
+        var forbidden = await member.PostAsync("/Event/CancelFromList", Form("Denied", memberToken), ct);
+        Assert.Contains("/Account/AccessDenied", EventDraftTestSupport.LocationPath(forbidden), StringComparison.Ordinal);
+        var unauthenticated = await anonymous.PostAsync("/Event/CancelFromList", Form("Denied", null), ct);
+        Assert.Contains("/Account/Login", EventDraftTestSupport.LocationPath(unauthenticated), StringComparison.Ordinal);
+        var blank = await officer.PostAsync("/Event/CancelFromList", Form("   ", token), ct);
+        Assert.Equal(url, blank.Headers.Location!.OriginalString);
+        var retry = await officer.GetStringAsync(url, ct);
+        Assert.Contains("A cancellation reason is required.", retry, StringComparison.Ordinal);
+        Assert.Contains("data-reopen=\"true\"", retry, StringComparison.Ordinal);
+        Assert.Contains($"data-reopen-id=\"{item.EventId}\"", retry, StringComparison.Ordinal);
+        Assert.Contains($"List guarded {suffix}", retry, StringComparison.Ordinal);
+        await using var observer = MemberEventTestSupport.Context(fixture.ConnectionString);
+        Assert.Equal(EventStatusCode.Draft, (await observer.Events.AsNoTracking().SingleAsync(e => e.EventId == item.EventId, ct)).EventStatusId);
+        Assert.Equal(0, await observer.ActivityLogs.CountAsync(log => log.EntityType == "events" && log.EntityId == item.EventId, ct));
+    }
+
+    [Fact]
+    public async Task ListCancellationMissingEventRetainsReasonAndDisablesRetry()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var suffix = Guid.NewGuid().ToString("N");
+        var email = $"list-missing-{suffix}@attendta.test";
+        var password = MemberEventTestSupport.NewPassword();
+        await EventDraftTestSupport.SeedUsersAsync(fixture.ConnectionString, email, $"member-{suffix}@attendta.test", password, ct);
+        await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await EventDraftTestSupport.SignInAsync(client, email, password, ct);
+        const string url = "/Event?search=not-found&page=1&pageSize=5";
+        var token = await EventDraftTestSupport.AntiforgeryTokenAsync(client, url, ct);
+        var response = await client.PostAsync("/Event/CancelFromList", EventDraftTestSupport.Form(new()
+        {
+            ["id"] = "2147483647", ["reason"] = "Keep my reason", ["returnUrl"] = url, ["__RequestVerificationToken"] = token
+        }), ct);
+        Assert.Equal(url, response.Headers.Location!.OriginalString);
+        var html = await client.GetStringAsync(url, ct);
+        Assert.Contains("Event not found.", html, StringComparison.Ordinal);
+        Assert.Contains("Keep my reason", html, StringComparison.Ordinal);
+        Assert.Contains("Event #2147483647", html, StringComparison.Ordinal);
+        Assert.Contains("data-reopen=\"true\"", html, StringComparison.Ordinal);
+        Assert.Matches("data-list-cancel-submit[^>]*disabled", html);
+    }
+
+    [Fact]
+    public async Task ListCancellationPreservesFiltersAndShowsRetryForTerminalEvent()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var suffix = Guid.NewGuid().ToString("N");
+        var officerEmail = $"list-officer-{suffix}@attendta.test";
+        var password = MemberEventTestSupport.NewPassword();
+        var officerId = await EventDraftTestSupport.SeedUsersAsync(fixture.ConnectionString, officerEmail, $"list-member-{suffix}@attendta.test", password, ct);
+        var (typeId, venueId) = await MemberEventTestSupport.SeedReferencesAsync(fixture.ConnectionString, officerId, ct);
+        var item = await MemberEventTestSupport.SeedEventAsync(fixture.ConnectionString, officerId, typeId, venueId,
+            EventStatusCode.Completed, Now.AddDays(10), Now.AddDays(9), 20, null, "Terminal list event", ct);
+        await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await EventDraftTestSupport.SignInAsync(client, officerEmail, password, ct);
+        var listUrl = "/Event?search=Terminal&page=1&pageSize=5";
+        var list = await client.GetStringAsync(listUrl, ct);
+        Assert.Contains($"/Event/Cover?id={item.EventId}", list, StringComparison.Ordinal);
+        Assert.Contains("No cover image has been uploaded.", list, StringComparison.Ordinal);
+        var token = await EventDraftTestSupport.AntiforgeryTokenAsync(client, listUrl, ct);
+        var response = await client.PostAsync("/Event/CancelFromList", EventDraftTestSupport.Form(new()
+        {
+            ["id"] = item.EventId.ToString(), ["reason"] = "Retain this reason", ["returnUrl"] = listUrl,
+            ["__RequestVerificationToken"] = token
+        }), ct);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal(listUrl, response.Headers.Location!.OriginalString);
+        var retry = await client.GetStringAsync(listUrl, ct);
+        Assert.Contains("Retain this reason", retry, StringComparison.Ordinal);
+        Assert.Contains("Only draft or published events can be cancelled.", retry, StringComparison.Ordinal);
+        Assert.Contains("data-reopen=\"true\"", retry, StringComparison.Ordinal);
+        await using var observer = MemberEventTestSupport.Context(fixture.ConnectionString);
+        Assert.Equal(EventStatusCode.Completed, (await observer.Events.AsNoTracking().SingleAsync(row => row.EventId == item.EventId, ct)).EventStatusId);
+    }
+
     [Fact]
     public async Task OfficerCancelsThroughTheConfirmationScreenWhileAuthorizationAndRefusalsLeaveRowsUnchanged()
     {
@@ -333,13 +477,13 @@ public sealed class EventCancellationFlowTests(SqlServerDatabaseFixture fixture)
         var (typeId, venueId) = await MemberEventTestSupport.SeedReferencesAsync(fixture.ConnectionString, officerId, ct);
         var published = await MemberEventTestSupport.SeedEventAsync(
             fixture.ConnectionString, officerId, typeId, venueId, EventStatusCode.Published,
-            Now.AddDays(10), Now.AddDays(9), 20, null, "Officer cancellation event", ct);
+            Now.AddDays(10), Now.AddDays(9), 20, null, $"Officer cancellation event {suffix}", ct);
         var draft = await MemberEventTestSupport.SeedEventAsync(
             fixture.ConnectionString, officerId, typeId, venueId, EventStatusCode.Draft,
-            Now.AddDays(11), Now.AddDays(10), 20, null, "Draft cancellation event", ct);
+            Now.AddDays(11), Now.AddDays(10), 20, null, $"Draft cancellation event {suffix}", ct);
         var completed = await MemberEventTestSupport.SeedEventAsync(
             fixture.ConnectionString, officerId, typeId, venueId, EventStatusCode.Completed,
-            Now.AddDays(12), Now.AddDays(11), 20, null, "Completed cancellation event", ct);
+            Now.AddDays(12), Now.AddDays(11), 20, null, $"Completed cancellation event {suffix}", ct);
         await OpenCheckInAsync(published.EventId, officerId, ct);
         var member = await MemberEventTestSupport.SeedMemberAsync(fixture.ConnectionString, officerId, MembershipStatusCode.Active, ct);
         await MemberEventTestSupport.SeedRegistrationAsync(fixture.ConnectionString, published.EventId, member.MemberId, RegistrationStatusCode.Confirmed, officerId, ct);
@@ -356,7 +500,7 @@ public sealed class EventCancellationFlowTests(SqlServerDatabaseFixture fixture)
         await EventDraftTestSupport.SignInAsync(officer, officerEmail, password, ct);
         await EventDraftTestSupport.SignInAsync(memberClient, memberEmail, password, ct);
 
-        var list = await officer.GetStringAsync("/Event", ct);
+        var list = await officer.GetStringAsync($"/Event?search={suffix}", ct);
         Assert.Contains($"/Event/Cancel?id={published.EventId}", list, StringComparison.Ordinal);
         Assert.Contains($"/Event/Cancel?id={draft.EventId}", list, StringComparison.Ordinal);
         Assert.DoesNotContain($"/Event/Cancel?id={completed.EventId}", list, StringComparison.Ordinal);
@@ -387,7 +531,7 @@ public sealed class EventCancellationFlowTests(SqlServerDatabaseFixture fixture)
         Assert.Equal(HttpStatusCode.Redirect, cancelled.StatusCode);
         Assert.Equal("/Event", EventDraftTestSupport.LocationPath(cancelled));
 
-        var afterCancel = await officer.GetStringAsync("/Event", ct);
+        var afterCancel = await officer.GetStringAsync($"/Event?search={suffix}", ct);
         Assert.Contains("Event cancelled.", afterCancel, StringComparison.Ordinal);
         Assert.DoesNotContain($"/Event/Cancel?id={published.EventId}", afterCancel, StringComparison.Ordinal);
 

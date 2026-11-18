@@ -1,5 +1,5 @@
 using ASI.Basecode.Services.Interfaces;
-using ASI.Basecode.WebApp.Extensions.Configuration;
+using ASI.Basecode.WebApp.Configuration;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using System;
@@ -25,19 +25,13 @@ public sealed class PrivateFileStore : IPrivateFileStore
     internal PrivateFileStore(IConfiguration configuration, IWebHostEnvironment environment, Func<Guid> createFileId)
     {
         this.createFileId = createFileId ?? throw new ArgumentNullException(nameof(createFileId));
-        var configuredRoot = configuration.GetSetupRootDirectoryPath();
-        if (string.IsNullOrWhiteSpace(configuredRoot))
-        {
-            throw new InvalidOperationException("Common:SetupRoot must be configured for private file storage.");
-        }
 
-        setupRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(configuredRoot));
-        var webRoot = Path.GetFullPath(environment.WebRootPath ?? Path.Combine(environment.ContentRootPath, "wwwroot"));
-        var contentRoot = Path.GetFullPath(environment.ContentRootPath);
-        if (PathsOverlap(setupRoot, webRoot) || PathsOverlap(setupRoot, contentRoot))
-        {
-            throw new InvalidOperationException("Common:SetupRoot must be outside wwwroot and the application deployment directory.");
-        }
+        // The shared validator rejects an empty, web-root or deployment-tree root before any file
+        // is written. PrivateFileStore keeps its own message for the empty case.
+        setupRoot = SetupRootPath.Resolve(
+            configuration,
+            environment,
+            "Common:SetupRoot must be configured for private file storage.");
 
         temporaryRoot = Path.Combine(setupRoot, "temporary");
     }
@@ -402,8 +396,6 @@ public sealed class PrivateFileStore : IPrivateFileStore
         PrivateFileArea.Certificates => 5,
         _ => 0
     };
-
-    private static bool PathsOverlap(string first, string second) => IsSameOrDescendant(first, second) || IsSameOrDescendant(second, first);
 
     private static bool IsSameOrDescendant(string candidate, string root)
     {

@@ -42,6 +42,15 @@ public interface ICertificateRepository
     /// </summary>
     Task<IReadOnlyList<CertificateReviewQueueRow>> GetReviewQueueAsync(int eventId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Display identity for the given registrations: the participant's name and student number,
+    /// resolved from <c>registrations</c> → <c>members</c> → <c>users</c>. Unknown ids are simply
+    /// absent. Read-only and untracked: a bulk approval resolves every label before it decides.
+    /// </summary>
+    Task<IReadOnlyList<CertificateReviewSummary>> GetDecisionSummariesAsync(
+        IReadOnlyCollection<int> registrationIds,
+        CancellationToken ct = default);
+
     /// <summary>Stages the certificate rows; the caller saves them inside its transaction.</summary>
     Task AddRangeAsync(IReadOnlyList<Certificate> certificates, CancellationToken ct = default);
 }

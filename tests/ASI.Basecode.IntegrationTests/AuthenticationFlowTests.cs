@@ -249,6 +249,78 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
         Assert.Contains("Incorrect email or password.", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("/Member", "/Member")]
+    [InlineData("https://example.test/path", "/Home/Index")]
+    [InlineData("//example.test/path", "/Home/Index")]
+    public async Task ActiveAccountRedirectsOnlyToLocalReturnUrls(string returnUrl, string expected)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var token = await GetAntiforgeryTokenAsync("/Account/Login");
+        using var response = await client.PostAsync("/Account/Login", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["Email"] = AdminEmail, ["Password"] = Password, ["ReturnUrl"] = returnUrl, ["__RequestVerificationToken"] = token
+        }), ct);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal(expected, GetLocationPath(response));
+        Assert.Contains($"{CookieName}=", GetSetCookieHeader(response), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("/Account/Login", "Password")]
+    [InlineData("/AccountRequest/Request", "Password")]
+    [InlineData("/AccountRequest/Request", "ConfirmPassword")]
+    public async Task PublicPasswordControlsAreMaskedAndTogglesHiddenWithoutScript(string path, string field)
+    {
+        var html = await client.GetStringAsync(path, TestContext.Current.CancellationToken);
+        Assert.Matches("<script\\b[^>]*src=\"/js/features/password-visibility\\.js(?:\\?[^\"]*)?\"[^>]*>", html);
+        var input = Regex.Match(html, $"<input\\b[^>]*\\bname=\"{field}\"[^>]*>", RegexOptions.IgnoreCase);
+        Assert.True(input.Success);
+        Assert.Matches("type=\"password\"", input.Value);
+        var button = Regex.Match(html, $"<button\\b[^>]*data-password-toggle=\"{field}\"[^>]*>", RegexOptions.IgnoreCase);
+        Assert.True(button.Success);
+        Assert.Matches("\\bhidden\\b", button.Value);
+        Assert.Contains("type=\"button\"", button.Value, StringComparison.Ordinal);
+        Assert.Contains($"aria-controls=\"{field}\"", button.Value, StringComparison.Ordinal);
+        Assert.Contains("aria-pressed=\"false\"", button.Value, StringComparison.Ordinal);
+        Assert.Contains(field == "ConfirmPassword" ? "aria-label=\"Show confirmation password\"" : "aria-label=\"Show password\"", button.Value, StringComparison.Ordinal);
+        var wrapper = Regex.Match(html, $"<div class=\"password-control\">.*?data-password-toggle=\"{field}\".*?</button>\\s*</div>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+        Assert.True(wrapper.Success);
+        Assert.Contains("<svg", wrapper.Value, StringComparison.Ordinal);
+        Assert.Contains("aria-hidden=\"true\"", wrapper.Value, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PendingRequestRequiresItsPasswordAndNeverIssuesAnAuthCookie()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var options = new DbContextOptionsBuilder<AsiBasecodeDBContext>().UseSqlServer(fixture.ConnectionString).Options;
+        await using var db = new AsiBasecodeDBContext(options);
+        var email = $"pending-{Guid.NewGuid():N}@attendta.test";
+        var request = new AccountRequest { StudentNumber = Random.Shared.Next(10000000, 99999999).ToString(), FullName = "Pending Applicant", Email = email, PasswordHash = hasher.Hash(Password), Course = "BSIT", YearLevel = 1, Section = "A", AccountRequestStatusId = AccountRequestStatusCode.Pending, RequestedAt = DateTime.UtcNow };
+        db.AccountRequests.Add(request);
+        await db.SaveChangesAsync(ct);
+        var token = await GetAntiforgeryTokenAsync("/Account/Login");
+        using var correct = await client.PostAsync("/Account/Login", new FormUrlEncodedContent(new Dictionary<string, string> { ["Email"] = email, ["Password"] = Password, ["ReturnUrl"] = "/Member", ["__RequestVerificationToken"] = token }), ct);
+        Assert.Equal(HttpStatusCode.OK, correct.StatusCode);
+        Assert.Contains("Request awaiting approval", await correct.Content.ReadAsStringAsync(ct));
+        Assert.DoesNotContain($"{CookieName}=", GetSetCookieHeader(correct), StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.Redirect, (await client.GetAsync("/Member", ct)).StatusCode);
+        using var wrong = await SignInAsync(email, "wrong-password");
+        Assert.Contains("Incorrect email or password.", await wrong.Content.ReadAsStringAsync(ct));
+        request.PasswordHash = "unusable-hash";
+        await db.SaveChangesAsync(ct);
+        using var unusable = await SignInAsync(email, Password);
+        Assert.Contains("Incorrect email or password.", await unusable.Content.ReadAsStringAsync(ct));
+        Assert.DoesNotContain($"{CookieName}=", GetSetCookieHeader(unusable), StringComparison.Ordinal);
+        request.AccountRequestStatusId = AccountRequestStatusCode.Rejected;
+        request.PasswordHash = null;
+        request.ReviewedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        using var rejected = await SignInAsync(email, Password);
+        Assert.Contains("Incorrect email or password.", await rejected.Content.ReadAsStringAsync(ct));
+    }
+
     [Fact]
     public async Task UnknownEmailShowsTheSameGenericMessageAsAWrongPassword()
     {
@@ -401,6 +473,8 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
             var menu = Extract(html, "id=\"account-menu\"", "</div>");
             Assert.Contains("Sign out", menu, StringComparison.Ordinal);
             Assert.DoesNotContain("Profile", menu, StringComparison.Ordinal);
+            Assert.Contains("/MyEvents", rail, StringComparison.Ordinal);
+            Assert.Contains("/Passes", rail, StringComparison.Ordinal);
             Assert.Contains("/Member", html, StringComparison.Ordinal);
             Assert.Contains("/EventType", html, StringComparison.Ordinal);
             Assert.Contains("/Venue", html, StringComparison.Ordinal);
@@ -422,6 +496,28 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
             Assert.DoesNotContain("/Venue", html, StringComparison.Ordinal);
             Assert.Contains("/Profile", html, StringComparison.Ordinal);
         }
+    }
+
+    [Theory]
+    [InlineData(AdminEmail)]
+    [InlineData(OfficerEmail)]
+    [InlineData(MissingProfileEmail)]
+    public async Task PersonalPagesExplainMissingProfileAndProtectUnknownResources(string email)
+    {
+        Assert.Equal(HttpStatusCode.Redirect, (await SignInAsync(email, Password)).StatusCode);
+        var ct = TestContext.Current.CancellationToken;
+        foreach (var path in new[] { "/Passes", "/MyEvents/Registrations", "/MyEvents/Attendance", "/MyEvents/Certificates" })
+        {
+            using var response = await client.GetAsync(path, ct);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var html = await response.Content.ReadAsStringAsync(ct);
+            Assert.Contains("A linked member profile is needed", html, StringComparison.Ordinal);
+            Assert.Contains("Contact an administrator", html, StringComparison.Ordinal);
+        }
+        foreach (var path in new[] { "/Passes/Qr/2147483647", "/Passes/Qr/2147483647?download=true" })
+            Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(path, ct)).StatusCode);
+        foreach (var path in new[] { "/MyEvents/Certificates/2147483647/Pdf", "/MyEvents/Certificates/2147483647/Pdf?download=true" })
+            Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync(path, ct)).StatusCode);
     }
 
     [Fact]
@@ -621,6 +717,141 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
         }
     }
 
+    [Theory]
+    [InlineData(AdminEmail, true)]
+    [InlineData(OfficerEmail, false)]
+    public async Task ManagementBreadcrumbNamesTheSectionWithoutRepeatingHome(string email, bool administrator)
+    {
+        Assert.Equal(HttpStatusCode.Redirect, (await SignInAsync(email, Password)).StatusCode);
+        var ct = TestContext.Current.CancellationToken;
+
+        async Task<string> Page(string path)
+        {
+            using var response = await client.GetAsync(path, ct);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            return await response.Content.ReadAsStringAsync(ct);
+        }
+
+        var home = await Page("/Home/Index");
+        AssertBreadcrumb(home, "Home");
+        AssertBreadcrumb(await Page("/Member"), "Home", "Manage", "Members");
+        AssertBreadcrumb(await Page("/Events"), "Home", "Browse events");
+        AssertBreadcrumb(await Page("/Account/AccessDenied"), "Home", "Access denied");
+
+        var rail = Extract(home, "class=\"rail\"", "</aside>");
+        var dashboard = Extract(home, "<header class=\"page-heading\">", "</main>");
+        var destinations = new (string Label, string[] Routes)[]
+        {
+            ("Browse events", ["/Events", "/MemberEvents"]),
+            ("Events", ["/Event", "/Event/Index"]),
+            ("Members", ["/Member", "/Member/Index"]),
+            ("Account requests", ["/AccountRequest", "/AccountRequest/Index"]),
+            ("Event types", ["/EventType", "/EventType/Index"]),
+            ("Venues", ["/Venue", "/Venue/Index"]),
+            ("Check-in", ["/CheckIn", "/CheckIn/Index"]),
+            ("Registration review", ["/RegistrationReview", "/RegistrationReview/Index"]),
+            ("Certificates", ["/Certificates"]),
+            ("Reports", ["/Reports/Participation"])
+        };
+        foreach (var (label, routes) in destinations)
+        {
+            var route = AssertLink(rail, label);
+            Assert.Contains(route, routes);
+            Assert.Equal(route, AssertLink(dashboard, label));
+        }
+        foreach (var (label, route) in new[] { ("Accounts", "/admin/accounts"), ("Activity log", "/admin/auditlogs") })
+        {
+            if (administrator) { Assert.Equal(route, AssertLink(rail, label)); Assert.Equal(route, AssertLink(dashboard, label)); }
+            else { Assert.DoesNotContain($">{label}</", rail, StringComparison.Ordinal); Assert.DoesNotContain($">{label}</", dashboard, StringComparison.Ordinal); }
+        }
+        Assert.True(dashboard.IndexOf("Browse events", StringComparison.Ordinal) < dashboard.IndexOf("Manage records", StringComparison.Ordinal));
+        Assert.True(dashboard.IndexOf("Manage records", StringComparison.Ordinal) < dashboard.IndexOf("Run operations", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("UnmappedController")]
+    public async Task ManagementBreadcrumbHandlesEmptyAndUnmappedControllers(string controller)
+    {
+        await using var routeFactory = factory.WithWebHostBuilder(builder =>
+            builder.ConfigureTestServices(services =>
+                services.Configure<MvcOptions>(options => options.Filters.Add(new BreadcrumbRouteTestFilter(controller)))));
+        using var routeClient = routeFactory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = true
+        });
+        Assert.Equal(HttpStatusCode.Redirect, (await SignInAsync(routeClient, AdminEmail, Password)).StatusCode);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/Home/Index");
+        request.Headers.Add("X-Breadcrumb-Route-Test", "true");
+        using var response = await routeClient.SendAsync(request, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        var trail = Extract(html, "aria-label=\"Breadcrumb\"", "</nav>");
+        var items = Regex.Matches(trail, "<li\\b[^>]*>.*?</li>", RegexOptions.Singleline).Cast<Match>().Select(match => match.Value).ToArray();
+        Assert.Equal(string.IsNullOrWhiteSpace(controller) ? 1 : 2, items.Length);
+        Assert.Matches("<a\\b[^>]*href=\"/Home(?:/Index)?\"", items[0]);
+        Assert.Equal("Home", Regex.Replace(items[0], "<[^>]+>", "").Trim());
+        if (string.IsNullOrWhiteSpace(controller))
+            Assert.DoesNotContain("aria-current=\"page\"", trail, StringComparison.Ordinal);
+        else
+        {
+            Assert.Contains("aria-current=\"page\"", items[1], StringComparison.Ordinal);
+            Assert.Equal(controller, Regex.Replace(items[1], "<[^>]+>", "").Trim());
+        }
+    }
+
+    // Override only the route data used by the rendered view; no production route is added.
+    private sealed class BreadcrumbRouteTestFilter(string controller) : IAsyncResultFilter
+    {
+        public async Task OnResultExecutionAsync(ResultExecutingContext context, ResultExecutionDelegate next)
+        {
+            if (context.HttpContext.Request.Headers.ContainsKey("X-Breadcrumb-Route-Test") && context.Result is ViewResult view)
+            {
+                view.ViewName = "~/Views/Home/Index.cshtml";
+                context.RouteData.Values["controller"] = controller;
+            }
+            await next();
+        }
+    }
+
+    [Fact]
+    public async Task MemberHomeKeepsParticipationLinksAndHasNoBreadcrumb()
+    {
+        Assert.Equal(HttpStatusCode.Redirect, (await SignInAsync(MemberEmail, Password)).StatusCode);
+        using var response = await client.GetAsync("/Home/Index", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.DoesNotContain("aria-label=\"Breadcrumb\"", html, StringComparison.Ordinal);
+        var dashboard = Extract(html, "<header class=\"page-heading\">", "</main>");
+        Assert.Contains("Your participation", dashboard, StringComparison.Ordinal);
+        foreach (var label in new[] { "Browse events", "My Passes", "My Events", "Profile" }) AssertLink(dashboard, label);
+    }
+
+    private static string AssertLink(string html, string label)
+    {
+        var pattern = $"<a\\b[^>]*href=\"([^\"]+)\"[^>]*(?:(?!</a>).)*?>\\s*{Regex.Escape(label)}\\s*</(?:span|a)>";
+        var match = Regex.Match(html, pattern, RegexOptions.Singleline);
+        Assert.True(match.Success, $"Missing link for {label}.");
+        return WebUtility.HtmlDecode(match.Groups[1].Value);
+    }
+
+    private static void AssertBreadcrumb(string html, params string[] expected)
+    {
+        var trail = Extract(html, "aria-label=\"Breadcrumb\"", "</nav>");
+        var items = Regex.Matches(trail, "<li\\b[^>]*>.*?</li>", RegexOptions.Singleline).Cast<Match>().Select(match => match.Value).ToArray();
+        Assert.Equal(expected.Length, items.Length);
+        for (var i = 0; i < expected.Length; i++)
+        {
+            Assert.Equal(expected[i], WebUtility.HtmlDecode(Regex.Replace(items[i], "<[^>]+>", "").Trim()));
+            if (i == expected.Length - 1) Assert.Contains("aria-current=\"page\"", items[i], StringComparison.Ordinal);
+            else if (i == 0) Assert.Matches("<a\\b[^>]*href=\"/Home(?:/Index)?\"", items[i]);
+            else Assert.DoesNotContain("<a ", items[i], StringComparison.Ordinal);
+        }
+    }
+
     private static string Extract(string html, string startMarker, string endMarker)
     {
         var start = html.IndexOf(startMarker, StringComparison.Ordinal);
@@ -671,7 +902,7 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
             .Options;
         await using var context = new AsiBasecodeDBContext(options);
         var userId = await context.Users
-            .Where(user => user.UserId == email)
+            .Where(user => user.Email == email)
             .Select(user => user.Id)
             .SingleAsync(TestContext.Current.CancellationToken);
         return await context.Members
@@ -694,7 +925,7 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
 
         foreach (var profile in profileSeeds)
         {
-            var user = await context.Users.SingleAsync(item => item.UserId == profile.Email, TestContext.Current.CancellationToken);
+            var user = await context.Users.SingleAsync(item => item.Email == profile.Email, TestContext.Current.CancellationToken);
             if (!await context.Members.AnyAsync(item => item.UserId == user.Id, TestContext.Current.CancellationToken))
             {
                 context.Members.Add(new Member
@@ -775,7 +1006,7 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
         await using var context = new AsiBasecodeDBContext(options);
 
         var existingEmails = await context.Users
-            .Select(user => user.UserId)
+            .Select(user => user.Email)
             .ToListAsync(TestContext.Current.CancellationToken);
 
         var users = new[]
@@ -788,7 +1019,7 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
             CreateUser(InactiveEmail, "Flow Inactive", RoleCode.Admin, isActive: false)
         };
 
-        context.Users.AddRange(users.Where(user => !existingEmails.Contains(user.UserId)));
+        context.Users.AddRange(users.Where(user => !existingEmails.Contains(user.Email)));
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 
@@ -796,7 +1027,7 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
     {
         return new User
         {
-            UserId = email,
+            Email = email,
             Name = name,
             Password = hasher.Hash(Password),
             RoleId = role,
@@ -810,7 +1041,7 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
             .UseSqlServer(fixture.ConnectionString)
             .Options;
         await using var context = new AsiBasecodeDBContext(options);
-        var user = await context.Users.SingleAsync(item => item.UserId == email, TestContext.Current.CancellationToken);
+        var user = await context.Users.SingleAsync(item => item.Email == email, TestContext.Current.CancellationToken);
         user.IsActive = isActive;
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
@@ -821,7 +1052,7 @@ public class AuthenticationFlowTests : IClassFixture<SqlServerDatabaseFixture>, 
             .UseSqlServer(fixture.ConnectionString)
             .Options;
         await using var context = new AsiBasecodeDBContext(options);
-        var user = await context.Users.SingleAsync(item => item.UserId == email, TestContext.Current.CancellationToken);
+        var user = await context.Users.SingleAsync(item => item.Email == email, TestContext.Current.CancellationToken);
         user.RoleId = role;
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }

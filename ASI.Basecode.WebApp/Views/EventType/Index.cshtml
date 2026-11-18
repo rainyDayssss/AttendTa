@@ -1,22 +1,25 @@
 @model PagedResult<EventTypeViewModel>
 @using Microsoft.AspNetCore.Http.Extensions
 @{
-    ViewData["Title"] = "Event Classifications";
+    ViewData["ListControls"] = true;
+    ViewData["Title"] = "Event types";
     ViewData["Feature"] = "record-dialog";
     var statusFilter = ViewBag.Status as string;
+    var hasSearch = !string.IsNullOrWhiteSpace(Context.Request.Query["search"].ToString());
     var listError = ViewData["ListError"] as string;
 }
 
 <div class="page-heading">
-    <h1>Event Classifications</h1>
+    <h1>Event types</h1>
     <a asp-action="Create" class="button button-primary" data-record-open="create-event-type" data-record-title="New Event Type">New Event Type</a>
 </div>
 
+<partial name="_ListToolbar" model='@(new ListToolbarViewModel("Search event type or description"))' />
 <div class="sheet-keys">
     <nav class="filter-tabs" aria-label="Event type status">
-        <a class="filter-tab" asp-action="Index" aria-current="@(string.IsNullOrEmpty(statusFilter) ? "page" : null)">All</a>
-        <a class="filter-tab" asp-action="Index" asp-route-status="active" aria-current="@(statusFilter == "active" ? "page" : null)">Active</a>
-        <a class="filter-tab" asp-action="Index" asp-route-status="inactive" aria-current="@(statusFilter == "inactive" ? "page" : null)">Inactive</a>
+        <a href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["status"] = null })' class="filter-tab" aria-current="@(string.IsNullOrEmpty(statusFilter) ? "page" : null)">All</a>
+        <a href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["status"] = "active" })' class="filter-tab" aria-current="@(statusFilter == "active" ? "page" : null)">Active</a>
+        <a href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["status"] = "inactive" })' class="filter-tab" aria-current="@(statusFilter == "inactive" ? "page" : null)">Inactive</a>
     </nav>
 </div>
 
@@ -29,13 +32,13 @@
         <a href="@Context.Request.GetEncodedPathAndQuery()">Try again</a>
     </div>
     <div class="table-scroll" role="region" aria-label="Event Type table" tabindex="0" data-list-region>
-        <table class="data-table table-sticky">
+        <table class="data-table table-sticky event-type-table">
             <thead>
                 <tr>
                     <th scope="col">Type Name</th>
                     <th scope="col">Description</th>
-                    <th scope="col">Status</th>
-                    <th scope="col" class="actions">Actions</th>
+                    <th scope="col" class="column-status">Status</th>
+                    <th scope="col" class="actions actions-tight">Actions</th>
                 </tr>
             </thead>
         </table>
@@ -44,19 +47,23 @@
 else if (Model.Items.Count == 0)
 {
     <div class="table-scroll" role="region" aria-label="Event Type table" tabindex="0" data-list-region>
-        <table class="data-table table-sticky">
+        <table class="data-table table-sticky event-type-table">
             <thead>
                 <tr>
                     <th scope="col">Type Name</th>
                     <th scope="col">Description</th>
-                    <th scope="col">Status</th>
-                    <th scope="col" class="actions">Actions</th>
+                    <th scope="col" class="column-status">Status</th>
+                    <th scope="col" class="actions actions-tight">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
                     <td colspan="4" class="empty-state">
-                        @if (string.IsNullOrEmpty(statusFilter))
+                        @if (hasSearch)
+                        {
+                            <text>No event types match your search. Adjust the search or use Reset to see other records.</text>
+                        }
+                        else if (string.IsNullOrEmpty(statusFilter))
                         {
                             <text>No event types yet. Use "New Event Type" to create the first one.</text>
                         }
@@ -73,24 +80,30 @@ else if (Model.Items.Count == 0)
 else
 {
     <div class="table-scroll" role="region" aria-label="Event Type table" tabindex="0" data-list-region>
-        <table class="data-table table-sticky">
+        <table class="data-table table-sticky event-type-table">
             <thead>
                 <tr>
                     <th scope="col">Type Name</th>
                     <th scope="col">Description</th>
-                    <th scope="col">Status</th>
-                    <th scope="col" class="actions">Actions</th>
+                    <th scope="col" class="column-status">Status</th>
+                    <th scope="col" class="actions actions-tight">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var eventType in Model.Items)
                 {
                     <tr data-type-id="@eventType.TypeId">
-                        <td class="cell-name"><span class="cell-strong">@eventType.TypeName</span></td>
-                        <td class="cell-description">@eventType.Description</td>
-                        <td><span class="badge @(eventType.IsActive ? "badge-active" : "badge-inactive")">@(eventType.IsActive ? "Active" : "Inactive")</span></td>
-                        <td class="actions">
+                        <td data-label="Type Name" class="cell-name"><span class="cell-strong">@eventType.TypeName</span></td>
+                        <td data-label="Description" class="cell-description">
+                            <div data-expandable-text>
+                                <p id="type-description-@eventType.TypeId" data-expandable-content>@eventType.Description</p>
+                                <button type="button" class="text-disclosure" data-expandable-toggle aria-expanded="false" aria-controls="type-description-@eventType.TypeId" hidden><span data-expandable-label>Read more</span><span class="sr-only"> about @eventType.TypeName</span></button>
+                            </div>
+                        </td>
+                        <td data-label="Status"><span class="badge @(eventType.IsActive ? "badge-active" : "badge-inactive")">@(eventType.IsActive ? "Active" : "Inactive")</span></td>
+                        <td data-label="Actions" class="actions">
                             <div class="row-actions">
+
                                 <a asp-action="Edit" asp-route-id="@eventType.TypeId" class="button button-small button-secondary" data-record-open="edit-event-type-@eventType.TypeId" data-record-title="Edit Event Type">Edit</a>
                                 <partial name="_RowMenuTrigger" model="@($"row-menu-event-type-{eventType.TypeId}")" />
                             </div>
@@ -114,7 +127,3 @@ else
 
 <partial name="_ResultCount" model="Model" />
 <partial name="_RecordDialog" />
-
-@section Scripts {
-    <script src="~/js/features/list-feedback.js" asp-append-version="true"></script>
-}

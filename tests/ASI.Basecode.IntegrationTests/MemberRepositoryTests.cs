@@ -28,7 +28,7 @@ public class MemberRepositoryTests : IClassFixture<SqlServerDatabaseFixture>
         var user = new User
         {
             Name = "Test Member",
-            UserId = "member@example.invalid",
+            Email = "member@example.invalid",
             Password = "test-hash",
             IsActive = true,
             RoleId = ASI.Basecode.Data.Models.Lookups.RoleCode.Member
@@ -69,6 +69,8 @@ public class MemberRepositoryTests : IClassFixture<SqlServerDatabaseFixture>
 
         var ownerRecord = await repository.GetMemberRecordByUserIdAsync(user.Id, cancellationToken);
         Assert.Equal(member.MemberId, ownerRecord.MemberId);
+        Assert.Equal(user.Id, ownerRecord.UserId);
+        Assert.Equal(user.Email, ownerRecord.Email);
         Assert.Null(await repository.GetMemberRecordByUserIdAsync(int.MaxValue, cancellationToken));
     }
 

@@ -465,7 +465,7 @@ public sealed class CheckInFlowTests(SqlServerDatabaseFixture fixture) : IClassF
         var users = Enumerable.Range(0, count)
             .Select(index => new User
             {
-                UserId = $"log-{Guid.NewGuid():N}@attendta.test",
+                Email = $"log-{Guid.NewGuid():N}@attendta.test",
                 Name = $"Log Member {index:D2}",
                 Password = "test",
                 RoleId = RoleCode.Member,

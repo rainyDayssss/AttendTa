@@ -3,6 +3,8 @@ using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Data.Repositories;
 using ASI.Basecode.Services.Security;
+using ASI.Basecode.Services.Interfaces;
+using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.Services.Services;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -19,6 +21,86 @@ public class AccountServiceTests : IClassFixture<SqlServerDatabaseFixture>
     public AccountServiceTests(SqlServerDatabaseFixture fixture)
     {
         this.fixture = fixture;
+    }
+
+    [Theory]
+    [InlineData(AccountRequestStatusCode.Approved)]
+    [InlineData(AccountRequestStatusCode.Rejected)]
+    public async Task DecisionCommittedDuringPasswordVerificationCannotReturnPending(AccountRequestStatusCode decision)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var options = new DbContextOptionsBuilder<AsiBasecodeDBContext>().UseSqlServer(fixture.ConnectionString).Options;
+        await using var seed = new AsiBasecodeDBContext(options);
+        var email = $"race-{Guid.NewGuid():N}@attendta.test";
+        var request = new AccountRequest { StudentNumber = Guid.NewGuid().ToString("N"), FullName = "Race Applicant", Email = email, PasswordHash = hasher.Hash(Password), Course = "BSIT", YearLevel = 1, Section = "A", AccountRequestStatusId = AccountRequestStatusCode.Pending, RequestedAt = DateTime.UtcNow };
+        seed.AccountRequests.Add(request);
+        await seed.SaveChangesAsync(ct);
+
+        await using var loginContext = new AsiBasecodeDBContext(options);
+        var raceHasher = new DecisionDuringVerifyHasher(hasher, () =>
+        {
+            using var reviewContext = new AsiBasecodeDBContext(options);
+            var reviewed = reviewContext.AccountRequests.Single(row => row.RequestId == request.RequestId);
+            reviewed.AccountRequestStatusId = decision;
+            reviewed.PasswordHash = null;
+            reviewContext.SaveChanges();
+        });
+        var uow = new UnitOfWork(loginContext);
+        var service = new AccountService(new UserRepository(uow), raceHasher, () => new AccountRequestRepository(uow));
+        var result = await service.LoginAsync(email, Password, ct);
+        Assert.Equal(LoginStatus.Invalid, result.Status);
+        Assert.Null(result.User);
+        Assert.True(raceHasher.DecisionCommitted);
+    }
+
+    [Fact]
+    public async Task CaseOnlyHashChangeDuringVerificationCannotReturnPending()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var options = new DbContextOptionsBuilder<AsiBasecodeDBContext>().UseSqlServer(fixture.ConnectionString).Options;
+        await using var seed = new AsiBasecodeDBContext(options);
+        var email = $"hash-race-{Guid.NewGuid():N}@attendta.test";
+        var original = hasher.Hash(Password);
+        var index = original.LastIndexOf('$') + 1;
+        while (!char.IsAsciiLetter(original[index])) index++;
+        var chars = original.ToCharArray();
+        chars[index] = char.IsUpper(chars[index]) ? char.ToLowerInvariant(chars[index]) : char.ToUpperInvariant(chars[index]);
+        var changed = new string(chars);
+        var request = new AccountRequest { StudentNumber = Guid.NewGuid().ToString("N"), FullName = "Race Applicant", Email = email, PasswordHash = original, Course = "BSIT", YearLevel = 1, Section = "A", AccountRequestStatusId = AccountRequestStatusCode.Pending, RequestedAt = DateTime.UtcNow };
+        seed.AccountRequests.Add(request);
+        await seed.SaveChangesAsync(ct);
+
+        await using var loginContext = new AsiBasecodeDBContext(options);
+        var uow = new UnitOfWork(loginContext);
+        var repository = new AccountRequestRepository(uow);
+        Assert.True(await repository.IsPendingCredentialAsync(request.RequestId, original, ct));
+        Assert.False(await repository.IsPendingCredentialAsync(request.RequestId, original + " ", ct));
+        var raceHasher = new DecisionDuringVerifyHasher(hasher, () =>
+        {
+            using var reviewContext = new AsiBasecodeDBContext(options);
+            var row = reviewContext.AccountRequests.Single(item => item.RequestId == request.RequestId);
+            row.PasswordHash = changed;
+            reviewContext.SaveChanges();
+        });
+        var result = await new AccountService(new UserRepository(uow), raceHasher, () => repository).LoginAsync(email, Password, ct);
+        Assert.True(raceHasher.DecisionCommitted);
+        Assert.Equal(LoginStatus.Invalid, result.Status);
+        Assert.Null(result.User);
+        Assert.False(await repository.IsPendingCredentialAsync(request.RequestId, original, ct));
+        Assert.True(await repository.IsPendingCredentialAsync(request.RequestId, changed, ct));
+    }
+
+    private sealed class DecisionDuringVerifyHasher(IPasswordHasher inner, Action commit) : IPasswordHasher
+    {
+        public bool DecisionCommitted { get; private set; }
+        public string Hash(string password) => inner.Hash(password);
+        public bool Verify(string password, string hash)
+        {
+            var valid = inner.Verify(password, hash);
+            commit();
+            DecisionCommitted = true;
+            return valid;
+        }
     }
 
     [Theory]
@@ -100,7 +182,7 @@ public class AccountServiceTests : IClassFixture<SqlServerDatabaseFixture>
             .UseSqlServer(fixture.ConnectionString)
             .Options;
         var context = new AsiBasecodeDBContext(options);
-        return new AccountService(new UserRepository(new UnitOfWork(context)), hasher);
+        return new AccountService(new UserRepository(new UnitOfWork(context)), hasher, () => new AccountRequestRepository(new UnitOfWork(context)));
     }
 
     private async Task<int> SeedUserAsync(string email, RoleCode role, bool isActive)
@@ -112,7 +194,7 @@ public class AccountServiceTests : IClassFixture<SqlServerDatabaseFixture>
 
         var user = new User
         {
-            UserId = email,
+            Email = email,
             Name = "Seeded Account",
             Password = hasher.Hash(Password),
             RoleId = role,

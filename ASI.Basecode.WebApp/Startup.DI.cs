@@ -1,4 +1,4 @@
-﻿using ASI.Basecode.Data;
+using ASI.Basecode.Data;
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Repositories;
 using ASI.Basecode.Services.Interfaces;
@@ -25,6 +25,9 @@ namespace ASI.Basecode.WebApp
         {
             // Framework
             this._services.TryAddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+            this._services.AddScoped<ASI.Basecode.Data.Queries.ListReadOptions>(services =>
+                Models.ListReadOptionsFactory.From(services.GetRequiredService<IHttpContextAccessor>().HttpContext?.Request));
+            this._services.Configure<Microsoft.AspNetCore.Mvc.MvcOptions>(options => options.Filters.Add<Mvc.ListReturnFilter>());
 
             // Common
             this._services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -33,6 +36,8 @@ namespace ASI.Basecode.WebApp
 
             // Services
             this._services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
+            // Cookie validation must not construct request-scoped list options before pagination normalization.
+            this._services.AddScoped<Func<IAccountRequestRepository>>(services => () => services.GetRequiredService<IAccountRequestRepository>());
             this._services.AddScoped<IAccountService, AccountService>();
             this._services.AddScoped<IAccountRequestQueueService, AccountRequestQueueService>();
             this._services.AddScoped<IActivityLogReaderService, ActivityLogReaderService>();
@@ -43,6 +48,7 @@ namespace ASI.Basecode.WebApp
             this._services.AddScoped<IAccountAccessCommands, AccountAccessService>();
             this._services.AddScoped<IMembershipAccessCommands, MembershipAccessService>();
             this._services.AddScoped<IMemberService, MemberService>();
+            this._services.AddSingleton<MemberEditSnapshotProtector>();
             this._services.AddScoped<IEventTypeService, EventTypeService>();
             this._services.AddScoped<IVenueService, VenueService>();
             this._services.AddScoped<IEventLifecycleService, EventLifecycleService>();
@@ -88,6 +94,7 @@ namespace ASI.Basecode.WebApp
 
             // Shared server-local storage for private images, certificates and renderer files.
             this._services.AddScoped<IPrivateFileStore, PrivateFileStore>();
+            this._services.AddSingleton<PlaywrightBrowserProvider>();
             this._services.AddScoped<ICertificatePdfRenderer, PlaywrightCertificatePdfRenderer>();
             this._services.AddSingleton<IQrPassPngRenderer, QrPassPngRenderer>();
 

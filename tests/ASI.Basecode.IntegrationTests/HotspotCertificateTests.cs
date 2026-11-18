@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using ASI.Basecode.WebApp.Hotspot;
@@ -150,6 +151,14 @@ public class HotspotCertificateTests
             Assert.DoesNotContain(Password, result.StdOut + result.StdErr, StringComparison.Ordinal);
 
             var serverPfx = Path.Combine(directory, HotspotCertificateCommand.ServerPfxFileName);
+            if (!OperatingSystem.IsWindows())
+            {
+                var rootPfx = Path.Combine(directory, HotspotCertificateCommand.RootPfxFileName);
+                var forbidden = UnixFileMode.UserExecute | UnixFileMode.GroupRead | UnixFileMode.GroupWrite |
+                    UnixFileMode.GroupExecute | UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute;
+                Assert.Equal((UnixFileMode)0, File.GetUnixFileMode(rootPfx) & forbidden);
+                Assert.Equal((UnixFileMode)0, File.GetUnixFileMode(serverPfx) & forbidden);
+            }
             var collection = X509CertificateLoader.LoadPkcs12CollectionFromFile(
                 serverPfx,
                 Password,
@@ -224,6 +233,120 @@ public class HotspotCertificateTests
         {
             DeleteDirectory(directory);
         }
+    }
+
+    [Fact]
+    public void FailedOutputDoesNotDeleteAFileReplacedByAnotherProcess()
+    {
+        var directory = NewTempDirectory();
+        var key = HotspotCertificateCommand.PasswordEnvironmentVariable;
+        var previous = Environment.GetEnvironmentVariable(key);
+        try
+        {
+            Environment.SetEnvironmentVariable(key, Guid.NewGuid().ToString("N"));
+            var path = Path.Combine(directory, HotspotCertificateCommand.RootPfxFileName);
+            using var output = new ReplacingOutput(path);
+            using var error = new StringWriter();
+
+            var result = HotspotCertificateCommand.Run(
+                new[] { "--host", "localhost", "--out", directory }, output, error);
+
+            Assert.Equal(1, result);
+            Assert.Equal("replacement", File.ReadAllText(path));
+            Assert.Contains("Output files may remain", error.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(key, previous);
+            DeleteDirectory(directory);
+        }
+    }
+
+    [Fact]
+    public async Task ConcurrentCommandsDoNotOverwriteOrDeleteTheWinningCertificateSet()
+    {
+        var directory = NewTempDirectory();
+        try
+        {
+            var arguments = new[] { HotspotCertificateCommand.Argument, "--host", "localhost", "--out", directory };
+            var results = await Task.WhenAll(RunCommandAsync(arguments, Password), RunCommandAsync(arguments, Password));
+
+            Assert.Single(results, result => result.ExitCode == 0);
+            Assert.Single(results, result => result.ExitCode == 1);
+            Assert.Equal(4, Directory.GetFiles(directory).Length);
+            using var root = X509CertificateLoader.LoadPkcs12FromFile(
+                Path.Combine(directory, HotspotCertificateCommand.RootPfxFileName), Password);
+            Assert.True(root.HasPrivateKey);
+        }
+        finally
+        {
+            DeleteDirectory(directory);
+        }
+    }
+
+    [Fact]
+    public void FileCreationRefusesAFileCreatedAfterThePreflightCheck()
+    {
+        var directory = NewTempDirectory();
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var path = Path.Combine(directory, HotspotCertificateCommand.RootPfxFileName);
+            File.WriteAllText(path, "existing file");
+            var writeNewFile = typeof(HotspotCertificateCommand).GetMethod(
+                "WriteNewFile", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(writeNewFile);
+
+            var exception = Assert.Throws<TargetInvocationException>(
+                () => writeNewFile.Invoke(null, new object[] { path, new byte[] { 1, 2, 3 }, true }));
+
+            Assert.IsAssignableFrom<IOException>(exception.InnerException);
+            Assert.Equal("existing file", File.ReadAllText(path));
+        }
+        finally
+        {
+            DeleteDirectory(directory);
+        }
+    }
+
+    private sealed class ReplacingOutput(string path) : StringWriter
+    {
+        public override void WriteLine(string? value)
+        {
+            File.WriteAllText(path, "replacement");
+            throw new IOException("Simulated output failure");
+        }
+    }
+
+    [Fact]
+    public void CryptographicFailureReportsThatOutputFilesMayRemain()
+    {
+        var directory = NewTempDirectory();
+        var key = HotspotCertificateCommand.PasswordEnvironmentVariable;
+        var previous = Environment.GetEnvironmentVariable(key);
+        try
+        {
+            Environment.SetEnvironmentVariable(key, Guid.NewGuid().ToString("N"));
+            using var output = new CryptographicFailureOutput();
+            using var error = new StringWriter();
+
+            var result = HotspotCertificateCommand.Run(
+                new[] { "--host", "localhost", "--out", directory }, output, error);
+
+            Assert.Equal(1, result);
+            Assert.Contains("Output files may remain", error.ToString(), StringComparison.Ordinal);
+            Assert.Equal(4, Directory.GetFiles(directory).Length);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(key, previous);
+            DeleteDirectory(directory);
+        }
+    }
+
+    private sealed class CryptographicFailureOutput : StringWriter
+    {
+        public override void WriteLine(string? value) => throw new CryptographicException("Simulated failure");
     }
 
     private static X509Extension FindExtension(X509Certificate2 certificate, string oid)

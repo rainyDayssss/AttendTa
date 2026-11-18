@@ -183,7 +183,7 @@ public class AccountRoleServiceTests
         var users = new FakeUsers(new User
         {
             Id = 42,
-            UserId = "promoted@example.com",
+            Email = "promoted@example.com",
             Name = "Promoted Meanwhile",
             RoleId = RoleCode.Admin,
             IsActive = true
@@ -469,7 +469,7 @@ public class AccountRoleServiceTests
             return new User
             {
                 Id = accountId,
-                UserId = email,
+                Email = email,
                 Name = fullName,
                 RoleId = roleId,
                 IsActive = isActive

@@ -1,3 +1,4 @@
+using ASI.Basecode.Data.Queries;
 using System;
 using System.Linq;
 using System.Threading;
@@ -9,7 +10,7 @@ using ASI.Basecode.Services.ServiceModels;
 
 namespace ASI.Basecode.Services.Services;
 
-public sealed class AccountRequestQueueService(IAccountRequestRepository accountRequestRepository) : IAccountRequestQueueService
+public sealed class AccountRequestQueueService(IAccountRequestRepository accountRequestRepository, ListReadOptions readOptions = null) : IAccountRequestQueueService
 {
     public async Task<AccountRequestQueueViewModel> GetPageAsync(
         string status,
@@ -30,14 +31,14 @@ public sealed class AccountRequestQueueService(IAccountRequestRepository account
             _ => counts.Total
         };
 
-        var pageRequest = new PageRequest(pageNumber);
+        var pageRequest = new PageRequest(pageNumber, readOptions?.PageSize);
         var normalizedPage = pageRequest.NormalizePageNumber(totalCount);
         var records = await accountRequestRepository.GetPageByStatusAsync(
             statusCode,
             normalizedSearch,
             oldestFirst,
             pageRequest.GetOffset(normalizedPage),
-            PageRequest.FixedPageSize,
+            PageRequest.NormalizeSize(readOptions?.PageSize),
             cancellationToken);
 
         var items = records.Select(record => new AccountRequestQueueItemViewModel
@@ -46,16 +47,17 @@ public sealed class AccountRequestQueueService(IAccountRequestRepository account
             StudentNumber = record.StudentNumber,
             FullName = record.FullName,
             Email = record.Email,
-            Course = record.Course,
+            Course = ASI.Basecode.Resources.Constants.ProfileOptions.NormalizeCourse(record.Course),
             YearLevel = record.YearLevel,
             Section = record.Section,
             MobileNumber = record.MobileNumber,
             Status = StatusText(record.Status),
-            RequestedAt = record.RequestedAt
+            RequestedAt = record.RequestedAt,
+            ReviewNotes = record.ReviewNotes
         }).ToList();
 
         return new AccountRequestQueueViewModel(
-            new PagedResult<AccountRequestQueueItemViewModel>(items, normalizedPage, totalCount),
+            new PagedResult<AccountRequestQueueItemViewModel>(items, normalizedPage, totalCount, PageRequest.NormalizeSize(readOptions?.PageSize)),
             StatusCodeText(statusCode),
             counts.Pending,
             counts.Approved,

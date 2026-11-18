@@ -37,6 +37,7 @@ public sealed class CertificateLedgerRowViewModel
     public string CertificateNumber { get; init; }
     public DateTime? IssuedAt { get; init; }
     public string Reason { get; init; }
+    public bool HasDocument { get; set; }
 }
 
 /// <summary>Issued certificate metadata for the authorized PDF viewer.</summary>

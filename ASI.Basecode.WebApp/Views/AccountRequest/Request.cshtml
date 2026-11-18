@@ -3,42 +3,54 @@
 @using ASI.Basecode.Resources.Constants
 @{
     ViewData["Title"] = "Request membership";
-    ViewData["ShellWidth"] = "public-wide";
+    ViewData["ShellWidth"] = "public-wide public-auth";
+    ViewData["Feature"] = "password-visibility";
 }
-<section class="login-card">
+<div class="auth-layout auth-layout-request">
+<header class="auth-intro">
     <h1>Request membership</h1>
-    <p class="muted">Submit your details for an officer to review. You can sign in after your request is approved.</p>
+    <p>Submit your details for an officer to review. You can sign in after your request is approved.</p>
+    <div class="auth-intro-note">
+        <h2>Already have an account?</h2>
+        <p>Use your account email and password to continue.</p>
+        <a asp-controller="Account" asp-action="Login">Sign in</a>
+    </div>
+</header>
+<section class="login-card public-form" aria-labelledby="request-form-heading">
+    <div class="auth-form-heading"><h2 id="request-form-heading">Your membership request</h2><p>Complete your details below. Mobile number is optional.</p></div>
     <form method="post" asp-controller="AccountRequest" asp-action="Request">
         <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
+        <h3 class="public-form-section">Your details</h3>
+        <div class="auth-field-grid">
         <div class="field">
             <label asp-for="StudentNumber" class="field-label"></label>
-            <input asp-for="StudentNumber" aria-describedby="StudentNumber-validation" autocomplete="off" placeholder="e.g. UC-2026-0110" />
+            <input asp-for="StudentNumber" aria-describedby="StudentNumber-validation" class="field-control" autocomplete="off" inputmode="numeric" placeholder="e.g. 23807613" />
             <span id="StudentNumber-validation" asp-validation-for="StudentNumber" class="field-error"></span>
         </div>
         <div class="field">
             <label asp-for="FullName" class="field-label"></label>
-            <input asp-for="FullName" aria-describedby="FullName-validation" autocomplete="name" placeholder="e.g. Liza Fernandez" />
+            <input asp-for="FullName" aria-describedby="FullName-validation" class="field-control" autocomplete="name" placeholder="e.g. Liza Fernandez" />
             <span id="FullName-validation" asp-validation-for="FullName" class="field-error"></span>
         </div>
         <div class="field">
             <label asp-for="Email" class="field-label"></label>
-            <input asp-for="Email" aria-describedby="Email-validation" type="email" autocomplete="email" placeholder="name@uc.edu.ph" />
+            <input asp-for="Email" aria-describedby="Email-validation" class="field-control" type="email" autocomplete="email" placeholder="name@gmail.com" />
             <span id="Email-validation" asp-validation-for="Email" class="field-error"></span>
         </div>
         <div class="field">
             <label asp-for="Course" class="field-label"></label>
-            <input asp-for="Course" aria-describedby="Course-validation" autocomplete="organization-title" list="course-options" placeholder="e.g. BS Information Technology" />
-            <datalist id="course-options">
+            <select asp-for="Course" aria-describedby="Course-validation" class="field-control" required>
+                <option value="">Select course</option>
                 @foreach (var course in ProfileOptions.Courses)
                 {
-                    <option value="@course"></option>
+                    <option value="@course" selected="@(ProfileOptions.NormalizeCourse(Model.Course) == course)">@course</option>
                 }
-            </datalist>
+            </select>
             <span id="Course-validation" asp-validation-for="Course" class="field-error"></span>
         </div>
         <div class="field">
             <label asp-for="YearLevel" class="field-label"></label>
-            <select asp-for="YearLevel" aria-describedby="YearLevel-validation">
+            <select asp-for="YearLevel" aria-describedby="YearLevel-validation" class="field-control">
                 <option value="">Select year level</option>
                 @foreach (var year in ProfileOptions.YearLevels)
                 {
@@ -53,32 +65,41 @@
         </div>
         <div class="field">
             <label asp-for="Section" class="field-label"></label>
-            <input asp-for="Section" aria-describedby="Section-validation" autocomplete="off" list="section-options" placeholder="e.g. B" />
-            <datalist id="section-options">
+            <select asp-for="Section" aria-describedby="Section-validation" class="field-control">
+                <option value="">Select section</option>
                 @foreach (var sectionCode in ProfileOptions.Sections)
                 {
-                    <option value="@sectionCode"></option>
+                    <option value="@sectionCode" selected="@(ProfileOptions.NormalizeSection(Model.Section) == sectionCode)">@sectionCode</option>
                 }
-            </datalist>
+                @if (!string.IsNullOrWhiteSpace(Model.Section) && !ProfileOptions.Sections.Contains(ProfileOptions.NormalizeSection(Model.Section)))
+                {
+                    <option value="@Model.Section" selected>@Model.Section</option>
+                }
+            </select>
             <span id="Section-validation" asp-validation-for="Section" class="field-error"></span>
         </div>
         <div class="field">
             <label asp-for="MobileNumber" class="field-label"></label>
-            <input asp-for="MobileNumber" aria-describedby="MobileNumber-validation" type="tel" autocomplete="tel" placeholder="e.g. 0917-000-0102" />
+            <input asp-for="MobileNumber" aria-describedby="MobileNumber-validation" class="field-control" type="tel" autocomplete="tel" inputmode="numeric" placeholder="e.g. 09171234567" />
             <span id="MobileNumber-validation" asp-validation-for="MobileNumber" class="field-error"></span>
         </div>
+        </div>
+        <h3 class="public-form-section">Account security</h3>
+        <div class="auth-field-grid">
         <div class="field">
             <label asp-for="Password" class="field-label"></label>
-            <input asp-for="Password" aria-describedby="Password-validation" type="password" autocomplete="new-password" placeholder="Choose a password" />
+            <div class="password-control"><input asp-for="Password" aria-describedby="Password-help Password-validation" class="field-control" type="password" autocomplete="new-password" placeholder="Choose a password" /><partial name="_PasswordVisibilityToggle" model='@("Password")' /></div>
+            <small id="Password-help" class="public-form-help">Use 8–128 characters, including a letter and a digit.</small>
             <span id="Password-validation" asp-validation-for="Password" class="field-error"></span>
         </div>
         <div class="field">
             <label asp-for="ConfirmPassword" class="field-label"></label>
-            <input asp-for="ConfirmPassword" aria-describedby="ConfirmPassword-validation" type="password" autocomplete="new-password" placeholder="Re-enter your password" />
+            <div class="password-control"><input asp-for="ConfirmPassword" aria-describedby="ConfirmPassword-validation" class="field-control" type="password" autocomplete="new-password" placeholder="Re-enter your password" /><partial name="_PasswordVisibilityToggle" model='@("ConfirmPassword")' /></div>
             <span id="ConfirmPassword-validation" asp-validation-for="ConfirmPassword" class="field-error"></span>
+        </div>
         </div>
         <button class="button button-primary full-width" type="submit">Submit request</button>
     </form>
-    <p class="muted">Already have an account? <a asp-controller="Account" asp-action="Login">Sign in</a></p>
 </section>
+</div>
 @section Scripts { <partial name="_ValidationScriptsPartial" /> }

@@ -1,3 +1,4 @@
+using ASI.Basecode.Data.Queries;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,18 +9,18 @@ using ASI.Basecode.Services.ServiceModels;
 
 namespace ASI.Basecode.Services.Services;
 
-public sealed class ActivityLogReaderService(IActivityLogReaderRepository activityLogRepository) : IActivityLogReaderService
+public sealed class ActivityLogReaderService(IActivityLogReaderRepository activityLogRepository, ListReadOptions readOptions = null) : IActivityLogReaderService
 {
     public async Task<PagedResult<ActivityLogItemViewModel>> GetPageAsync(
         int? pageNumber,
         CancellationToken cancellationToken = default)
     {
         var totalCount = await activityLogRepository.CountAsync(cancellationToken);
-        var pageRequest = new PageRequest(pageNumber);
+        var pageRequest = new PageRequest(pageNumber, readOptions?.PageSize);
         var normalizedPage = pageRequest.NormalizePageNumber(totalCount);
         var records = await activityLogRepository.GetPageAsync(
             pageRequest.GetOffset(normalizedPage),
-            PageRequest.FixedPageSize,
+            PageRequest.NormalizeSize(readOptions?.PageSize),
             cancellationToken);
 
         var items = records.Select(record => new ActivityLogItemViewModel
@@ -36,6 +37,6 @@ public sealed class ActivityLogReaderService(IActivityLogReaderRepository activi
             OccurredAt = record.OccurredAt
         }).ToList();
 
-        return new PagedResult<ActivityLogItemViewModel>(items, normalizedPage, totalCount);
+        return new PagedResult<ActivityLogItemViewModel>(items, normalizedPage, totalCount, PageRequest.NormalizeSize(readOptions?.PageSize));
     }
 }

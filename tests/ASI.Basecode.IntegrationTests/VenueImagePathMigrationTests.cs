@@ -23,7 +23,7 @@ public sealed class VenueImagePathMigrationTests(SqlServerDatabaseFixture fixtur
             var actor = new User
             {
                 Name = "Migration Test Admin",
-                UserId = $"migration-{Guid.NewGuid():N}@attendta.test",
+                Email = $"migration-{Guid.NewGuid():N}@attendta.test",
                 Password = new Argon2PasswordHasher().Hash(randomPassword),
                 RoleId = RoleCode.Admin,
                 IsActive = true

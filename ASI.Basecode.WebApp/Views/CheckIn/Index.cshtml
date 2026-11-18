@@ -50,11 +50,13 @@ else
 
         <div class="scanner-modes" role="tablist" aria-label="Check-in mode">
             <button type="button" class="scanner-mode" role="tab" id="mode-camera" aria-controls="panel-camera" aria-selected="@(manualActive ? "false" : "true")" data-scanner-mode="camera">Camera scan</button>
-            <button type="button" class="scanner-mode" role="tab" id="mode-code" aria-controls="panel-code" aria-selected="false" data-scanner-mode="code">Pass code</button>
             <button type="button" class="scanner-mode" role="tab" id="mode-manual" aria-controls="panel-manual" aria-selected="@(manualActive ? "true" : "false")" data-scanner-mode="manual">Manual lookup</button>
         </div>
 
         <div id="panel-camera" class="scanner-panel" role="tabpanel" aria-labelledby="mode-camera">
+            <form asp-action="Scan" method="post" data-scan-form hidden>
+                <input type="hidden" name="eventId" value="@Model.EventId" />
+            </form>
             <div class="scanner-viewport">
                 <video class="scanner-video" playsinline muted aria-label="Camera preview" data-scanner-video></video>
                 <p class="scanner-camera-note" data-camera-note>Point the camera at the member's pass.</p>
@@ -64,18 +66,6 @@ else
                 <button type="button" class="button button-secondary" data-camera-stop hidden>Stop camera</button>
                 <button type="button" class="button button-secondary" data-scan-next hidden>Scan next</button>
             </div>
-        </div>
-
-        <div id="panel-code" class="scanner-panel" role="tabpanel" aria-labelledby="mode-code">
-            <form asp-action="Scan" method="post" class="scanner-code-form" data-scan-form>
-                <input type="hidden" name="eventId" value="@Model.EventId" />
-                <div class="field">
-                    <label for="scan-token">Pass code</label>
-                    <input id="scan-token" name="token" class="field-control" autocomplete="off" autocapitalize="off" spellcheck="false" required placeholder="Paste the pass code" />
-                    <span class="field-hint">Paste or type the code shown on the member's pass.</span>
-                </div>
-                <button type="submit" class="button @(Model.IsCheckInOpen ? "button-primary" : "button-secondary")" data-submitting-label="Checking&hellip;">Check in</button>
-            </form>
         </div>
 
         <div id="panel-manual" class="scanner-panel" role="tabpanel" aria-labelledby="mode-manual">

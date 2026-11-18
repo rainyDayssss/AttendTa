@@ -265,6 +265,8 @@ public class AccessDialogServiceTests
         public Task<MemberRecord> GetMemberRecordByUserIdAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Member> GetMemberByUserIdAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Member> GetMemberAsync(int memberId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public void EnsureMemberCanRefresh(int memberId) => throw new NotSupportedException();
+        public Task<Member> GetMemberForEditAsync(int memberId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddMemberAsync(Member member, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task UpdateMemberAsync(Member member, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<bool> UserHasMemberProfileAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();

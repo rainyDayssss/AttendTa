@@ -1,9 +1,11 @@
+using System.Globalization;
 using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using ASI.Basecode.Data;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
+using ASI.Basecode.IntegrationTests.Support;
 using ASI.Basecode.Services.Security;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -22,8 +24,8 @@ public class AccountRequestSubmissionTests : IClassFixture<SqlServerDatabaseFixt
     private const string ExistingEmail = "existing-applicant@attendta.test";
     private const string InactiveEmail = "inactive-applicant@attendta.test";
     private const string PendingEmail = "pending-applicant@attendta.test";
-    private const string ExistingStudentNumber = "2023-09999";
-    private const string PendingStudentNumber = "2023-08888";
+    private const string ExistingStudentNumber = "20230999";
+    private const string PendingStudentNumber = "20230888";
     private const string MemberOwnerEmail = "member-owner@attendta.test";
     private static readonly DateTimeOffset FixedNow = new(2026, 11, 5, 8, 30, 0, TimeSpan.Zero);
 
@@ -79,6 +81,11 @@ public class AccountRequestSubmissionTests : IClassFixture<SqlServerDatabaseFixt
         Assert.Contains("name=\"FullName\"", html, StringComparison.Ordinal);
         Assert.Contains("name=\"Email\"", html, StringComparison.Ordinal);
         Assert.Contains("name=\"Course\"", html, StringComparison.Ordinal);
+        var courseSelect = Regex.Match(html, "<select[^>]*name=\"Course\"[^>]*>.*?</select>", RegexOptions.IgnoreCase | RegexOptions.Singleline).Value;
+        Assert.Contains("value=\"BSCS\"", courseSelect);
+        Assert.Contains("value=\"BSIT\"", courseSelect);
+        Assert.DoesNotContain("value=\"BS Computer Science\"", courseSelect);
+        Assert.DoesNotContain("value=\"BS Information Technology\"", courseSelect);
         Assert.Contains("name=\"YearLevel\"", html, StringComparison.Ordinal);
         Assert.Contains("name=\"Section\"", html, StringComparison.Ordinal);
         Assert.Contains("name=\"MobileNumber\"", html, StringComparison.Ordinal);
@@ -102,8 +109,10 @@ public class AccountRequestSubmissionTests : IClassFixture<SqlServerDatabaseFixt
         Assert.Contains("/AccountRequest/Request", html, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public async Task ValidSubmissionCreatesOnePendingRequestWithAnArgon2idHashAndNoAccount()
+    [Theory]
+    [InlineData("BSCS")]
+    [InlineData("BSIT")]
+    public async Task ValidSubmissionCreatesOnePendingRequestWithAnArgon2idHashAndNoAccount(string course)
     {
         var email = NewEmail();
         var studentNumber = NewStudentNumber();
@@ -111,7 +120,9 @@ public class AccountRequestSubmissionTests : IClassFixture<SqlServerDatabaseFixt
         var beforeMembers = await CountMembersAsync();
         var token = await GetAntiforgeryTokenAsync();
 
-        var response = await SubmitAsync(ValidFields(email, studentNumber), token);
+        var fields = ValidFields(email, studentNumber);
+        fields["Course"] = course;
+        var response = await SubmitAsync(fields, token);
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Equal("/AccountRequest/Submitted", GetLocationPath(response));
@@ -123,7 +134,7 @@ public class AccountRequestSubmissionTests : IClassFixture<SqlServerDatabaseFixt
         Assert.Equal(AccountRequestStatusCode.Pending, request.AccountRequestStatusId);
         Assert.Equal(studentNumber, request.StudentNumber);
         Assert.Equal("Ana Reyes", request.FullName);
-        Assert.Equal("BSIT", request.Course);
+        Assert.Equal(course, request.Course);
         Assert.Equal(2, request.YearLevel);
         Assert.Equal("A", request.Section);
         Assert.Equal("09171234567", request.MobileNumber);
@@ -137,7 +148,7 @@ public class AccountRequestSubmissionTests : IClassFixture<SqlServerDatabaseFixt
         Assert.Null(request.ReviewNotes);
         Assert.Equal(beforeUsers, await context.Users.CountAsync(TestContext.Current.CancellationToken));
         Assert.Equal(beforeMembers, await context.Members.CountAsync(TestContext.Current.CancellationToken));
-        Assert.False(await context.Users.AnyAsync(user => user.UserId == email, TestContext.Current.CancellationToken));
+        Assert.False(await context.Users.AnyAsync(user => user.Email == email, TestContext.Current.CancellationToken));
         Assert.False(await context.Members.AnyAsync(member => member.StudentNumber == studentNumber, TestContext.Current.CancellationToken));
 
         var acknowledgment = await client.GetAsync("/AccountRequest/Submitted", TestContext.Current.CancellationToken);
@@ -246,6 +257,38 @@ public class AccountRequestSubmissionTests : IClassFixture<SqlServerDatabaseFixt
         AssertFieldError(invalidHtml, "ConfirmPassword");
         Assert.DoesNotContain(Password, invalidHtml, StringComparison.Ordinal);
         Assert.DoesNotContain("Different#2026", invalidHtml, StringComparison.Ordinal);
+
+        Assert.Equal(before, await context.AccountRequests.CountAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task CraftedPostWithOffRuleProfileValuesRedisplaysEachFieldErrorAndRetainsTheSafeInput()
+    {
+        var token = await GetAntiforgeryTokenAsync();
+        await using var context = CreateContext();
+        var before = await context.AccountRequests.CountAsync(TestContext.Current.CancellationToken);
+
+        var fields = ValidFields(NewEmail(), "1234567");
+        fields["MobileNumber"] = "0917-123-4567";
+        fields["Section"] = "G";
+        fields["YearLevel"] = "5";
+        fields["Password"] = "abcdefgh";
+        fields["ConfirmPassword"] = "abcdefgh";
+
+        var response = await SubmitAsync(fields, token);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        AssertFieldError(html, "StudentNumber");
+        AssertFieldError(html, "MobileNumber");
+        AssertFieldError(html, "Section");
+        AssertFieldError(html, "YearLevel");
+        AssertFieldError(html, "Password");
+        Assert.Contains("value=\"1234567\"", html, StringComparison.Ordinal);
+        Assert.Contains("value=\"0917-123-4567\"", html, StringComparison.Ordinal);
+        Assert.Contains("value=\"G\" selected", html, StringComparison.Ordinal);
+        Assert.Contains("value=\"5\" selected", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("abcdefgh", html, StringComparison.Ordinal);
 
         Assert.Equal(before, await context.AccountRequests.CountAsync(TestContext.Current.CancellationToken));
     }
@@ -362,7 +405,7 @@ public class AccountRequestSubmissionTests : IClassFixture<SqlServerDatabaseFixt
 
     private static string NewEmail() => $"applicant-{Guid.NewGuid():N}@attendta.test";
 
-    private static string NewStudentNumber() => $"2026-{Guid.NewGuid():N}";
+    private static string NewStudentNumber() => ProfileFixtures.NewStudentNumber();
 
     private static string? GetLocationPath(HttpResponseMessage response)
     {
@@ -379,7 +422,9 @@ public class AccountRequestSubmissionTests : IClassFixture<SqlServerDatabaseFixt
     {
         var input = Regex.Match(html, $"<(?:input|select|textarea)\\b[^>]*\\bname=\"{field}\"[^>]*>", RegexOptions.IgnoreCase);
         Assert.True(input.Success, $"No control for {field}.");
-        Assert.Contains($"aria-describedby=\"{field}-validation\"", input.Value, StringComparison.Ordinal);
+        var describedBy = Regex.Match(input.Value, "aria-describedby=\"([^\"]*)\"");
+        Assert.True(describedBy.Success);
+        Assert.Contains($"{field}-validation", describedBy.Groups[1].Value.Split(' ', StringSplitOptions.RemoveEmptyEntries));
         var error = Regex.Match(html, $"<span[^>]*id=\"{field}-validation\"[^>]*>(.*?)</span>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
         Assert.True(error.Success, $"No error container for {field}.");
         Assert.False(string.IsNullOrWhiteSpace(Regex.Replace(error.Groups[1].Value, "<[^>]+>", "")), $"No server error for {field}.");
@@ -443,7 +488,7 @@ public class AccountRequestSubmissionTests : IClassFixture<SqlServerDatabaseFixt
         await using var context = CreateContext();
         var cancellationToken = TestContext.Current.CancellationToken;
 
-        if (!await context.Users.AnyAsync(user => user.UserId == ExistingEmail, cancellationToken))
+        if (!await context.Users.AnyAsync(user => user.Email == ExistingEmail, cancellationToken))
         {
             context.Users.AddRange(
                 CreateUser(ExistingEmail, "Existing Applicant", isActive: true),
@@ -453,7 +498,7 @@ public class AccountRequestSubmissionTests : IClassFixture<SqlServerDatabaseFixt
         }
 
         var ownerId = await context.Users
-            .Where(user => user.UserId == MemberOwnerEmail)
+            .Where(user => user.Email == MemberOwnerEmail)
             .Select(user => user.Id)
             .SingleAsync(cancellationToken);
 
@@ -495,7 +540,7 @@ public class AccountRequestSubmissionTests : IClassFixture<SqlServerDatabaseFixt
     {
         return new User
         {
-            UserId = email,
+            Email = email,
             Name = name,
             Password = hasher.Hash(Password),
             RoleId = RoleCode.Member,

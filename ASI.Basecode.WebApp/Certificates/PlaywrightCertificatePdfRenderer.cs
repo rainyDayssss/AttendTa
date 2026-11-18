@@ -12,7 +12,6 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Playwright;
 using System;
 using System.Globalization;
@@ -36,7 +35,7 @@ public sealed class PlaywrightCertificatePdfRenderer : ICertificatePdfRenderer
     private readonly IWebHostEnvironment environment;
     private readonly IServiceProvider services;
     private readonly IOptions<CertificateSignatoryOptions> signatoryOptions;
-    private readonly string browserChannel;
+    private readonly PlaywrightBrowserProvider browserProvider;
 
     public PlaywrightCertificatePdfRenderer(
         IRazorViewEngine razorViewEngine,
@@ -45,7 +44,7 @@ public sealed class PlaywrightCertificatePdfRenderer : ICertificatePdfRenderer
         IWebHostEnvironment environment,
         IServiceProvider services,
         IOptions<CertificateSignatoryOptions> signatoryOptions,
-        IConfiguration configuration)
+        PlaywrightBrowserProvider browserProvider)
     {
         this.razorViewEngine = razorViewEngine;
         this.tempDataProvider = tempDataProvider;
@@ -53,7 +52,7 @@ public sealed class PlaywrightCertificatePdfRenderer : ICertificatePdfRenderer
         this.environment = environment;
         this.services = services;
         this.signatoryOptions = signatoryOptions;
-        this.browserChannel = configuration["Certificates:BrowserChannel"];
+        this.browserProvider = browserProvider;
     }
 
     public Task<byte[]> RenderSnapshotAsync(CertificatePdfSnapshot snapshot, CancellationToken cancellationToken = default) =>
@@ -101,43 +100,40 @@ public sealed class PlaywrightCertificatePdfRenderer : ICertificatePdfRenderer
         var html = await RenderTemplateAsync(templateModel, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
-        using var playwright = await Playwright.CreateAsync();
-        await using var browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
+        return await browserProvider.WithBrowserAsync(async browser =>
         {
-            Headless = true,
-            Channel = browserChannel
-        });
-        await using var context = await browser.NewContextAsync();
-        await context.RouteAsync("http://**/*", route => route.AbortAsync("blockedbyclient"));
-        await context.RouteAsync("https://**/*", route => route.AbortAsync("blockedbyclient"));
-        await using var page = await context.NewPageAsync();
-        await page.SetContentAsync(html, new PageSetContentOptions
-        {
-            WaitUntil = WaitUntilState.Load
-        });
-        cancellationToken.ThrowIfCancellationRequested();
+            await using var context = await browser.NewContextAsync();
+            await context.RouteAsync("http://**/*", route => route.AbortAsync("blockedbyclient"));
+            await context.RouteAsync("https://**/*", route => route.AbortAsync("blockedbyclient"));
+            await using var page = await context.NewPageAsync();
+            await page.SetContentAsync(html, new PageSetContentOptions
+            {
+                WaitUntil = WaitUntilState.Load
+            });
+            cancellationToken.ThrowIfCancellationRequested();
 
-        var fontsReady = await page.EvaluateAsync<bool>("async () => { const regular = await document.fonts.load('16px Cinzel'); const semibold = await document.fonts.load('600 16px Cinzel'); await document.fonts.ready; return regular.length > 0 && semibold.length > 0 && document.fonts.check('16px Cinzel') && document.fonts.check('600 16px Cinzel'); }");
-        if (!fontsReady)
-        {
-            throw new InvalidOperationException("The locally bundled Cinzel font did not load for certificate rendering.");
-        }
+            var fontsReady = await page.EvaluateAsync<bool>("async () => { const regular = await document.fonts.load('16px Cinzel'); const semibold = await document.fonts.load('600 16px Cinzel'); await document.fonts.ready; return regular.length > 0 && semibold.length > 0 && document.fonts.check('16px Cinzel') && document.fonts.check('600 16px Cinzel'); }");
+            if (!fontsReady)
+            {
+                throw new InvalidOperationException("The locally bundled Cinzel font did not load for certificate rendering.");
+            }
 
-        var signatureLoaded = await page.EvaluateAsync<bool>(
-            "() => { const image = document.querySelector('.signatory-signature'); return !!image && image.complete && image.naturalWidth > 0 && image.naturalHeight > 0; }");
-        if (!signatureLoaded)
-        {
-            throw new InvalidOperationException("The packaged certificate signatory signature image is invalid.");
-        }
+            var signatureLoaded = await page.EvaluateAsync<bool>(
+                "() => { const image = document.querySelector('.signatory-signature'); return !!image && image.complete && image.naturalWidth > 0 && image.naturalHeight > 0; }");
+            if (!signatureLoaded)
+            {
+                throw new InvalidOperationException("The packaged certificate signatory signature image is invalid.");
+            }
 
-        cancellationToken.ThrowIfCancellationRequested();
-        return await page.PdfAsync(new PagePdfOptions
-        {
-            Format = "A4",
-            Landscape = true,
-            PrintBackground = true,
-            PreferCSSPageSize = true
-        });
+            cancellationToken.ThrowIfCancellationRequested();
+            return await page.PdfAsync(new PagePdfOptions
+            {
+                Format = "A4",
+                Landscape = true,
+                PrintBackground = true,
+                PreferCSSPageSize = true
+            });
+        }, cancellationToken);
     }
 
     private async Task<string> RenderTemplateAsync(CertificateTemplateViewModel model, CancellationToken cancellationToken)
