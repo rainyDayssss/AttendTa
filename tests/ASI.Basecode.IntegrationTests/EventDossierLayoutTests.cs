@@ -42,7 +42,7 @@ public sealed class EventDossierLayoutTests(SqlServerDatabaseFixture fixture)
             AllowAutoRedirect = false,
             HandleCookies = true
         });
-        await MemberEventTestSupport.SignInAsync(client, admin.UserId, Password, ct);
+        await MemberEventTestSupport.SignInAsync(client, admin.Email, Password, ct);
     }
 
     public async ValueTask DisposeAsync()
@@ -55,13 +55,13 @@ public sealed class EventDossierLayoutTests(SqlServerDatabaseFixture fixture)
     }
 
     [Fact]
-    public async Task PopulatedRosterShowsCaptionCountAndSecondaryCheckIn()
+    public async Task PopulatedRosterShowsCompactCountAndSecondaryCheckIn()
     {
         var ct = TestContext.Current.CancellationToken;
         var html = await client.GetStringAsync($"/Event/Details?id={eventId}&status=confirmed", ct);
 
-        Assert.Contains("<caption>Times shown in Asia/Manila.</caption>", html, StringComparison.Ordinal);
-        Assert.Contains("Showing 1–1 of 1 registration.", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Asia/Manila", html, StringComparison.Ordinal);
+        Assert.Contains("Showing 1–1 of 1 matching confirmed registration", html, StringComparison.Ordinal);
 
         var checkInButton = Regex.Match(html, "<button[^>]*data-dialog-open=\"check-in-[0-9]+\"[^>]*>").Value;
         Assert.Contains("button-secondary", checkInButton, StringComparison.Ordinal);
@@ -69,12 +69,13 @@ public sealed class EventDossierLayoutTests(SqlServerDatabaseFixture fixture)
     }
 
     [Fact]
-    public async Task EmptyRosterShowsNeitherCaptionNorCount()
+    public async Task EmptyRosterShowsZeroCountWithoutPagination()
     {
         var ct = TestContext.Current.CancellationToken;
         var html = await client.GetStringAsync($"/Event/Details?id={eventId}&status=waitlisted", ct);
 
         Assert.DoesNotContain("<caption>", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("result-count", html, StringComparison.Ordinal);
+        Assert.Contains("0 matching waitlisted registrations", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("aria-label=\"Pagination\"", html, StringComparison.Ordinal);
     }
 }

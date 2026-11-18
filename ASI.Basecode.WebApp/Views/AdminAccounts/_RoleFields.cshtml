@@ -1,0 +1,17 @@
+@model ChangeAccountRoleViewModel
+<div asp-validation-summary="All" class="validation-summary" role="alert" tabindex="-1" data-record-errors></div>
+<dl class="details-list">
+    <div><dt>Account</dt><dd>@Model.FullName<br /><span class="muted">@Model.Email</span></dd></div>
+    <div><dt>Current role</dt><dd><span class="badge badge-@Model.CurrentRoleCode">@Model.CurrentRoleLabel</span></dd></div>
+</dl>
+<p class="field-hint spacing-bottom">Changing the role changes this account's access. Your reason is recorded in the activity log.</p>
+<div class="field">
+    <label asp-for="RoleCode" class="field-label">New role <span class="required" aria-hidden="true">*</span></label>
+    <select asp-for="RoleCode" asp-items="ViewBag.Roles" class="field-control" required aria-describedby="RoleCode-validation"></select>
+    <span id="RoleCode-validation" asp-validation-for="RoleCode" class="field-error"></span>
+</div>
+<div class="field">
+    <label asp-for="Reason" class="field-label">Reason <span class="required" aria-hidden="true">*</span></label>
+    <textarea asp-for="Reason" class="field-control" rows="3" required maxlength="1000" aria-describedby="Reason-validation" placeholder="Explain the role change"></textarea>
+    <span id="Reason-validation" asp-validation-for="Reason" class="field-error"></span>
+</div>

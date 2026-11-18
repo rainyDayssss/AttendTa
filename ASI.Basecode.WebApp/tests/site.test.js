@@ -37,6 +37,7 @@ function createElement(tagName) {
         addEventListener(type, handler) {
             (element.listeners[type] = element.listeners[type] || []).push(handler);
         },
+        querySelectorAll() { return []; },
         querySelector() {
             return null;
         },
@@ -77,7 +78,7 @@ function runSite(document, fetch) {
     $.ajaxSetup = () => {};
 
     const source = fs.readFileSync(path.join(__dirname, '..', 'wwwroot', 'js', 'site.js'), 'utf8');
-    vm.runInNewContext(source, { $, document, fetch, console });
+    vm.runInNewContext(source, { $, document, fetch, console, window: {} });
 
     const handlers = document.clickHandlers || [];
     assert.ok(handlers.length > 0, 'site.js must register a click handler');
@@ -93,6 +94,76 @@ function clickEvent(trigger) {
 }
 
 const flush = () => new Promise(resolve => setImmediate(resolve));
+
+test('row details close their menu and restore focus to its visible invoker', () => {
+    const body = createElement('body'), dialog = createElement('dialog'), invoker = createElement('button');
+    const menu = { id: 'row-menu-test', hidePopover() { this.hidden = true; } };
+    const trigger = { dataset: { dialogOpen: 'details-test' }, closest: selector => selector === '[popover]' ? menu : null };
+    const document = {
+        body, clickHandlers: [], createElement,
+        querySelector: selector => selector === '[popovertarget="row-menu-test"]' ? invoker : null,
+        getElementById: id => id === 'details-test' ? dialog : null,
+        addEventListener(type, handler) { if (type === 'click') this.clickHandlers.push(handler); }
+    };
+    runSite(document, () => Promise.reject(new Error('No fetch expected')));
+    document.clickHandlers[0]({ target: { closest: selector => selector === '[data-dialog-open]' ? trigger : null } });
+    assert.equal(menu.hidden, true);
+    assert.equal(dialog.open, true);
+    dialog.listeners.close[0]();
+    assert.equal(invoker.focused, true);
+    assert.equal(invoker.focusOptions.preventScroll, true);
+});
+
+test('a dialog opens from a row menu without the Popover API', () => {
+    const body = createElement('body'), dialog = createElement('dialog'), invoker = createElement('button');
+    const menu = { id: 'row-menu-test' };
+    const trigger = { tagName: 'A', dataset: { dialogOpen: 'event-cancel' }, closest: selector => selector === '[popover]' ? menu : null };
+    const document = {
+        body, clickHandlers: [], createElement,
+        querySelector: selector => selector === '[popovertarget="row-menu-test"]' ? invoker : null,
+        getElementById: () => dialog,
+        addEventListener(type, handler) { if (type === 'click') this.clickHandlers.push(handler); }
+    };
+    runSite(document, () => Promise.reject(new Error('No fetch expected')));
+    let prevented = false;
+    document.clickHandlers[0]({ target: { closest: selector => selector === '[data-dialog-open]' ? trigger : null }, preventDefault() { prevented = true; } });
+    assert.equal(prevented, true);
+    assert.equal(dialog.open, true);
+    dialog.listeners.close[0]();
+    assert.equal(invoker.focused, true);
+});
+
+test('dialog links navigate normally when native dialog support is absent', () => {
+    const body = createElement('body');
+    const dialog = createElement('dialog');
+    delete dialog.showModal;
+    const trigger = { tagName: 'A', dataset: { dialogOpen: 'event-cancel' } };
+    const document = {
+        body, clickHandlers: [], createElement,
+        querySelector: () => null,
+        getElementById: () => dialog,
+        addEventListener(type, handler) { if (type === 'click') this.clickHandlers.push(handler); }
+    };
+    runSite(document, () => Promise.reject(new Error('No fetch expected')));
+    let prevented = false;
+    document.clickHandlers[0]({ target: { closest: selector => selector === '[data-dialog-open]' ? trigger : null }, preventDefault() { prevented = true; } });
+    assert.equal(prevented, false);
+});
+
+test('a failed cover image is hidden and replaced with an unavailable message', () => {
+    const body = createElement('body'), figure = createElement('figure'), message = createElement('p');
+    const dialog = { querySelector: selector => selector === '[data-cover-error]' ? message : null };
+    const image = { matches: selector => selector === '[data-cover-image]', closest: selector => selector === 'dialog' ? dialog : figure };
+    const handlers = {};
+    const document = {
+        body, createElement, clickHandlers: [], querySelector: () => null, getElementById: () => null,
+        addEventListener(type, handler) { (handlers[type] ||= []).push(handler); if (type === 'click') this.clickHandlers.push(handler); }
+    };
+    runSite(document, () => Promise.reject(new Error('No fetch expected')));
+    handlers.error[0]({ target: image });
+    assert.equal(figure.hidden, true);
+    assert.equal(message.hidden, false);
+});
 
 test('a failed preview fetch shows an error notice and no dialog', async () => {
     const body = createElement('body');
@@ -124,6 +195,7 @@ test('a failed preview fetch shows an error notice and no dialog', async () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'wwwroot', 'js', 'site.js'), 'utf8');
     vm.runInNewContext(source, {
         $,
+        window: {},
         document,
         fetch: () => Promise.resolve({ ok: false, text: () => Promise.resolve('') }),
         console
@@ -308,4 +380,98 @@ test('a scan posts the layout meta token as the antiforgery header', async () =>
     assert.equal(call.options.headers.RequestVerificationToken, 'meta-token');
     assert.equal(call.options.body, 'eventId=12&token=abc123');
     assert.doesNotMatch(call.options.body, /RequestVerificationToken/);
+});
+
+test('scan outcome and log show Manila-local time without a timezone suffix', async () => {
+    const result = createElement('div');
+    const log = createElement('tbody');
+    const root = {
+        querySelector: selector => selector === '[data-scan-result]' ? result : null,
+        querySelectorAll: () => []
+    };
+    const document = {
+        querySelector(selector) {
+            if (selector === '[data-scanner]') return root;
+            if (selector === '[data-scan-log]') return log;
+            return null;
+        },
+        createElement,
+        dispatchEvent() {}
+    };
+    const window = {};
+    const source = fs.readFileSync(path.join(__dirname, '..', 'wwwroot', 'js', 'features', 'scanner.js'), 'utf8');
+    vm.runInNewContext(source, {
+        window, document, URLSearchParams, Intl, Date, console,
+        fetch: () => Promise.resolve({ json: () => Promise.resolve({
+            outcome: 'success', registrationId: 42, memberName: 'Test Member',
+            studentNumber: '12345678', recordedAt: '2026-01-01T18:30:00Z'
+        }) })
+    });
+
+    await window.AttendTaScanner.postScan({ action: '/CheckIn/Scan', elements: { eventId: { value: '12' } } }, 'test-token');
+
+    assert.equal(result.children[0].children[3].textContent, '2026-01-02 02:30');
+    assert.equal(log.children[0].children[2].textContent, '2026-01-02 02:30');
+});
+
+test('scanner keyboard navigation wraps between camera and manual lookup', () => {
+    const camera = createElement('button'), manual = createElement('button');
+    const panels = { camera: {}, manual: {} };
+    for (const [element, name] of [[camera, 'camera'], [manual, 'manual']]) {
+        element.attributes = { 'data-scanner-mode': name, 'aria-controls': name, 'aria-selected': name === 'camera' ? 'true' : 'false' };
+        element.getAttribute = key => element.attributes[key];
+    }
+    const events = [];
+    const root = { querySelector: () => null, querySelectorAll: () => [camera, manual] };
+    const document = { querySelector: () => root, getElementById: id => panels[id], dispatchEvent: event => events.push(event.type) };
+    const source = fs.readFileSync(path.join(__dirname, '..', 'wwwroot', 'js', 'features', 'scanner.js'), 'utf8');
+    vm.runInNewContext(source, { document, window: {}, CustomEvent: function (type) { this.type = type; } });
+    let prevented = false;
+    camera.listeners.keydown[0]({ key: 'ArrowLeft', preventDefault() { prevented = true; } });
+    assert.equal(prevented, true);
+    assert.equal(manual.attributes['aria-selected'], 'true');
+    assert.equal(manual.focused, true);
+    assert.equal(panels.camera.hidden, true);
+    assert.equal(panels.manual.hidden, false);
+    assert.deepEqual(events, ['scanner:camera-stop']);
+    manual.listeners.keydown[0]({ key: 'ArrowRight', preventDefault() {} });
+    assert.equal(camera.attributes['aria-selected'], 'true');
+    assert.equal(panels.camera.hidden, false);
+});
+
+test('camera posts decoded QR using the hidden scan form', async () => {
+    const form = { action: '/CheckIn/Scan', elements: { eventId: { value: '12' } }, hidden: true };
+    const start = createElement('button'), stop = createElement('button'), next = createElement('button');
+    const video = { readyState: 4, HAVE_ENOUGH_DATA: 4, videoWidth: 1, videoHeight: 1, play() {} };
+    const elements = { '[data-scan-form]': form, '[data-camera-start]': start, '[data-camera-stop]': stop, '[data-scan-next]': next, '[data-scanner-video]': video };
+    const root = { querySelector: selector => elements[selector] || null };
+    const canvas = { getContext: () => ({ drawImage() {}, getImageData: () => ({ data: [], width: 1, height: 1 }) }) };
+    const document = { querySelector: () => root, createElement: () => canvas, addEventListener() {} };
+    let frame, posted, stopped = false;
+    const window = { jsQR: () => ({ data: 'synthetic-token' }), addEventListener() {}, AttendTaScanner: { postScan: (actualForm, token) => { posted = { actualForm, token }; return Promise.resolve(); } } };
+    const source = fs.readFileSync(path.join(__dirname, '..', 'wwwroot', 'js', 'features', 'scanner-camera.js'), 'utf8');
+    vm.runInNewContext(source, { window, document, navigator: { mediaDevices: { getUserMedia: () => Promise.resolve({ getTracks: () => [{ stop() { stopped = true; } }] }) } }, requestAnimationFrame: callback => { frame = callback; return 1; }, cancelAnimationFrame() {} });
+    start.listeners.click[0]();
+    await flush();
+    frame();
+    await flush();
+    assert.equal(posted.actualForm, form);
+    assert.equal(posted.token, 'synthetic-token');
+    assert.equal(stopped, true);
+    assert.equal(next.hidden, false);
+});
+
+test('unavailable camera directs the officer to manual lookup', () => {
+    const start = createElement('button'), note = createElement('p');
+    const elements = { '[data-scan-form]': {}, '[data-camera-start]': start, '[data-camera-note]': note };
+    const root = { querySelector: selector => elements[selector] || null };
+    let outcome;
+    const window = { jsQR() {}, addEventListener() {}, AttendTaScanner: { render: value => { outcome = value; } } };
+    const document = { querySelector: () => root, createElement: () => ({ getContext: () => null }), addEventListener() {} };
+    const source = fs.readFileSync(path.join(__dirname, '..', 'wwwroot', 'js', 'features', 'scanner-camera.js'), 'utf8');
+    vm.runInNewContext(source, { window, document, navigator: {}, cancelAnimationFrame() {} });
+    start.listeners.click[0]();
+    assert.equal(outcome.outcome, 'camera-unavailable');
+    assert.match(note.textContent, /manual lookup/i);
+    assert.doesNotMatch(note.textContent, /pass code/i);
 });

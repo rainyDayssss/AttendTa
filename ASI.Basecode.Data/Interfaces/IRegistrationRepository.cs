@@ -102,6 +102,12 @@ public interface IRegistrationRepository
     Task<bool> HasIssuedCertificateForEventAsync(int eventId, CancellationToken cancellationToken = default);
     Task<int> CountReviewQueueAsync(ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode status, int? eventId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<RegistrationReviewRow>> GetReviewQueueAsync(ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode status, int? eventId, int offset, int limit, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reads display identity for the given registrations in one query, with no status filter, so
+    /// a bulk approval can still name a record after it has left the pending page. Read only.
+    /// </summary>
+    Task<IReadOnlyList<RegistrationSummary>> GetSummariesAsync(IReadOnlyCollection<int> registrationIds, CancellationToken cancellationToken = default);
 }
 
 public sealed record UpcomingRegistrationRow(int RegistrationId, int EventId, string EventTitle, DateTime StartsAt);
@@ -125,3 +131,10 @@ public sealed record RegistrationReviewRow(int RegistrationId, int EventId, stri
     /// <summary>The year level captured at signup, used by the participation report breakdowns.</summary>
     public int YearLevel { get; init; }
 }
+
+/// <summary>
+/// Display-only identity for a registration that a bulk approval is about to decide. It carries no
+/// decision field and no status filter, so a record that has already left the pending page still
+/// resolves its own name for the result panel.
+/// </summary>
+public sealed record RegistrationSummary(int RegistrationId, int EventId, string EventTitle, string MemberName, string StudentNumber, DateTime SubmittedAt, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status);

@@ -1,3 +1,4 @@
+using ASI.Basecode.Data.Queries;
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
@@ -13,8 +14,10 @@ namespace ASI.Basecode.Data.Repositories
 {
     public class VenueRepository : BaseRepository, IVenueRepository
     {
-        public VenueRepository(IUnitOfWork unitOfWork) : base(unitOfWork)
+        private readonly ListReadOptions _readOptions;
+        public VenueRepository(IUnitOfWork unitOfWork, ListReadOptions readOptions = null) : base(unitOfWork)
         {
+            _readOptions = readOptions;
         }
 
         public async Task<IReadOnlyList<Venue>> GetActiveVenuesAsync(CancellationToken cancellationToken = default)
@@ -46,6 +49,10 @@ namespace ASI.Basecode.Data.Repositories
         private IQueryable<Venue> FilterVenues(string status)
         {
             var query = GetDbSet<Venue>().AsNoTracking();
+            if (!string.IsNullOrWhiteSpace(_readOptions?.Search)) {
+                var term = _readOptions.Search;
+                query = query.Where(row => row.RoomName.Contains(term) || row.Location.Contains(term));
+            }
             return status switch
             {
                 "active" => query.Where(venue => venue.IsActive),

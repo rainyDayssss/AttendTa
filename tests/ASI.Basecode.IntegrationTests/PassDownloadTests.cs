@@ -21,15 +21,18 @@ public sealed class PassDownloadTests(SqlServerDatabaseFixture fixture) : IClass
 {
     private const string UnavailableBody = "This pass is unavailable.";
 
-    [Fact]
-    public async Task PassPngIsOwnerScopedAndEveryUnavailableRequestIsTheSameForbidden()
+    [Theory]
+    [InlineData(RoleCode.Member)]
+    [InlineData(RoleCode.Officer)]
+    [InlineData(RoleCode.Admin)]
+    public async Task PassPngIsOwnerScopedAndEveryUnavailableRequestIsTheSameForbidden(RoleCode role)
     {
         var ct = TestContext.Current.CancellationToken;
         var suffix = Guid.NewGuid().ToString("N");
 
         var memberEmail = $"passes-{suffix}@attendta.test";
         var password = MemberEventTestSupport.NewPassword();
-        var memberUser = await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString, memberEmail, password, RoleCode.Member, ct);
+        var memberUser = await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString, memberEmail, password, role, ct);
         var member = await MemberEventTestSupport.SeedMemberAsync(fixture.ConnectionString, memberUser.Id, MembershipStatusCode.Active, ct);
         var (typeId, venueId) = await MemberEventTestSupport.SeedReferencesAsync(fixture.ConnectionString, memberUser.Id, ct);
 
@@ -42,13 +45,17 @@ public sealed class PassDownloadTests(SqlServerDatabaseFixture fixture) : IClass
         var emptyUser = await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString, emptyEmail, emptyPassword, RoleCode.Member, ct);
         await MemberEventTestSupport.SeedMemberAsync(fixture.ConnectionString, emptyUser.Id, MembershipStatusCode.Active, ct);
 
-        var upcoming = await SeedPassAsync("Passes upcoming event", EventStatusCode.Published, RegistrationStatusCode.Confirmed, new string('a', 64));
-        var past = await SeedPassAsync("Passes past event", EventStatusCode.Published, RegistrationStatusCode.Confirmed, new string('b', 64));
+        var upcomingToken = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
+        var pastToken = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
+        var unpublishedToken = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
+        var foreignToken = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
+        var upcoming = await SeedPassAsync("Passes upcoming event", EventStatusCode.Published, RegistrationStatusCode.Confirmed, upcomingToken);
+        var past = await SeedPassAsync("Passes past event", EventStatusCode.Published, RegistrationStatusCode.Confirmed, pastToken);
         var cancelled = await SeedPassAsync("Passes cancelled registration", EventStatusCode.Published, RegistrationStatusCode.Cancelled, null);
         var unconfirmed = await SeedPassAsync("Passes unconfirmed registration", EventStatusCode.Published, RegistrationStatusCode.Pending, null);
-        var unpublished = await SeedPassAsync("Passes unpublished event", EventStatusCode.Draft, RegistrationStatusCode.Confirmed, new string('c', 64));
+        var unpublished = await SeedPassAsync("Passes unpublished event", EventStatusCode.Draft, RegistrationStatusCode.Confirmed, unpublishedToken);
         var tokenless = await SeedPassAsync("Passes token-less registration", EventStatusCode.Published, RegistrationStatusCode.Confirmed, null);
-        var foreign = await SeedPassAsync("Passes other member event", EventStatusCode.Published, RegistrationStatusCode.Confirmed, new string('d', 64), otherMember.MemberId, otherUser.Id);
+        var foreign = await SeedPassAsync("Passes other member event", EventStatusCode.Published, RegistrationStatusCode.Confirmed, foreignToken, otherMember.MemberId, otherUser.Id);
 
         await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
@@ -73,8 +80,8 @@ public sealed class PassDownloadTests(SqlServerDatabaseFixture fixture) : IClass
         Assert.DoesNotContain($"data-registration-id=\"{unpublished.RegistrationId}\"", page, StringComparison.Ordinal);
         Assert.DoesNotContain($"data-registration-id=\"{tokenless.RegistrationId}\"", page, StringComparison.Ordinal);
         Assert.DoesNotContain($"data-registration-id=\"{foreign.RegistrationId}\"", page, StringComparison.Ordinal);
-        Assert.DoesNotContain(new string('a', 64), page, StringComparison.Ordinal);
-        Assert.DoesNotContain(new string('b', 64), page, StringComparison.Ordinal);
+        Assert.DoesNotContain(upcomingToken, page, StringComparison.Ordinal);
+        Assert.DoesNotContain(pastToken, page, StringComparison.Ordinal);
         Assert.DoesNotContain("/lib/qrcode", page, StringComparison.Ordinal);
         Assert.DoesNotContain("passes.js", page, StringComparison.Ordinal);
 

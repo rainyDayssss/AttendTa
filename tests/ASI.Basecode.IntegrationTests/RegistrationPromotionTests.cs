@@ -33,7 +33,7 @@ public sealed class RegistrationPromotionTests(SqlServerDatabaseFixture fixture)
         var earliest = await AddRegistrationAsync(setup, RegistrationStatusCode.Waitlisted, Start.AddHours(-2), ct, reviewNotes: "queued first");
         var now = Start.AddHours(-1);
         await using var context = MemberEventTestSupport.Context(fixture.ConnectionString);
-        await Service(context, setup.Officer.Id, now).PromoteNextAsync(setup.Event.EventId, ct);
+        await Service(context, setup.Officer.Id, now).PromoteNextAsync(setup.Event.EventId, earliest.Registration.RegistrationId, ct);
         context.ChangeTracker.Clear();
 
         var actual = await context.Registrations.SingleAsync(r => r.RegistrationId == earliest.Registration.RegistrationId, ct);
@@ -74,8 +74,8 @@ public sealed class RegistrationPromotionTests(SqlServerDatabaseFixture fixture)
         var pending = await AddRegistrationAsync(setup, RegistrationStatusCode.Pending, null, ct);
         var ineligible = await AddRegistrationAsync(setup, RegistrationStatusCode.Waitlisted, Start.AddHours(-2), ct, MembershipStatusCode.Inactive);
         await using var context = MemberEventTestSupport.Context(fixture.ConnectionString);
-        var error = await Assert.ThrowsAsync<DomainException>(() => Service(context, setup.Officer.Id, Start.AddHours(-1)).PromoteNextAsync(setup.Event.EventId, ct));
-        Assert.Equal(OutcomeCode.Invalid, error.Outcome);
+        var error = await Assert.ThrowsAsync<DomainException>(() => Service(context, setup.Officer.Id, Start.AddHours(-1)).PromoteNextAsync(setup.Event.EventId, ineligible.Registration.RegistrationId, ct));
+        Assert.Equal(OutcomeCode.Stale, error.Outcome);
         context.ChangeTracker.Clear();
         Assert.Equal(RegistrationStatusCode.Pending, (await context.Registrations.SingleAsync(r => r.RegistrationId == pending.Registration.RegistrationId, ct)).RegistrationStatusId);
         Assert.Equal(RegistrationStatusCode.Waitlisted, (await context.Registrations.SingleAsync(r => r.RegistrationId == ineligible.Registration.RegistrationId, ct)).RegistrationStatusId);
@@ -91,7 +91,7 @@ public sealed class RegistrationPromotionTests(SqlServerDatabaseFixture fixture)
         var confirmed = await AddRegistrationAsync(setup, RegistrationStatusCode.Confirmed, Start.AddHours(-3), ct);
         var waitlisted = await AddRegistrationAsync(setup, RegistrationStatusCode.Waitlisted, Start.AddHours(-2), ct);
         await using var context = MemberEventTestSupport.Context(fixture.ConnectionString);
-        var error = await Assert.ThrowsAsync<DomainException>(() => Service(context, setup.Officer.Id, Start.AddHours(-1)).PromoteNextAsync(setup.Event.EventId, ct));
+        var error = await Assert.ThrowsAsync<DomainException>(() => Service(context, setup.Officer.Id, Start.AddHours(-1)).PromoteNextAsync(setup.Event.EventId, waitlisted.Registration.RegistrationId, ct));
         Assert.Equal(OutcomeCode.CapacityUnavailable, error.Outcome);
         context.ChangeTracker.Clear();
         Assert.Equal(RegistrationStatusCode.Confirmed, (await context.Registrations.SingleAsync(r => r.RegistrationId == confirmed.Registration.RegistrationId, ct)).RegistrationStatusId);
@@ -132,7 +132,7 @@ public sealed class RegistrationPromotionTests(SqlServerDatabaseFixture fixture)
             context.ChangeTracker.Clear();
         }
 
-        var error = await Assert.ThrowsAsync<DomainException>(() => Service(context, setup.Officer.Id, Start.AddTicks(tickOffset)).PromoteNextAsync(setup.Event.EventId, ct));
+        var error = await Assert.ThrowsAsync<DomainException>(() => Service(context, setup.Officer.Id, Start.AddTicks(tickOffset)).PromoteNextAsync(setup.Event.EventId, waitlisted.Registration.RegistrationId, ct));
         Assert.Equal(tickOffset >= 0 ? OutcomeCode.CutoffPassed : OutcomeCode.Stale, error.Outcome);
         context.ChangeTracker.Clear();
         var actual = await context.Registrations.SingleAsync(r => r.RegistrationId == waitlisted.Registration.RegistrationId, ct);
@@ -165,7 +165,7 @@ public sealed class RegistrationPromotionTests(SqlServerDatabaseFixture fixture)
         await new EventRepository(new UnitOfWork(blocker)).LockEventAsync(setup.Event.EventId, ct);
         var gate = new EventLockAttempts(1);
         await using var context = MemberEventTestSupport.Context(fixture.ConnectionString, gate);
-        var command = Service(context, setup.Officer.Id, Start.AddTicks(-1)).PromoteNextAsync(setup.Event.EventId, ct);
+        var command = Service(context, setup.Officer.Id, Start.AddTicks(-1)).PromoteNextAsync(setup.Event.EventId, first.Registration.RegistrationId, ct);
         var committed = false;
         try
         {
@@ -204,7 +204,7 @@ public sealed class RegistrationPromotionTests(SqlServerDatabaseFixture fixture)
         var waitlisted = await AddRegistrationAsync(setup, RegistrationStatusCode.Waitlisted, Start.AddHours(-2), ct);
         var gate = new MemberEventTestSupport.LockGateInterceptor("dbo.users");
         await using var context = MemberEventTestSupport.Context(fixture.ConnectionString, gate);
-        var command = Service(context, setup.Officer.Id, Start.AddTicks(-1)).PromoteNextAsync(setup.Event.EventId, ct);
+        var command = Service(context, setup.Officer.Id, Start.AddTicks(-1)).PromoteNextAsync(setup.Event.EventId, waitlisted.Registration.RegistrationId, ct);
         await gate.Attempted.WaitAsync(TimeSpan.FromSeconds(15), ct);
         Assert.False(command.IsCompleted);
         await MemberEventTestSupport.ExecuteSqlAsync(fixture.ConnectionString, $"UPDATE dbo.users SET is_active = 0 WHERE user_id = {waitlisted.User.Id}", ct);
@@ -226,7 +226,7 @@ public sealed class RegistrationPromotionTests(SqlServerDatabaseFixture fixture)
         var waitlisted = await AddRegistrationAsync(setup, RegistrationStatusCode.Waitlisted, Start.AddHours(-2), ct);
         await using var context = MemberEventTestSupport.Context(fixture.ConnectionString);
         var service = Service(context, setup.Officer.Id, Start.AddHours(-1), failAuditCall: 1);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.PromoteNextAsync(setup.Event.EventId, ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.PromoteNextAsync(setup.Event.EventId, waitlisted.Registration.RegistrationId, ct));
         context.ChangeTracker.Clear();
         var actual = await context.Registrations.SingleAsync(r => r.RegistrationId == waitlisted.Registration.RegistrationId, ct);
         Assert.Equal(RegistrationStatusCode.Waitlisted, actual.RegistrationStatusId);
@@ -251,7 +251,7 @@ public sealed class RegistrationPromotionTests(SqlServerDatabaseFixture fixture)
         await new UserRepository(new UnitOfWork(blocker)).LockUserAsync(pending.User.Id, ct);
         await using var promotionContext = MemberEventTestSupport.Context(fixture.ConnectionString);
         await using var approvalContext = MemberEventTestSupport.Context(fixture.ConnectionString);
-        var promotion = Service(promotionContext, setup.Officer.Id, Start.AddHours(-1)).PromoteNextAsync(setup.Event.EventId, ct);
+        var promotion = Service(promotionContext, setup.Officer.Id, Start.AddHours(-1)).PromoteNextAsync(setup.Event.EventId, waitlisted.Registration.RegistrationId, ct);
         var approval = Service(approvalContext, setup.Officer.Id, Start.AddHours(-1)).ApproveAsync(pending.Registration.RegistrationId, ct);
         var committed = false;
         try
@@ -292,8 +292,8 @@ public sealed class RegistrationPromotionTests(SqlServerDatabaseFixture fixture)
         var gate2 = new MemberEventTestSupport.LockGateInterceptor("dbo.users");
         await using var context1 = MemberEventTestSupport.Context(fixture.ConnectionString, gate1);
         await using var context2 = MemberEventTestSupport.Context(fixture.ConnectionString, gate2);
-        var promotion1 = Service(context1, setup.Officer.Id, Start.AddHours(-1)).PromoteNextAsync(setup.Event.EventId, ct);
-        var promotion2 = Service(context2, setup.Officer.Id, Start.AddHours(-1)).PromoteNextAsync(setup.Event.EventId, ct);
+        var promotion1 = Service(context1, setup.Officer.Id, Start.AddHours(-1)).PromoteNextAsync(setup.Event.EventId, first.Registration.RegistrationId, ct);
+        var promotion2 = Service(context2, setup.Officer.Id, Start.AddHours(-1)).PromoteNextAsync(setup.Event.EventId, first.Registration.RegistrationId, ct);
         await Task.WhenAll(gate1.Attempted, gate2.Attempted).WaitAsync(TimeSpan.FromSeconds(15), ct);
         gate1.Release.TrySetResult();
         gate2.Release.TrySetResult();
@@ -356,7 +356,7 @@ public sealed class RegistrationPromotionTests(SqlServerDatabaseFixture fixture)
         Assert.Contains("Promote next eligible participant", queue, StringComparison.Ordinal);
         Assert.DoesNotContain("Promote next eligible participant", await officer.GetStringAsync($"/RegistrationReview/Index?status=pending&eventId={setup.Event.EventId}", ct), StringComparison.Ordinal);
         Assert.DoesNotContain("Promote next eligible participant", await officer.GetStringAsync("/RegistrationReview/Index?status=waitlisted", ct), StringComparison.Ordinal);
-        var events = await officer.GetStringAsync("/Event", ct);
+        var events = await officer.GetStringAsync("/Event?pageSize=25", ct);
         Assert.Contains($"/Event/Details?id={setup.Event.EventId}", events, StringComparison.Ordinal);
 
         var missingToken = await officer.PostAsync($"/RegistrationReview/Promote?eventId={setup.Event.EventId}", MemberEventTestSupport.Form(new()), ct);
@@ -371,7 +371,7 @@ public sealed class RegistrationPromotionTests(SqlServerDatabaseFixture fixture)
         var token = await MemberEventTestSupport.AntiforgeryTokenAsync(officer, queueUrl, ct);
         var response = await officer.PostAsync("/RegistrationReview/Promote", MemberEventTestSupport.Form(new()
         {
-            ["eventId"] = setup.Event.EventId.ToString(), ["status"] = "waitlisted", ["page"] = "1", ["__RequestVerificationToken"] = token
+            ["eventId"] = setup.Event.EventId.ToString(), ["expectedRegistrationId"] = waitlisted.Registration.RegistrationId.ToString(), ["status"] = "waitlisted", ["page"] = "1", ["__RequestVerificationToken"] = token
         }), ct);
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Contains($"eventId={setup.Event.EventId}", MemberEventTestSupport.LocationPath(response), StringComparison.Ordinal);
@@ -381,6 +381,145 @@ public sealed class RegistrationPromotionTests(SqlServerDatabaseFixture fixture)
         Assert.Equal(RegistrationStatusCode.Confirmed, actual.RegistrationStatusId);
         Assert.Matches("^[0-9a-f]{64}$", actual.QrToken!);
         Assert.Single(await verify.ActivityLogs.Where(l => l.Action == "registration.promoted" && l.EntityId == waitlisted.Registration.RegistrationId).ToListAsync(ct));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FilteredRosterNamesAndPromotesTheEarliestEligibleCandidateFromTheFullQueue(bool dossier)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var setup = await SetupAsync(ct);
+        var inactive = await AddRegistrationAsync(setup, RegistrationStatusCode.Waitlisted, Start.AddHours(-3), ct, MembershipStatusCode.Inactive);
+        var earliest = await AddRegistrationAsync(setup, RegistrationStatusCode.Waitlisted, Start.AddHours(-2), ct);
+        var later = await AddRegistrationAsync(setup, RegistrationStatusCode.Waitlisted, Start.AddHours(-1), ct);
+        await SetNamesAsync(ct, (inactive.User.Id, "Inactive Person"), (earliest.User.Id, "First Eligible"), (later.User.Id, "Later Eligible"));
+        await using (var context = MemberEventTestSupport.Context(fixture.ConnectionString))
+        {
+            (await context.Registrations.SingleAsync(r => r.RegistrationId == later.Registration.RegistrationId, ct)).SubmittedAt = new DateTime(2026, 1, 1, 16, 0, 0, DateTimeKind.Utc);
+            await context.SaveChangesAsync(ct);
+        }
+
+        var password = MemberEventTestSupport.NewPassword();
+        var email = $"promotion-filtered-{Guid.NewGuid():N}@test.invalid";
+        await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString, email, password, RoleCode.Officer, ct);
+        await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var officer = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await MemberEventTestSupport.SignInAsync(officer, email, password, ct);
+        var url = PromotionPage(setup.Event.EventId, dossier) + "&search=" + Uri.EscapeDataString(later.Member.StudentNumber);
+        var html = await officer.GetStringAsync(url, ct);
+        Assert.Contains($"data-registration-id=\"{later.Registration.RegistrationId}\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain($"data-registration-id=\"{earliest.Registration.RegistrationId}\"", html, StringComparison.Ordinal);
+        Assert.Contains("<th scope=\"col\">Submission date</th><th scope=\"col\">Submission time</th>", html, StringComparison.Ordinal);
+        var dateClass = dossier ? "numeric" : "numeric cell-date";
+        Assert.Contains($"data-label=\"Submission date\" class=\"{dateClass}\">2026-01-02</td>", html, StringComparison.Ordinal);
+        Assert.Contains($"data-label=\"Submission time\" class=\"{dateClass}\">12:00 AM</td>", html, StringComparison.Ordinal);
+        var dialog = PromotionDialog(html);
+        Assert.Contains($"Promote First Eligible ({earliest.Member.StudentNumber})?", dialog, StringComparison.Ordinal);
+        Assert.Contains($"name=\"expectedRegistrationId\" value=\"{earliest.Registration.RegistrationId}\"", dialog, StringComparison.Ordinal);
+        Assert.DoesNotContain("Promote Later Eligible", dialog, StringComparison.Ordinal);
+
+        var emptyHtml = await officer.GetStringAsync(PromotionPage(setup.Event.EventId, dossier) + "&search=NoSuchParticipantXYZ", ct);
+        Assert.Contains($"colspan=\"{(dossier ? 5 : 6)}\" class=\"empty-state\"", emptyHtml, StringComparison.Ordinal);
+        Assert.Contains("Promote First Eligible", PromotionDialog(emptyHtml), StringComparison.Ordinal);
+
+        var token = await MemberEventTestSupport.AntiforgeryTokenAsync(officer, url, ct);
+        var response = await PostPromotionAsync(officer, setup.Event.EventId, earliest.Registration.RegistrationId, dossier, token, ct);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        await using var verify = MemberEventTestSupport.Context(fixture.ConnectionString);
+        var rows = await verify.Registrations.Where(r => r.EventId == setup.Event.EventId).ToListAsync(ct);
+        Assert.Equal(RegistrationStatusCode.Confirmed, rows.Single(r => r.RegistrationId == earliest.Registration.RegistrationId).RegistrationStatusId);
+        Assert.Equal(RegistrationStatusCode.Waitlisted, rows.Single(r => r.RegistrationId == later.Registration.RegistrationId).RegistrationStatusId);
+        Assert.Equal(RegistrationStatusCode.Waitlisted, rows.Single(r => r.RegistrationId == inactive.Registration.RegistrationId).RegistrationStatusId);
+        var log = Assert.Single(await verify.ActivityLogs.Where(l => l.Action == "registration.promoted" && l.EntityId == earliest.Registration.RegistrationId).ToListAsync(ct));
+        Assert.NotNull(log.ActorUserId);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task StaleConfirmationDoesNotPromoteTheReplacementAndShowsRetry(bool dossier)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var setup = await SetupAsync(ct);
+        var first = await AddRegistrationAsync(setup, RegistrationStatusCode.Waitlisted, Start.AddHours(-2), ct);
+        var second = await AddRegistrationAsync(setup, RegistrationStatusCode.Waitlisted, Start.AddHours(-1), ct);
+        await SetNamesAsync(ct, (first.User.Id, "Original Candidate"), (second.User.Id, "Replacement Candidate"));
+        var password = MemberEventTestSupport.NewPassword();
+        var email = $"promotion-stale-{Guid.NewGuid():N}@test.invalid";
+        await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString, email, password, RoleCode.Officer, ct);
+        await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var officer = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await MemberEventTestSupport.SignInAsync(officer, email, password, ct);
+        var url = PromotionPage(setup.Event.EventId, dossier);
+        var dialog = PromotionDialog(await officer.GetStringAsync(url, ct));
+        Assert.Contains("Promote Original Candidate", dialog, StringComparison.Ordinal);
+        Assert.Contains($"name=\"expectedRegistrationId\" value=\"{first.Registration.RegistrationId}\"", dialog, StringComparison.Ordinal);
+        var token = await MemberEventTestSupport.AntiforgeryTokenAsync(officer, url, ct);
+
+        // Invalidate the candidate after the confirmation was rendered, leaving a replacement.
+        await using (var context = MemberEventTestSupport.Context(fixture.ConnectionString))
+        {
+            (await context.Members.SingleAsync(m => m.MemberId == first.Member.MemberId, ct)).MembershipStatusId = MembershipStatusCode.Inactive;
+            await context.SaveChangesAsync(ct);
+        }
+        var response = await PostPromotionAsync(officer, setup.Event.EventId, first.Registration.RegistrationId, dossier, token, ct);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        var result = await officer.GetStringAsync(response.Headers.Location!, ct);
+        Assert.Contains("The waitlist changed. Refresh and try again.", result, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-reopen=\"true\"", PromotionDialog(result), StringComparison.Ordinal);
+        await using var verify = MemberEventTestSupport.Context(fixture.ConnectionString);
+        var rows = await verify.Registrations.Where(r => r.EventId == setup.Event.EventId).ToListAsync(ct);
+        Assert.All(rows, row => { Assert.Equal(RegistrationStatusCode.Waitlisted, row.RegistrationStatusId); Assert.Null(row.QrToken); });
+        Assert.Empty(await verify.ActivityLogs.Where(l => l.Action == "registration.promoted" && (l.EntityId == first.Registration.RegistrationId || l.EntityId == second.Registration.RegistrationId)).ToListAsync(ct));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NoEligibleWaitlistedCandidateShowsUnavailabilityWithoutAnAction(bool dossier)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var setup = await SetupAsync(ct);
+        var inactive = await AddRegistrationAsync(setup, RegistrationStatusCode.Waitlisted, Start.AddHours(-2), ct, MembershipStatusCode.Inactive);
+        await SetNamesAsync(ct, (inactive.User.Id, "Ineligible Candidate"));
+        var password = MemberEventTestSupport.NewPassword();
+        var email = $"promotion-empty-{Guid.NewGuid():N}@test.invalid";
+        await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString, email, password, RoleCode.Officer, ct);
+        await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var officer = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        await MemberEventTestSupport.SignInAsync(officer, email, password, ct);
+        var html = await officer.GetStringAsync(PromotionPage(setup.Event.EventId, dossier), ct);
+        Assert.Contains("No eligible waitlisted participant is available.", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-dialog-open=\"promote\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Promote Ineligible Candidate", html, StringComparison.Ordinal);
+    }
+
+    private static string PromotionPage(int eventId, bool dossier) => dossier
+        ? $"/Event/Details?id={eventId}&status=waitlisted"
+        : $"/RegistrationReview/Index?status=waitlisted&eventId={eventId}";
+
+    private static string PromotionDialog(string html)
+    {
+        var start = html.IndexOf("<dialog id=\"promote\"", StringComparison.Ordinal);
+        Assert.True(start >= 0, "Promotion dialog was not rendered.");
+        var end = html.IndexOf("</dialog>", start, StringComparison.Ordinal);
+        Assert.True(end > start, "Promotion dialog was not closed.");
+        return html[start..(end + "</dialog>".Length)];
+    }
+
+    private static Task<HttpResponseMessage> PostPromotionAsync(HttpClient client, int eventId, int registrationId, bool dossier, string token, CancellationToken ct) =>
+        client.PostAsync("/RegistrationReview/Promote", MemberEventTestSupport.Form(new()
+        {
+            ["eventId"] = eventId.ToString(), ["expectedRegistrationId"] = registrationId.ToString(),
+            ["dossier"] = dossier ? "true" : "false", ["page"] = "1", ["__RequestVerificationToken"] = token
+        }), ct);
+
+    private async Task SetNamesAsync(CancellationToken ct, params (int Id, string Name)[] names)
+    {
+        await using var context = MemberEventTestSupport.Context(fixture.ConnectionString);
+        foreach (var (id, name) in names) (await context.Users.SingleAsync(user => user.Id == id, ct)).Name = name;
+        await context.SaveChangesAsync(ct);
     }
 
     private async Task<(User Officer, Event Event)> SetupAsync(CancellationToken ct, int limit = 20)

@@ -9,6 +9,7 @@ namespace ASI.Basecode.Services.Interfaces
     /// </summary>
     public interface IAccountService
     {
+        Task<LoginOutcome> LoginAsync(string email, string password, CancellationToken cancellationToken = default);
         /// <summary>
         /// Authenticates an active account by email and password.
         /// </summary>

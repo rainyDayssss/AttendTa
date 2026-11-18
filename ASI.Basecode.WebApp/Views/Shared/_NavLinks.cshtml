@@ -8,44 +8,49 @@
 @if (management)
 {
     <div class="nav-group">
-        <p class="nav-group-label">Overview</p>
-        <a class="nav-key" asp-controller="Home" asp-action="Index" aria-current="@(controller == "Home" ? "page" : null)">Home</a>
-        <a class="nav-key" asp-controller="MemberEvents" asp-action="Index" aria-current="@(controller == "MemberEvents" ? "page" : null)">Browse events</a>
+        <p class="nav-group-label">@NavGroups.Overview</p>
+        <a class="nav-key" asp-controller="Home" asp-action="Index" aria-current="@(controller == "Home" ? "page" : null)">@NavDestinations.Home</a>
+        <a class="nav-key" asp-controller="MemberEvents" asp-action="Index" aria-current="@(controller == "MemberEvents" ? "page" : null)">@NavDestinations.BrowseEvents</a>
     </div>
     <div class="nav-group">
-        <p class="nav-group-label">Records</p>
-        <a class="nav-key" asp-controller="Event" asp-action="Index" aria-current="@(controller == "Event" ? "page" : null)">Events</a>
-        <a class="nav-key" asp-controller="Member" asp-action="Index" aria-current="@(controller == "Member" ? "page" : null)">Members</a>
-        <a class="nav-key" asp-controller="EventType" asp-action="Index" aria-current="@(controller == "EventType" ? "page" : null)">Event types</a>
-        <a class="nav-key" asp-controller="Venue" asp-action="Index" aria-current="@(controller == "Venue" ? "page" : null)">Venues</a>
-        <a class="nav-key" asp-controller="AccountRequest" asp-action="Index" aria-current="@(controller == "AccountRequest" ? "page" : null)">Account requests</a>
+        <p class="nav-group-label">@NavGroups.MyParticipation</p>
+        <a class="nav-key" asp-controller="MyEvents" asp-action="Index" aria-current="@(controller == "MyEvents" || controller == "MyCertificates" ? "page" : null)">@NavDestinations.MyEvents</a>
+        <a class="nav-key" asp-controller="Passes" asp-action="Index" aria-current="@(controller == "Passes" ? "page" : null)">@NavDestinations.MyPasses</a>
+    </div>
+    <div class="nav-group">
+        <p class="nav-group-label">@NavGroups.Manage</p>
+        <a class="nav-key" asp-controller="Event" asp-action="Index" aria-current="@(controller == "Event" ? "page" : null)">@NavDestinations.Events</a>
+        <a class="nav-key" asp-controller="Member" asp-action="Index" aria-current="@(controller == "Member" ? "page" : null)">@NavDestinations.Members</a>
+        <a class="nav-key" asp-controller="EventType" asp-action="Index" aria-current="@(controller == "EventType" ? "page" : null)">@NavDestinations.EventTypes</a>
+        <a class="nav-key" asp-controller="Venue" asp-action="Index" aria-current="@(controller == "Venue" ? "page" : null)">@NavDestinations.Venues</a>
+        <a class="nav-key" asp-controller="AccountRequest" asp-action="Index" aria-current="@(controller == "AccountRequest" ? "page" : null)">@NavDestinations.AccountRequests</a>
         @if (administrator)
         {
-            <a class="nav-key" asp-controller="AdminAccounts" asp-action="Index" aria-current="@(controller == "AdminAccounts" ? "page" : null)">Accounts</a>
-            <a class="nav-key" asp-controller="ActivityLog" asp-action="Index" aria-current="@(controller == "ActivityLog" ? "page" : null)">Activity log</a>
+            <a class="nav-key" asp-controller="AdminAccounts" asp-action="Index" aria-current="@(controller == "AdminAccounts" ? "page" : null)">@NavDestinations.Accounts</a>
+            <a class="nav-key" asp-controller="ActivityLog" asp-action="Index" aria-current="@(controller == "ActivityLog" ? "page" : null)">@NavDestinations.ActivityLog</a>
         }
     </div>
     <div class="nav-group">
-        <p class="nav-group-label">Output</p>
-        <a class="nav-key" asp-controller="CheckIn" asp-action="Index" aria-current="@(controller == "CheckIn" ? "page" : null)">Check-in</a>
-        <a class="nav-key" asp-controller="RegistrationReview" asp-action="Index" aria-current="@(controller == "RegistrationReview" ? "page" : null)">Registration review</a>
-        <a class="nav-key" asp-controller="CertificateLedger" asp-action="Index" aria-current="@(controller == "CertificateLedger" ? "page" : null)">Certificates</a>
-        <a class="nav-key" asp-controller="Reports" asp-action="Participation" aria-current="@(controller == "Reports" ? "page" : null)">Reports</a>
+        <p class="nav-group-label">@NavGroups.Operations</p>
+        <a class="nav-key" asp-controller="CheckIn" asp-action="Index" aria-current="@(controller == "CheckIn" ? "page" : null)">@NavDestinations.CheckIn</a>
+        <a class="nav-key" asp-controller="RegistrationReview" asp-action="Index" aria-current="@(controller == "RegistrationReview" ? "page" : null)">@NavDestinations.RegistrationReview</a>
+        <a class="nav-key" asp-controller="CertificateLedger" asp-action="Index" aria-current="@(controller == "CertificateLedger" ? "page" : null)">@NavDestinations.Certificates</a>
+        <a class="nav-key" asp-controller="Reports" asp-action="Participation" aria-current="@(controller == "Reports" ? "page" : null)">@NavDestinations.Reports</a>
     </div>
 }
 @if (member)
 {
     <div class="nav-group">
-        <p class="nav-group-label">Overview</p>
+        <p class="nav-group-label">@NavGroups.Overview</p>
         <a class="nav-key" asp-controller="MemberEvents" asp-action="Index" aria-current="@(controller == "MemberEvents" ? "page" : null)">Events</a>
     </div>
     <div class="nav-group">
-        <p class="nav-group-label">Records</p>
+        <p class="nav-group-label">@NavGroups.Records</p>
         <a class="nav-key" asp-controller="MyEvents" asp-action="Index" aria-current="@(controller == "MyEvents" ? "page" : null)">My Events</a>
         <a class="nav-key" asp-controller="Passes" asp-action="Index" aria-current="@(controller == "Passes" ? "page" : null)">My Passes</a>
     </div>
     <div class="nav-group">
-        <p class="nav-group-label">Account</p>
+        <p class="nav-group-label">@NavGroups.Account</p>
         <a class="nav-key" asp-controller="Profile" asp-action="Index" aria-current="@(controller == "Profile" ? "page" : null)">Profile</a>
     </div>
 }

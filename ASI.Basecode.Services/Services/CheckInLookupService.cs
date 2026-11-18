@@ -21,7 +21,7 @@ namespace ASI.Basecode.Services.Services;
 public sealed class CheckInLookupService(
     IEventRepository events,
     IRegistrationRepository registrations,
-    IAttendanceRecordingService recording) : ICheckInLookupService
+    IAttendanceRecordingService recording, ListReadOptions readOptions = null) : ICheckInLookupService
 {
     private const string WindowClosedMessage = "Check-in is closed for this event. Open it before checking in.";
     private const string NotConfirmedMessage = "This participant is not confirmed for this event.";
@@ -44,13 +44,13 @@ public sealed class CheckInLookupService(
             return new CheckInLookupViewModel { Query = trimmed };
         }
 
-        var request = new PageRequest(pageNumber);
+        var request = new PageRequest(pageNumber, readOptions?.PageSize);
         var page = request.NormalizePageNumber(total);
         var rows = await registrations.GetConfirmedLookupPageAsync(
             eventId,
             trimmed,
             request.GetOffset(page),
-            PageRequest.FixedPageSize,
+            PageRequest.NormalizeSize(readOptions?.PageSize),
             cancellationToken);
 
         return new CheckInLookupViewModel
@@ -67,6 +67,7 @@ public sealed class CheckInLookupService(
                 })
                 .ToList(),
             PageNumber = page,
+            PageSize = PageRequest.NormalizeSize(readOptions?.PageSize),
             TotalCount = total
         };
     }

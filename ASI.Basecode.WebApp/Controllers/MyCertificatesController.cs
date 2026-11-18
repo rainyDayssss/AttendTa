@@ -14,7 +14,7 @@ using Microsoft.Extensions.Logging;
 
 namespace ASI.Basecode.WebApp.Controllers;
 
-[Authorize(Policy = Policies.Member)]
+[Authorize(Policy = Policies.PersonalParticipation)]
 public sealed class MyCertificatesController : ControllerBase<MyCertificatesController>
 {
     private readonly IMyCertificatesService _certificates;

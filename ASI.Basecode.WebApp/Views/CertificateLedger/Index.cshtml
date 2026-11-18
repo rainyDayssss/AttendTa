@@ -1,9 +1,48 @@
 @model CertificateLedgerViewModel
 @using ASI.Basecode.Data.Models.Lookups
 @{
+    ViewData["ListControls"] = true;
     ViewData["Title"] = "Certificates";
     ViewData["Feature"] = "certificate-ledger";
+    ViewData["CertificatePreview"] = true;
     var tab = Model.ActiveTab == CertificateLedgerTab.Issued ? "issued" : "eligibility";
+    var readOptions = ListReadOptionsFactory.From(Context.Request);
+    var hasCriteria = !string.IsNullOrWhiteSpace(readOptions.Search) || !string.IsNullOrWhiteSpace(readOptions.Filter);
+    ViewData["ResultNoun"] = tab == "issued" ? "certificate" : "review";
+    // Only a pending review can be selected, so the selection surface and its column appear only
+    // where there is something to select. The Issued Registry stays a plain table.
+    var hasSelectableRows = tab == "eligibility" && Model.Rows.Any(row => row.Status == CertificateStatusCode.PendingApproval);
+    var bulkError = ViewBag.BulkError as string;
+    var bulkResult = ViewBag.BulkResult as BulkResultViewModel;
+    // A POST re-render sets ListPath so the tabs keep pointing at the GET ledger route.
+    var listPath = ViewData["ListPath"] as string;
+    // Carry the current view into the POST so a batch returns the reader to their own page.
+    var bulkRoute = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    if (Model.Selector.SelectedEventId is int selectedEventId)
+    {
+        bulkRoute["eventId"] = selectedEventId.ToString();
+    }
+    bulkRoute["tab"] = "eligibility";
+    foreach (var key in new[] { "search", "filter" })
+    {
+        var value = Context.Request.Query[key].ToString();
+        if (!string.IsNullOrWhiteSpace(value)) bulkRoute[key] = value;
+    }
+    bulkRoute["page"] = Model.Page.PageNumber.ToString();
+    var bulkSelection = new BulkSelectionViewModel
+    {
+        ActionLabel = "Approve selected",
+        DialogId = "bulk-approve-dialog",
+        DialogTitle = "Approve selected reviews",
+        Consequence = "Each selected review is approved on its own. Issuing the PDF stays a separate, individual step.",
+        SubmitLabel = "Approve selected",
+        SubmittingLabel = "Approving…",
+        SelectionListLabel = "Selected reviews",
+        RecordNoun = "review",
+        Controller = "CertificateLedger",
+        Action = "ApproveSelected",
+        RouteValues = bulkRoute
+    };
 }
 
 <div class="page-heading">
@@ -14,7 +53,7 @@
 </div>
 
 <partial name="_EventSelector" model="Model.Selector" />
-
+<partial name="_ListToolbar" model='@(new ListToolbarViewModel("Search member, student number, or certificate", tab == "issued" ? null : new ListFilterField[] { ListToolbarViewModel.Status(new ListFilterOption("PendingApproval", "Pending review"), new ListFilterOption("Eligible", "Eligible"), new ListFilterOption("NotEligible", "Declined")) }))' />
 @if (ViewData["LedgerError"] is string error)
 {
     <div class="notice notice-error" role="alert">
@@ -23,51 +62,111 @@
     </div>
 }
 
+@if (bulkError != null)
+{
+    <div class="notice notice-error" role="alert">@bulkError</div>
+}
+
+@if (bulkResult != null)
+{
+    <partial name="_BulkResultPanel" model="bulkResult" />
+}
+
 <nav class="filter-tabs" aria-label="Certificate sections">
-    <a class="filter-tab" asp-action="Index" asp-route-tab="eligibility" asp-route-eventId="@Model.Selector.SelectedEventId" aria-current="@(Model.ActiveTab == CertificateLedgerTab.Eligibility ? "page" : null)">
+    <a class="filter-tab" href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["tab"] = "eligibility", ["filter"] = null }, listPath)' aria-current="@(Model.ActiveTab == CertificateLedgerTab.Eligibility ? "page" : null)">
         Eligibility Review
         <span class="filter-tab-count numeric">@Model.EligibilityCount</span>
     </a>
-    <a class="filter-tab" asp-action="Index" asp-route-tab="issued" asp-route-eventId="@Model.Selector.SelectedEventId" aria-current="@(Model.ActiveTab == CertificateLedgerTab.Issued ? "page" : null)">
+    <a class="filter-tab" href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["tab"] = "issued", ["filter"] = null }, listPath)' aria-current="@(Model.ActiveTab == CertificateLedgerTab.Issued ? "page" : null)">
         Issued Registry
         <span class="filter-tab-count numeric">@Model.IssuedCount</span>
     </a>
 </nav>
+<p class="muted" data-list-status role="status" data-list-busy-label="Loading records…"></p>
 
 @if (Model.Rows.Count == 0 && ViewData["LedgerError"] == null)
 {
     <section class="empty-panel" role="status">
-        <h2>@(Model.Selector.HasOptions ? (tab == "issued" ? "No certificates issued yet" : "No reviews to display") : "No completed events available")</h2>
-        <p>@(Model.Selector.HasOptions ? (tab == "issued" ? "Approve an eligible attendee and issue their certificate from Eligibility Review." : "Certificate reviews appear for checked-in members when an event is completed.") : "Complete an event to begin reviewing attendance for certificates.")</p>
+        @if (!Model.Selector.HasOptions)
+        {
+            <h2>No completed events available</h2>
+            <p>Complete an event to begin reviewing attendance for certificates.</p>
+        }
+        else if (hasCriteria)
+        {
+            <h2>@(tab == "issued" ? "No certificates match your search" : "No reviews match your search or filters")</h2>
+            <p>@(tab == "issued" ? "Adjust your search or use Reset to see other certificates for this event." : "Adjust your search or filters, or use Reset to see other reviews for this event.")</p>
+        }
+        else
+        {
+            <h2>@(tab == "issued" ? "No certificates issued yet" : "No reviews to display")</h2>
+            <p>@(tab == "issued" ? "Approve an eligible attendee and issue their certificate from Eligibility Review." : "Certificate reviews appear for checked-in members when an event is completed.")</p>
+        }
     </section>
 }
 else if (Model.Rows.Count > 0)
 {
-<div class="table-scroll ledger-table" role="region" aria-label="Certificate ledger" tabindex="0">
+<div data-bulk-root="@(tab == "eligibility" ? "true" : null)" data-bulk-noun="review">
+    @if (hasSelectableRows)
+    {
+        <partial name="_BulkSelectionBar" model="bulkSelection" />
+    }
+    <div class="table-scroll ledger-table" role="region" aria-label="Certificate ledger" tabindex="0" data-list-region>
     <table class="data-table">
         <thead>
             <tr>
+                @if (hasSelectableRows)
+                {
+                    <th scope="col" class="select-column">
+                        <label class="select-target">
+                            <input type="checkbox" data-bulk-all aria-label="Select all pending reviews on this page" />
+                        </label>
+                    </th>
+                }
                 <th scope="col">Member</th>
-                <th scope="col">Student number</th>
-                <th scope="col">Event</th>
-                <th scope="col">Attended</th>
-                <th scope="col">Eligibility</th>
-                <th scope="col">Certificate</th>
-                <th scope="col" class="ledger-actions-heading">Actions</th>
+                @if (tab == "eligibility") { <th scope="col">Attended</th><th scope="col">Eligibility</th> }
+                @if (tab == "issued") { <th scope="col">Certificate</th> }
+                <th scope="col" class="actions actions-decision">Actions</th>
             </tr>
         </thead>
         <tbody>
             @foreach (var row in Model.Rows)
             {
+                var detailFields = new Dictionary<string, string> {
+                    ["Student number"] = row.StudentNumber, ["Event"] = row.EventTitle,
+                    ["Attended"] = row.AttendedAt is null ? "Not recorded" : ManilaTimeFormatter.Format(row.AttendedAt.Value)
+                };
+                if (!string.IsNullOrWhiteSpace(row.Reason)) detailFields["Reason"] = row.Reason;
+                if (!string.IsNullOrWhiteSpace(row.CertificateNumber)) detailFields["Certificate number"] = row.CertificateNumber;
+                if (row.IssuedAt is DateTime detailIssuedAt) detailFields["Issued"] = ManilaTimeFormatter.Format(detailIssuedAt);
                 <tr data-registration-id="@row.RegistrationId">
-                    <td data-label="Member">@row.MemberName</td>
-                    <td data-label="Student number" class="numeric cell-identifier">@row.StudentNumber</td>
-                    <td data-label="Event">@row.EventTitle</td>
-                    <td data-label="Attended" class="numeric cell-date">@(row.AttendedAt is null ? "Not recorded" : ManilaTimeFormatter.Format(row.AttendedAt.Value))</td>
+                    @if (hasSelectableRows)
+                    {
+                        if (row.Status == CertificateStatusCode.PendingApproval)
+                        {
+                            <td data-label="Select" class="select-column">
+                                <label class="select-target">
+                                    <input type="checkbox"
+                                           data-bulk-row
+                                           value="@row.RegistrationId"
+                                           data-bulk-label="@row.MemberName (@row.StudentNumber)"
+                                           aria-label="Select @row.MemberName (@row.StudentNumber)" />
+                                </label>
+                            </td>
+                        }
+                        else
+                        {
+                            <td class="select-column" aria-hidden="true"></td>
+                        }
+                    }
+                    <td data-label="Member">@row.MemberName<small class="cell-meta">@row.StudentNumber</small></td>
+                    @if (tab == "eligibility") {
+                    <td data-label="Attended" class="numeric cell-date">@(row.AttendedAt is null ? "Not recorded" : "Confirmed")</td>
                     <td data-label="Eligibility">
                         <span class="badge @row.StatusBadgeClass">@row.StatusLabel</span>
-                        @if (!string.IsNullOrWhiteSpace(row.Reason)) { <p class="ledger-reason">@row.Reason</p> }
                     </td>
+                    }
+                    @if (tab == "issued") {
                     <td data-label="Certificate">
                         @if (row.CertificateNumber is null)
                         {
@@ -79,32 +178,43 @@ else if (Model.Rows.Count > 0)
                         }
                         @if (row.IssuedAt is DateTime issuedAt) { <p class="muted ledger-issued-at">@ManilaTimeFormatter.Format(issuedAt)</p> }
                     </td>
+                    }
                     <td data-label="Actions" class="actions">
-                        <div class="row-actions">
+                        <div class="row-actions ledger-row-actions">
+
                         @if (row.Status == CertificateStatusCode.PendingApproval)
                         {
-                            <button type="button" class="button" data-certificate-open="approve-certificate" data-id="@row.RegistrationId" data-member="@row.MemberName" data-event="@row.EventTitle">Approve</button>
-                            <button type="button" class="button button-quiet-danger" data-certificate-open="decline-certificate" data-id="@row.RegistrationId" data-member="@row.MemberName" data-event="@row.EventTitle">Decline</button>
+                            <button type="button" class="button button-secondary button-small" data-certificate-open="approve-certificate" data-id="@row.RegistrationId" data-member="@row.MemberName" data-event="@row.EventTitle">Approve</button>
+                            <button type="button" class="button button-quiet-danger button-small" data-certificate-open="decline-certificate" data-id="@row.RegistrationId" data-member="@row.MemberName" data-event="@row.EventTitle">Decline</button>
                         }
                         else if (row.Status == CertificateStatusCode.Eligible)
                         {
-                            <button type="button" class="button" data-certificate-open="issue-certificate" data-id="@row.RegistrationId" data-member="@row.MemberName" data-event="@row.EventTitle">Issue certificate</button>
+                            <button type="button" class="button button-secondary button-small" data-certificate-open="issue-certificate" data-id="@row.RegistrationId" data-member="@row.MemberName" data-event="@row.EventTitle">Issue certificate</button>
                         }
-                        else if (row.Status == CertificateStatusCode.Issued)
+                        else if (row.Status == CertificateStatusCode.Issued && row.HasDocument)
                         {
-                            <a class="button" asp-action="Viewer" asp-route-id="@row.RegistrationId">View PDF<span class="ledger-sr-only"> for @row.MemberName</span></a>
+                            <a class="button button-secondary button-small" asp-action="Viewer" asp-route-id="@row.RegistrationId" data-certificate-pdf="@Url.Action("Pdf", new { id = row.RegistrationId })" data-certificate-title="@row.MemberName · @row.EventTitle" data-certificate-number="@row.CertificateNumber">View PDF<span class="ledger-sr-only"> for @row.MemberName</span></a>
                         }
+                        else if (row.Status == CertificateStatusCode.Issued) { <span class="muted" role="status">Document unavailable</span> }
                         else { <span class="muted">Decision final</span> }
+                            <partial name="_DetailsButton" model='@(new RecordDetailsViewModel($"certificate-details-{row.RegistrationId}", row.MemberName, detailFields, null))' />
                         </div>
                     </td>
                 </tr>
             }
         </tbody>
     </table>
+    </div>
+    @if (hasSelectableRows)
+    {
+        <partial name="_BulkConfirmDialog" model="bulkSelection" />
+    }
 </div>
 <partial name="_Pager" model="Model.Page" />
-<p class="result-count muted">Showing @Model.Page.FirstItemNumber–@Model.Page.LastItemNumber of @Model.Page.TotalCount</p>
+
 }
+
+<partial name="_ResultCount" model="Model.Page" />
 
 @foreach (var action in new[] { "approve", "decline", "issue" })
 {
@@ -128,7 +238,7 @@ else if (Model.Rows.Count > 0)
             {
                 <div class="field">
                     <label for="certificate-decline-reason">Decline reason <span class="required">(required)</span></label>
-                    <textarea id="certificate-decline-reason" name="reason" rows="4" maxlength="1000" required aria-describedby="certificate-reason-hint" placeholder="Explain why the certificate is declined"></textarea>
+                    <textarea id="certificate-decline-reason" name="reason" rows="4" maxlength="1000" required aria-describedby="certificate-reason-hint"></textarea>
                     <span class="field-hint" id="certificate-reason-hint">Explain why this member is not eligible. Up to 1,000 characters.</span>
                 </div>
             }
@@ -138,4 +248,8 @@ else if (Model.Rows.Count > 0)
             </div>
         </form>
     </dialog>
+}
+
+@section Scripts {
+    <script src="~/js/features/bulk-selection.js" asp-append-version="true"></script>
 }

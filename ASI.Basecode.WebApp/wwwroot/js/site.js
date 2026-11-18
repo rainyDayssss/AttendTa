@@ -1,4 +1,66 @@
 $(function () {
+    // Shared dialog policy belongs with the existing delegated dialog handlers.
+    // Feature modules reuse this API; they do not install another dismissal system.
+    const dialogs = (() => {
+        'use strict';
+        const baselines = new WeakMap();
+        function snapshot(dialog) {
+            return JSON.stringify(Array.from(dialog.querySelectorAll('input, select, textarea'))
+                .filter(field => !field.disabled && field.type !== 'hidden')
+                .map(field => [field.name, field.type === 'checkbox' || field.type === 'radio'
+                    ? field.checked : field.type === 'file'
+                        ? Array.from(field.files || []).map(file => [file.name, file.size, file.lastModified])
+                        : field.value]));
+        }
+        function track(dialog, reset = false) {
+            if (!baselines.has(dialog) || reset) baselines.set(dialog, snapshot(dialog));
+        }
+        function hasChanges(dialog) {
+            return baselines.has(dialog) && baselines.get(dialog) !== snapshot(dialog);
+        }
+        function requestClose(dialog) {
+            if (!dialog || dialog.getAttribute('aria-busy') === 'true' || dialog.querySelector('form[aria-busy="true"]')) return false;
+            if (!hasChanges(dialog)) { dialog.close(); return true; }
+            const existing = dialog.querySelector('[data-discard-prompt]');
+            if (existing) { existing.querySelector('button').focus(); return false; }
+            const returnFocus = document.activeElement;
+            const prompt = document.createElement('section');
+            prompt.className = 'dialog-discard-notice';
+            prompt.dataset.discardPrompt = '';
+            prompt.setAttribute('role', 'group');
+            prompt.setAttribute('aria-label', 'Unsaved changes');
+            const text = document.createElement('p');
+            text.textContent = 'You have unsaved changes. Keep editing or discard them?';
+            const actions = document.createElement('div');
+            actions.className = 'dialog-discard-actions';
+            const keep = document.createElement('button');
+            keep.type = 'button'; keep.className = 'button button-secondary'; keep.textContent = 'Keep editing';
+            keep.addEventListener('click', () => { prompt.remove(); returnFocus?.focus(); });
+            const discard = document.createElement('button');
+            discard.type = 'button'; discard.className = 'button button-danger'; discard.textContent = 'Discard changes';
+            discard.addEventListener('click', () => { prompt.remove(); dialog.close(); });
+            actions.append(keep, discard); prompt.append(text, actions); dialog.append(prompt); keep.focus();
+            return false;
+        }
+        document.addEventListener('focusin', event => {
+            const dialog = event.target.closest('dialog');
+            if (dialog) track(dialog);
+        });
+        document.addEventListener('cancel', event => {
+            const dialog = event.target;
+            if (dialog instanceof HTMLDialogElement && (hasChanges(dialog) || dialog.getAttribute('aria-busy') === 'true' || dialog.querySelector('form[aria-busy="true"]'))) {
+                event.preventDefault(); requestClose(dialog);
+            }
+        }, true);
+        document.addEventListener('close', event => {
+            if (!(event.target instanceof HTMLDialogElement)) return;
+            baselines.delete(event.target);
+            event.target.querySelector('[data-discard-prompt]')?.remove();
+        }, true);
+        return { track, hasChanges, requestClose };
+    })();
+    window.AttendTaDialogs = dialogs;
+
     const token = document.querySelector('meta[name="RequestVerificationToken"]')?.content;
     if (token) $.ajaxSetup({ headers: { RequestVerificationToken: token } });
 
@@ -6,7 +68,11 @@ $(function () {
         const opener = event.target.closest('[data-dialog-open]');
         if (opener) {
             const dialog = document.getElementById(opener.dataset.dialogOpen);
-            if (!dialog) return;
+            if (!dialog || typeof dialog.showModal !== 'function') return;
+            if (opener.tagName === 'A') event.preventDefault();
+            dialog.querySelector('[data-list-cancel-retry-error]')?.remove();
+            const cancelSubmit = dialog.querySelector('[data-list-cancel-submit]');
+            if (cancelSubmit) cancelSubmit.disabled = false;
 
             for (const [key, value] of Object.entries(opener.dataset)) {
                 if (!key.startsWith('dialogValue')) continue;
@@ -22,13 +88,17 @@ $(function () {
             }
 
             dialog.querySelectorAll('textarea').forEach(function (textarea) { textarea.value = ''; });
+            const returnFocus = resolveDialogReturnFocus(opener);
+            opener.closest('[popover]')?.hidePopover?.();
+            dialog.addEventListener('close', () => restoreDialogFocus(returnFocus), { once: true });
+            dialogs.track(dialog, true);
             dialog.showModal();
             dialog.querySelector('textarea, input:not([type="hidden"])')?.focus();
             return;
         }
 
         const closer = event.target.closest('[data-dialog-close]');
-        if (closer) closer.closest('dialog')?.close();
+        if (closer) dialogs.requestClose(closer.closest('dialog'));
     });
 
     // A native dialog's own padding is part of the dialog element, so the event target alone
@@ -52,7 +122,7 @@ $(function () {
         pressedBackdrop = false;
         if (!(dialog instanceof HTMLDialogElement) || !fromBackdrop) return;
         if (dialog.getAttribute('aria-busy') === 'true') return;
-        dialog.close();
+        dialogs.requestClose(dialog);
     });
 
     document.addEventListener('submit', function (event) {
@@ -66,7 +136,7 @@ $(function () {
             return;
         }
 
-        const submit = event.target.querySelector('button[type="submit"]');
+        const submit = event.submitter || event.target.querySelector('button[type="submit"]');
         if (!submit) return;
         const label = submit.dataset.submittingLabel;
         submit.disabled = true;
@@ -81,13 +151,38 @@ $(function () {
     });
 
     const reopen = document.querySelector('dialog[data-reopen="true"]');
-    if (reopen) {
-        reopen.querySelector('[data-dialog-field="id"]').value = reopen.dataset.reopenId;
+    if (reopen && typeof reopen.showModal === 'function') {
+        // The dossier may already render the failed reason into its textarea.
+        // Capture the empty baseline so that restored input is still protected.
         const reason = reopen.querySelector('textarea[name="reason"]');
-        if (reason) reason.value = reopen.dataset.reopenReason ?? '';
+        const restoredReason = reopen.dataset.reopenReason ?? reason?.value ?? '';
+        if (reason) reason.value = '';
+        dialogs.track(reopen, true);
+        reopen.querySelector('[data-dialog-field="id"]').value = reopen.dataset.reopenId;
+        if (reason) reason.value = restoredReason;
+        if (reopen.dataset.returnFocus) {
+            const invoker = document.querySelector('[popovertarget="' + reopen.dataset.returnFocus + '"]');
+            reopen.addEventListener('close', () => restoreDialogFocus(
+                invoker && invoker.isConnected !== false ? invoker : document.querySelector('[data-list-region]')
+            ), { once: true });
+        }
         reopen.showModal();
         reopen.querySelector('textarea, input:not([type="hidden"])')?.focus();
     }
+
+    function coverUnavailable(image) {
+        const dialog = image.closest('dialog');
+        const figure = image.closest('[data-cover-figure]');
+        const message = dialog?.querySelector('[data-cover-error]');
+        if (figure) figure.hidden = true;
+        if (message) message.hidden = false;
+    }
+    document.addEventListener('error', event => {
+        if (event.target.matches?.('[data-cover-image]')) coverUnavailable(event.target);
+    }, true);
+    document.querySelectorAll?.('[data-cover-image]').forEach(image => {
+        if (image.complete && image.naturalWidth === 0) coverUnavailable(image);
+    });
 
     // Single host for the fetched dialogs. Each partial returns a complete <dialog> so the
     // native element supplies Escape, focus trapping and focus restore.
@@ -163,6 +258,7 @@ $(function () {
                         previewHost.innerHTML = '';
                         restoreDialogFocus(returnFocus);
                     }, { once: true });
+                    dialogs.track(dialog, true);
                     dialog.showModal();
                 })
                 .catch(function () {

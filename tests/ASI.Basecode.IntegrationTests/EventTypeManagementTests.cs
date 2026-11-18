@@ -217,28 +217,28 @@ public sealed class EventTypePagingTests(SqlServerDatabaseFixture fixture) : ICl
 
         var first = await service.GetPageAsync(null, 1, ct);
         Assert.Equal(26, first.TotalCount);
-        Assert.Equal(2, first.TotalPages);
+        Assert.Equal(6, first.TotalPages);
         Assert.Equal(1, first.PageNumber);
-        Assert.Equal(25, first.Items.Count);
-        Assert.Equal(Enumerable.Range(1, 25).Select(index => $"Paging Type {index:D2}"), first.Items.Select(item => item.TypeName));
+        Assert.Equal(5, first.Items.Count);
+        Assert.Equal(Enumerable.Range(1, 5).Select(index => $"Paging Type {index:D2}"), first.Items.Select(item => item.TypeName));
 
-        var second = await service.GetPageAsync(null, 2, ct);
-        Assert.Equal(2, second.PageNumber);
+        var second = await service.GetPageAsync(null, 6, ct);
+        Assert.Equal(6, second.PageNumber);
         Assert.Single(second.Items);
         Assert.Equal("Paging Type 26", second.Items[0].TypeName);
 
         var pastEnd = await service.GetPageAsync(null, 999, ct);
-        Assert.Equal(2, pastEnd.PageNumber);
+        Assert.Equal(6, pastEnd.PageNumber);
         Assert.Single(pastEnd.Items);
         Assert.Equal("Paging Type 26", pastEnd.Items[0].TypeName);
 
         var zero = await service.GetPageAsync(null, 0, ct);
         Assert.Equal(1, zero.PageNumber);
-        Assert.Equal(25, zero.Items.Count);
+        Assert.Equal(5, zero.Items.Count);
 
         var missing = await service.GetPageAsync(null, null, ct);
         Assert.Equal(1, missing.PageNumber);
-        Assert.Equal(25, missing.Items.Count);
+        Assert.Equal(5, missing.Items.Count);
     }
 }
 
@@ -268,7 +268,7 @@ internal static class EventTypeTestSupport
         var actor = new User
         {
             Name = "Event Type Tester",
-            UserId = $"{Guid.NewGuid():N}@example.invalid",
+            Email = $"{Guid.NewGuid():N}@example.invalid",
             Password = "test",
             RoleId = RoleCode.Officer,
             IsActive = true

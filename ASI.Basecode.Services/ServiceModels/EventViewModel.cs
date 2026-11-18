@@ -45,6 +45,10 @@ namespace ASI.Basecode.Services.ServiceModels
 
         public string VenueName { get; set; }
 
+        public bool HasCover { get; set; }
+
+        public string CoverVersion { get; set; }
+
         /// <summary>Active Event Types and Venues offered by the form. Populated by the controller.</summary>
         public EventFormOptions FormOptions { get; set; } = new();
 

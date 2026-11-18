@@ -17,22 +17,21 @@ namespace ASI.Basecode.Services.Services;
 /// The real member certificate history (R2, 6.9). The page is owner-scoped: the actor's own
 /// non-cancelled event ids, each event's own confirmed registration, and that registration's
 /// certificate row decide the state, so another member's record never appears. A row carries a
-/// document only when it is Issued and the row has a retained <c>file_path</c>; the seeded issued row
-/// has none and stays a controlled not-found. The PDF read adds the member guard and then delegates to
-/// the ledger's authorized retained-file retrieval (6.8), which rechecks ownership on every request.
+/// document only when it is Issued and its retained PDF is readable. Missing documents do not change
+/// the recorded issuance state. Personal PDF reads check ownership before delegating to the ledger.
 /// </summary>
 public sealed class MyCertificatesService(
     IRegistrationRepository registrations,
     IEventRepository events,
     ICertificateRepository certificates,
     ICertificateLedgerService ledger,
-    ICurrentActor actor) : IMyCertificatesService
+    ICurrentActor actor, IPrivateFileStore files, ListReadOptions readOptions = null) : IMyCertificatesService
 {
     public async Task<PagedResult<MyEventCertificateRowViewModel>> GetPageAsync(
         int? page,
         CancellationToken cancellationToken = default)
     {
-        var userId = RequireMember();
+        var userId = RequireActor();
 
         var eventIds = await registrations.DiscoverOpenEventIdsForUserAsync(userId, cancellationToken);
         var rows = new List<MyEventCertificateRowViewModel>();
@@ -61,11 +60,8 @@ public sealed class MyCertificatesService(
                 CertificateStatusCode.Issued => MyCertificateState.Issued,
                 _ => MyCertificateState.Unavailable
             };
-            var hasDocument = state == MyCertificateState.Issued && !string.IsNullOrWhiteSpace(review?.FilePath);
-            if (state == MyCertificateState.Issued && !hasDocument)
-            {
-                state = MyCertificateState.Unavailable;
-            }
+            var hasDocument = state == MyCertificateState.Issued
+                && await CertificateFileAvailability.IsAvailableAsync(files, review?.FilePath, cancellationToken);
 
             rows.Add(new MyEventCertificateRowViewModel
             {
@@ -84,29 +80,32 @@ public sealed class MyCertificatesService(
         }
 
         var ordered = rows
+            .Where(row => string.IsNullOrWhiteSpace(readOptions?.Search) || row.EventTitle.Contains(readOptions.Search, StringComparison.OrdinalIgnoreCase))
+            .Where(row => string.IsNullOrWhiteSpace(readOptions?.Filter) || string.Equals(row.State.ToString(), readOptions.Filter, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(row => row.StartsAt)
             .ThenByDescending(row => row.CertificateId)
             .ToList();
-        var request = new PageRequest(page);
+        var request = new PageRequest(page, readOptions?.PageSize);
         var normalized = request.NormalizePageNumber(ordered.Count);
         return new PagedResult<MyEventCertificateRowViewModel>(
-            ordered.Skip(request.GetOffset(normalized)).Take(PageRequest.FixedPageSize).ToList(),
+            ordered.Skip(request.GetOffset(normalized)).Take(PageRequest.NormalizeSize(readOptions?.PageSize)).ToList(),
             normalized,
-            ordered.Count);
+            ordered.Count, PageRequest.NormalizeSize(readOptions?.PageSize));
     }
 
     /// <summary>
-    /// The member guard is the only addition here: the ledger re-resolves the registration's owner and
-    /// requires an issued row with a retained file, so another member's id and an unknown id both
-    /// surface the identical not-found.
+    /// Check ownership independently before calling the management-capable ledger.
     /// </summary>
     public async Task<CertificateDocument> GetPdfAsync(int certificateId, CancellationToken cancellationToken = default)
     {
-        RequireMember();
+        var userId = RequireActor();
+        var identity = certificateId > 0 ? await registrations.DiscoverIdentityAsync(certificateId, cancellationToken) : null;
+        if (identity is null || identity.UserId != userId)
+            throw new DomainException(OutcomeCode.NotFound, "Certificate not found.");
         return await ledger.GetPdfAsync(certificateId, cancellationToken);
     }
 
-    private int RequireMember()
+    private int RequireActor()
     {
         if (!actor.IsAuthenticated)
         {
@@ -114,18 +113,16 @@ public sealed class MyCertificatesService(
         }
 
         int userId;
-        string role;
         try
         {
             userId = actor.UserId;
-            role = actor.Role;
         }
         catch (InvalidOperationException)
         {
             throw new DomainException(OutcomeCode.Forbidden, "You do not have permission to view these certificates.");
         }
 
-        if (userId <= 0 || !string.Equals(role, RoleCodes.Member, StringComparison.Ordinal))
+        if (userId <= 0)
         {
             throw new DomainException(OutcomeCode.Forbidden, "You do not have permission to view these certificates.");
         }

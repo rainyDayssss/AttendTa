@@ -21,11 +21,13 @@ namespace ASI.Basecode.Services.Services;
 /// </summary>
 public sealed class ParticipationReportService : IParticipationReportService
 {
+    private readonly ListReadOptions _readOptions;
     private readonly IEventRepository _events;
     private readonly IParticipationReportRepository _reports;
 
-    public ParticipationReportService(IEventRepository events, IParticipationReportRepository reports)
+    public ParticipationReportService(IEventRepository events, IParticipationReportRepository reports, ListReadOptions readOptions = null)
     {
+        _readOptions = readOptions;
         _events = events;
         _reports = reports;
     }
@@ -63,11 +65,15 @@ public sealed class ParticipationReportService : IParticipationReportService
         var attendees = snapshot.Where(IsValidAttendee).ToList();
 
         // The count is the pager's total, so it covers the full dataset and never depends on the page.
-        var pageRequest = new PageRequest(page);
-        var pageNumber = pageRequest.NormalizePageNumber(snapshot.Count);
-        var rows = snapshot
+        var filtered = snapshot.Where(row => string.IsNullOrWhiteSpace(_readOptions?.Search) || row.MemberName.Contains(_readOptions.Search, StringComparison.OrdinalIgnoreCase) || row.StudentNumber.Contains(_readOptions.Search, StringComparison.OrdinalIgnoreCase))
+            .Where(row => string.IsNullOrWhiteSpace(_readOptions?.Filter) || string.Equals(row.Status.ToString(), _readOptions.Filter, StringComparison.OrdinalIgnoreCase))
+            .Where(row => _readOptions?.Type != "attended" || IsValidAttendee(row))
+            .Where(row => _readOptions?.Type != "not-attended" || !IsValidAttendee(row)).ToList();
+        var pageRequest = new PageRequest(page, _readOptions?.PageSize);
+        var pageNumber = pageRequest.NormalizePageNumber(filtered.Count);
+        var rows = filtered
             .Skip(pageRequest.GetOffset(pageNumber))
-            .Take(PageRequest.FixedPageSize)
+            .Take(PageRequest.NormalizeSize(_readOptions?.PageSize))
             .ToList();
 
         return new ParticipationReportViewModel
@@ -93,7 +99,8 @@ public sealed class ParticipationReportService : IParticipationReportService
             CourseBreakdown = CourseBreakdown(attendees),
             YearBreakdown = YearBreakdown(attendees),
             PageNumber = pageNumber,
-            TotalCount = snapshot.Count
+            PageSize = PageRequest.NormalizeSize(_readOptions?.PageSize),
+            TotalCount = filtered.Count
         };
     }
 

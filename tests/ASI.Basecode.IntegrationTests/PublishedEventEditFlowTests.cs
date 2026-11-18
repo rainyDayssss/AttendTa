@@ -95,7 +95,9 @@ public sealed class PublishedEventEditFlowTests(SqlServerDatabaseFixture fixture
         {
             var fail = Values("Must roll back");
             fail["__RequestVerificationToken"] = token;
-            Assert.Equal(HttpStatusCode.InternalServerError, (await officer.PostAsync("/Event/Edit", EventDraftTestSupport.Form(fail), ct)).StatusCode);
+            var response = await officer.PostAsync("/Event/Edit", EventDraftTestSupport.Form(fail), ct);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Contains("The save could not be confirmed", await response.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
         }
         finally
         {
@@ -110,7 +112,9 @@ public sealed class PublishedEventEditFlowTests(SqlServerDatabaseFixture fixture
         {
             var fail = Values("Reject event update");
             fail["__RequestVerificationToken"] = token;
-            Assert.Equal(HttpStatusCode.InternalServerError, (await officer.PostAsync("/Event/Edit", EventDraftTestSupport.Form(fail), ct)).StatusCode);
+            var response = await officer.PostAsync("/Event/Edit", EventDraftTestSupport.Form(fail), ct);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Contains("The save could not be confirmed", await response.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
         }
         finally
         {

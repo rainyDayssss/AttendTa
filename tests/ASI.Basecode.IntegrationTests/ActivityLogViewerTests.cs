@@ -66,7 +66,7 @@ public sealed class ActivityLogViewerTests : IClassFixture<SqlServerDatabaseFixt
         await SignInAsync(adminClient, adminEmail);
 
         var empty = await adminClient.GetStringAsync("/admin/auditlogs", TestContext.Current.CancellationToken);
-        Assert.Contains("No activity has been recorded yet.", empty, StringComparison.Ordinal);
+        Assert.Contains("No matching activity.", empty, StringComparison.Ordinal);
         Assert.DoesNotContain("aria-label=\"Pagination\"", empty, StringComparison.Ordinal);
 
         var logIds = await SeedActivityLogsAsync(adminEmail);
@@ -75,10 +75,9 @@ public sealed class ActivityLogViewerTests : IClassFixture<SqlServerDatabaseFixt
         var firstPage = await firstPageResponse.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         var firstPageIds = ExtractLogIds(firstPage);
 
-        Assert.Equal(25, firstPageIds.Length);
-        Assert.Equal(logIds.Take(25), firstPageIds);
-        Assert.Contains("2026-11-05 20:35 Asia/Manila", firstPage, StringComparison.Ordinal);
-        Assert.Contains("2026-11-05 20:30 Asia/Manila", firstPage, StringComparison.Ordinal);
+        Assert.Equal(5, firstPageIds.Length);
+        Assert.Equal(logIds.Take(5), firstPageIds);
+        Assert.Contains("2026-11-05 08:35 PM", firstPage, StringComparison.Ordinal);
         Assert.Contains("Activity Log Admin", firstPage, StringComparison.Ordinal);
         Assert.Contains("User", firstPage, StringComparison.Ordinal);
         Assert.Contains("System process", firstPage, StringComparison.Ordinal);
@@ -86,25 +85,26 @@ public sealed class ActivityLogViewerTests : IClassFixture<SqlServerDatabaseFixt
         Assert.Contains("audit.test.action.26", firstPage, StringComparison.Ordinal);
         Assert.Contains("test_entities", firstPage, StringComparison.Ordinal);
         Assert.Contains("Reason for audit entry 26", firstPage, StringComparison.Ordinal);
-        Assert.Contains("Page 1 of 2", firstPage, StringComparison.Ordinal);
+        Assert.Contains("Page 1 of 6", firstPage, StringComparison.Ordinal);
         Assert.Contains("aria-label=\"Next page\"", firstPage, StringComparison.Ordinal);
-        Assert.DoesNotContain("Edit", firstPage, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("href=\"/ActivityLog/Edit", firstPage, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Delete", firstPage, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("asp-action=\"", firstPage, StringComparison.Ordinal);
-        var lastPage = await adminClient.GetStringAsync("/admin/auditlogs?page=2", TestContext.Current.CancellationToken);
+        var lastPage = await adminClient.GetStringAsync("/admin/auditlogs?page=6", TestContext.Current.CancellationToken);
+        Assert.Contains("2026-11-05 08:30 PM", lastPage, StringComparison.Ordinal);
         Assert.Equal(logIds.Skip(25), ExtractLogIds(lastPage));
-        Assert.Contains("Page 2 of 2", lastPage, StringComparison.Ordinal);
+        Assert.Contains("Page 6 of 6", lastPage, StringComparison.Ordinal);
         Assert.Contains("aria-label=\"Previous page\"", lastPage, StringComparison.Ordinal);
         Assert.DoesNotContain("aria-label=\"Next page\"", lastPage, StringComparison.Ordinal);
 
         var outOfRange = await adminClient.GetStringAsync("/admin/auditlogs?page=999999999", TestContext.Current.CancellationToken);
-        Assert.Contains("Page 2 of 2", outOfRange, StringComparison.Ordinal);
+        Assert.Contains("Page 6 of 6", outOfRange, StringComparison.Ordinal);
         Assert.Equal(logIds.Skip(25), ExtractLogIds(outOfRange));
 
         foreach (var invalidPage in new[] { "not-a-number", "0", "-1", "2147483648" })
         {
             var invalid = await adminClient.GetStringAsync($"/admin/auditlogs?page={invalidPage}", TestContext.Current.CancellationToken);
-            Assert.Contains("Page 1 of 2", invalid, StringComparison.Ordinal);
+            Assert.Contains("Page 1 of 6", invalid, StringComparison.Ordinal);
         }
     }
 
@@ -128,7 +128,7 @@ public sealed class ActivityLogViewerTests : IClassFixture<SqlServerDatabaseFixt
         await using var context = new AsiBasecodeDBContext(options);
         context.Users.Add(new User
         {
-            UserId = email,
+            Email = email,
             Name = name,
             Password = hasher.Hash(password),
             RoleId = role,
@@ -143,7 +143,7 @@ public sealed class ActivityLogViewerTests : IClassFixture<SqlServerDatabaseFixt
         await using var context = new AsiBasecodeDBContext(options);
         var adminUserId = await context.Users
             .AsNoTracking()
-            .Where(user => user.UserId == adminEmailForLookup)
+            .Where(user => user.Email == adminEmailForLookup)
             .Select(user => user.Id)
             .SingleAsync(TestContext.Current.CancellationToken);
         var olderOccurredAt = new DateTime(2026, 11, 5, 12, 30, 0, DateTimeKind.Utc);

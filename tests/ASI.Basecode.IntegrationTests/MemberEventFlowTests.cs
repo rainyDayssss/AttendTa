@@ -76,8 +76,8 @@ public sealed class MemberEventBrowsingFlowTests(SqlServerDatabaseFixture fixtur
         await MemberEventTestSupport.SignInAsync(client, memberEmail, password, ct);
 
         var firstPage = await client.GetStringAsync("/Events", ct);
-        Assert.Contains("Page 1 of 2", firstPage, StringComparison.Ordinal);
-        Assert.Contains("2099-12-01 09:00 Asia/Manila", firstPage, StringComparison.Ordinal);
+        Assert.Contains("Page 1 of 6", firstPage, StringComparison.Ordinal);
+        Assert.Contains("2099-12-01 09:00 AM", firstPage, StringComparison.Ordinal);
         Assert.DoesNotContain("Draft event", firstPage, StringComparison.Ordinal);
         Assert.DoesNotContain("Cancelled event", firstPage, StringComparison.Ordinal);
         Assert.DoesNotContain($"data-event-id=\"{draft.EventId}\"", firstPage, StringComparison.Ordinal);
@@ -86,18 +86,19 @@ public sealed class MemberEventBrowsingFlowTests(SqlServerDatabaseFixture fixtur
         Assert.Contains("aria-current=\"page\"", firstPage, StringComparison.Ordinal);
 
         var firstPageIds = EventIds(firstPage);
-        Assert.Equal(25, firstPageIds.Length);
+        Assert.Equal(5, firstPageIds.Length);
         Assert.Equal(
-            published.OrderBy(item => item.StartsAt).ThenBy(item => item.EventId).Take(25).Select(item => item.EventId),
+            published.OrderBy(item => item.StartsAt).ThenBy(item => item.EventId).Take(5).Select(item => item.EventId),
             firstPageIds);
 
-        var secondPage = await client.GetStringAsync("/Events?page=2", ct);
-        Assert.Contains("Page 2 of 2", secondPage, StringComparison.Ordinal);
-        Assert.Equal(3, EventIds(secondPage).Length);
+        var secondPage = await client.GetStringAsync("/Events?page=6", ct);
+        Assert.Contains("Page 6 of 6", secondPage, StringComparison.Ordinal);
+        Assert.Equal(2, EventIds(secondPage).Length);
         Assert.Contains("Closed event", secondPage, StringComparison.Ordinal);
         Assert.Contains("Signup closed", secondPage, StringComparison.Ordinal);
-        Assert.Contains($"data-event-id=\"{completed.EventId}\"", secondPage, StringComparison.Ordinal);
-        Assert.Contains("Completed", secondPage, StringComparison.Ordinal);
+        Assert.DoesNotContain($"data-event-id=\"{completed.EventId}\"", secondPage, StringComparison.Ordinal);
+        var completedPage = await client.GetStringAsync("/Events?filter=Completed", ct);
+        Assert.Equal(new[] { completed.EventId }, EventIds(completedPage));
 
         foreach (var invalidPage in new[] { "0", "-1", "not-a-number" })
         {
@@ -106,9 +107,9 @@ public sealed class MemberEventBrowsingFlowTests(SqlServerDatabaseFixture fixtur
         }
 
         var pastEnd = await client.GetStringAsync("/Events?page=999999999", ct);
-        Assert.Equal(3, EventIds(pastEnd).Length);
+        Assert.Equal(2, EventIds(pastEnd).Length);
         Assert.Contains($"data-event-id=\"{closed.EventId}\"", pastEnd, StringComparison.Ordinal);
-        Assert.Contains($"data-event-id=\"{completed.EventId}\"", pastEnd, StringComparison.Ordinal);
+        Assert.DoesNotContain($"data-event-id=\"{completed.EventId}\"", pastEnd, StringComparison.Ordinal);
     }
 
     private static int[] EventIds(string html) =>
@@ -183,7 +184,7 @@ public sealed class MemberEventEmptyFeedTests(SqlServerDatabaseFixture fixture) 
         await MemberEventTestSupport.SignInAsync(client, memberEmail, password, ct);
 
         var page = await client.GetStringAsync("/Events", ct);
-        Assert.Contains("No published events are available yet.", page, StringComparison.Ordinal);
+        Assert.Contains("No matching active events.", page, StringComparison.Ordinal);
         Assert.DoesNotContain("data-event-id=", page, StringComparison.Ordinal);
         Assert.DoesNotContain("Draft only event", page, StringComparison.Ordinal);
     }
@@ -212,7 +213,7 @@ public sealed class MemberEventRegistrationFlowTests(SqlServerDatabaseFixture fi
 
         var detail = await client.GetStringAsync($"/MemberEvents/Details?id={eventItem.EventId}", ct);
         Assert.Contains("Submit registration", detail, StringComparison.Ordinal);
-        Assert.Contains("2099-12-10 09:00 Asia/Manila", detail, StringComparison.Ordinal);
+        Assert.Contains("2099-12-10 09:00 AM", detail, StringComparison.Ordinal);
 
         var token = await MemberEventTestSupport.AntiforgeryTokenAsync(client, $"/MemberEvents/Details?id={eventItem.EventId}", ct);
         var submitted = await client.PostAsync($"/MemberEvents/Register?id={eventItem.EventId}",
@@ -493,6 +494,14 @@ public sealed class MemberEventRegistrationFlowTests(SqlServerDatabaseFixture fi
             MemberEventTestSupport.Form(new() { ["__RequestVerificationToken"] = token }), ct);
         Assert.Equal(HttpStatusCode.Redirect, submitted.StatusCode);
 
+        var history = await client.GetStringAsync("/MyEvents/Registrations", ct);
+        Assert.Contains($"Role event {role}", history, StringComparison.Ordinal);
+        Assert.DoesNotContain("A linked member profile is needed", history, StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/MyEvents/Attendance", ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/MyEvents/Certificates", ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/Passes", ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Redirect, (await client.GetAsync("/Profile", ct)).StatusCode);
+
         await using var context = MemberEventTestSupport.Context(fixture.ConnectionString);
         Assert.Equal(1, await context.Registrations.CountAsync(row => row.EventId == eventItem.EventId, ct));
     }
@@ -532,7 +541,7 @@ public sealed class MemberEventDeadlineFlowTests(SqlServerDatabaseFixture fixtur
         var detailUrl = $"/MemberEvents/Details?id={eventItem.EventId}";
         var detail = await staleClient.GetStringAsync(detailUrl, ct);
         Assert.Contains("Submit registration", detail, StringComparison.Ordinal);
-        Assert.Contains("2026-11-06 20:00 Asia/Manila", detail, StringComparison.Ordinal);
+        Assert.Contains("2026-11-06 08:00 PM", detail, StringComparison.Ordinal);
         var staleToken = await MemberEventTestSupport.AntiforgeryTokenAsync(staleClient, detailUrl, ct);
         var earlyToken = await MemberEventTestSupport.AntiforgeryTokenAsync(earlyClient, detailUrl, ct);
         var earlyResponse = await earlyClient.PostAsync($"/MemberEvents/Register?id={eventItem.EventId}",
@@ -561,9 +570,9 @@ public sealed class MemberEventDeadlineFlowTests(SqlServerDatabaseFixture fixtur
         Assert.True(card.Success, "The published event must remain in the feed.");
         Assert.Contains("Signup closed", card.Value, StringComparison.Ordinal);
         Assert.Contains("Signup deadline", card.Value, StringComparison.Ordinal);
-        Assert.Contains("2026-11-06 20:00 Asia/Manila", card.Value, StringComparison.Ordinal);
+        Assert.Contains("2026-11-06 08:00 PM", card.Value, StringComparison.Ordinal);
         var closedDetail = await staleClient.GetStringAsync(detailUrl, ct);
-        Assert.Contains("Signup closed on 2026-11-06 20:00 Asia/Manila", closedDetail, StringComparison.Ordinal);
+        Assert.Contains("Signup closed on 2026-11-06 08:00 PM", closedDetail, StringComparison.Ordinal);
         Assert.DoesNotContain("Submit registration", closedDetail, StringComparison.Ordinal);
 
         await using var context = MemberEventTestSupport.Context(fixture.ConnectionString);
@@ -894,6 +903,7 @@ public sealed class MemberEventRegistrationPersistenceTests(SqlServerDatabaseFix
         public Task<bool> HasIssuedCertificateForEventAsync(int eventId, CancellationToken ct = default) => inner.HasIssuedCertificateForEventAsync(eventId, ct);
         public Task<int> CountReviewQueueAsync(RegistrationStatusCode status, int? eventId, CancellationToken ct = default) => inner.CountReviewQueueAsync(status, eventId, ct);
         public Task<IReadOnlyList<RegistrationReviewRow>> GetReviewQueueAsync(RegistrationStatusCode status, int? eventId, int offset, int limit, CancellationToken ct = default) => inner.GetReviewQueueAsync(status, eventId, offset, limit, ct);
+        public Task<IReadOnlyList<RegistrationSummary>> GetSummariesAsync(IReadOnlyCollection<int> registrationIds, CancellationToken ct = default) => inner.GetSummariesAsync(registrationIds, ct);
         public Task<IReadOnlyList<MyPassRow>> GetMyPassRowsAsync(int userId, CancellationToken ct = default) => inner.GetMyPassRowsAsync(userId, ct);
         public Task<OwnedPassRow> GetOwnedPassAsync(int registrationId, int userId, CancellationToken ct = default) => inner.GetOwnedPassAsync(registrationId, userId, ct);
         public Task<int?> FindConfirmedRegistrationIdByTokenAsync(int eventId, string token, CancellationToken ct = default) => inner.FindConfirmedRegistrationIdByTokenAsync(eventId, token, ct);
@@ -1006,7 +1016,7 @@ internal static class MemberEventTestSupport
         await using var context = Context(connectionString);
         var user = new User
         {
-            UserId = email,
+            Email = email,
             Name = $"Member event {role}",
             Password = hasher.Hash(password),
             RoleId = role,

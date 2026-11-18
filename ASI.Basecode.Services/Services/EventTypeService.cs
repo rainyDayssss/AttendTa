@@ -1,3 +1,4 @@
+using ASI.Basecode.Data.Queries;
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Resources;
@@ -14,6 +15,7 @@ namespace ASI.Basecode.Services.Services
 {
     public class EventTypeService : IEventTypeService
     {
+        private readonly ListReadOptions _readOptions;
         private readonly IEventTypeRepository _repository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly TimeProvider _timeProvider;
@@ -21,8 +23,9 @@ namespace ASI.Basecode.Services.Services
         private readonly IActivityLogWriter _audit;
         private readonly ICurrentActor _actor;
 
-        public EventTypeService(IEventTypeRepository repository, IUnitOfWork unitOfWork, IMapper mapper, TimeProvider timeProvider, IActivityLogWriter audit, ICurrentActor actor)
+        public EventTypeService(IEventTypeRepository repository, IUnitOfWork unitOfWork, IMapper mapper, TimeProvider timeProvider, IActivityLogWriter audit, ICurrentActor actor, ListReadOptions readOptions = null)
         {
+            _readOptions = readOptions;
             _repository = repository;
             _unitOfWork = unitOfWork;
             _timeProvider = timeProvider;
@@ -34,15 +37,15 @@ namespace ASI.Basecode.Services.Services
         public async Task<PagedResult<EventTypeViewModel>> GetPageAsync(string status, int? page, CancellationToken cancellationToken = default)
         {
             var totalCount = await _repository.CountEventTypesAsync(status, cancellationToken);
-            var pageRequest = new PageRequest(page);
+            var pageRequest = new PageRequest(page, _readOptions?.PageSize);
             var normalizedPage = pageRequest.NormalizePageNumber(totalCount);
             var eventTypes = await _repository.GetEventTypesPageAsync(
                 status,
                 pageRequest.GetOffset(normalizedPage),
-                PageRequest.FixedPageSize,
+                PageRequest.NormalizeSize(_readOptions?.PageSize),
                 cancellationToken);
             var items = _mapper.Map<List<EventTypeViewModel>>(eventTypes);
-            return new PagedResult<EventTypeViewModel>(items, normalizedPage, totalCount);
+            return new PagedResult<EventTypeViewModel>(items, normalizedPage, totalCount, PageRequest.NormalizeSize(_readOptions?.PageSize));
         }
 
         public EventTypeViewModel GetEventType(int id)

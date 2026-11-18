@@ -81,7 +81,9 @@ Certificate PDF cases also need Playwright Chromium and Poppler; see
 
 ## Demo
 
-From a fresh clone to the running demo build: see [docs/demo-quickstart.md](docs/demo-quickstart.md).
+For the packaged demo and first-time setup, see [docs/demo-bundle-setup.md](docs/demo-bundle-setup.md).
+Demo credentials are provided separately and are not included in the public package.
+For source setup, see [docs/demo-quickstart.md](docs/demo-quickstart.md).
 
 ## Code structure
 

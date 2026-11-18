@@ -17,6 +17,34 @@ namespace ASI.Basecode.IntegrationTests;
 public sealed class CheckInWindowFlagTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
 {
     [Fact]
+    public async Task CheckInPageRendersHiddenCameraFormAndManualFallback()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var password = MemberEventTestSupport.NewPassword();
+        var officer = await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString,
+            $"scanner-{Guid.NewGuid():N}@example.invalid", password, RoleCode.Officer, ct);
+        var (typeId, venueId) = await MemberEventTestSupport.SeedReferencesAsync(fixture.ConnectionString, officer.Id, ct);
+        var published = await MemberEventTestSupport.SeedEventAsync(fixture.ConnectionString, officer.Id, typeId, venueId,
+            EventStatusCode.Published, DateTime.UtcNow.AddDays(7), DateTime.UtcNow.AddDays(6), 20, null, "Scanner markup event", ct);
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        await MemberEventTestSupport.SignInAsync(client, officer.Email, password, ct);
+
+        using var response = await client.GetAsync($"/CheckIn?eventId={published.EventId}", ct);
+        var html = await response.Content.ReadAsStringAsync(ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("data-scanner-mode=\"camera\"", html);
+        Assert.Contains("data-scanner-mode=\"manual\"", html);
+        Assert.DoesNotContain("data-scanner-mode=\"code\"", html);
+        Assert.DoesNotContain("id=\"scan-token\"", html);
+        Assert.Matches("(?s)<form\\b(?=[^>]*data-scan-form)(?=[^>]*\\bhidden\\b)(?=[^>]*action=\"/CheckIn/Scan\")(?=[^>]*method=\"post\")[^>]*>.*?name=\"eventId\" value=\"" + published.EventId + "\".*?name=\"__RequestVerificationToken\".*?</form>", html);
+        Assert.Contains("id=\"panel-manual\"", html);
+        Assert.Contains("name=\"q\"", html);
+        Assert.DoesNotContain("id=\"panel-manual\" class=\"scanner-panel\" role=\"tabpanel\" aria-labelledby=\"mode-manual\" hidden", html);
+    }
+
+    [Fact]
     public async Task ScannerAndManualLookupReadTheRealCheckInFlag()
     {
         var ct = TestContext.Current.CancellationToken;

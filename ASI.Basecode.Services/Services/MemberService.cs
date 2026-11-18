@@ -1,3 +1,4 @@
+using ASI.Basecode.Data.Queries;
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
@@ -16,6 +17,7 @@ namespace ASI.Basecode.Services.Services
 {
     public class MemberService : IMemberService
     {
+        private readonly ListReadOptions _readOptions;
         private readonly IMemberRepository _repository;
         private readonly IUserRepository _userRepository;
         private readonly IUnitOfWork _unitOfWork;
@@ -29,8 +31,9 @@ namespace ASI.Basecode.Services.Services
             IUnitOfWork unitOfWork,
             TimeProvider timeProvider,
             ICurrentActor currentActor,
-            IActivityLogWriter audit)
+            IActivityLogWriter audit, ListReadOptions readOptions = null)
         {
+            _readOptions = readOptions;
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
             _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
@@ -42,16 +45,30 @@ namespace ASI.Basecode.Services.Services
         public async Task<PagedResult<MemberViewModel>> GetPageAsync(string search, string status, int? pageNumber, CancellationToken cancellationToken = default)
         {
             var totalCount = await _repository.CountAsync(search, status, cancellationToken);
-            var request = new PageRequest(pageNumber);
+            var request = new PageRequest(pageNumber, _readOptions?.PageSize);
             var page = request.NormalizePageNumber(totalCount);
-            var records = await _repository.GetPageAsync(search, status, request.GetOffset(page), PageRequest.FixedPageSize, cancellationToken);
-            return new PagedResult<MemberViewModel>(records.Select(ToViewModel).ToList(), page, totalCount);
+            var records = await _repository.GetPageAsync(search, status, request.GetOffset(page), PageRequest.NormalizeSize(_readOptions?.PageSize), cancellationToken);
+            return new PagedResult<MemberViewModel>(records.Select(ToViewModel).ToList(), page, totalCount, PageRequest.NormalizeSize(_readOptions?.PageSize));
         }
 
         public async Task<MemberViewModel> GetMemberAsync(int id, CancellationToken cancellationToken = default)
         {
             var member = await _repository.GetMemberRecordAsync(id, cancellationToken);
             return member == null ? null : ToViewModel(member);
+        }
+
+        public async Task<MemberViewModel> GetMemberEditorAsync(int id, CancellationToken cancellationToken = default)
+        {
+            RequireManagementActor();
+            return await _unitOfWork.ExecuteInTransactionAsync(async ct =>
+            {
+                var initial = await _repository.GetMemberRecordAsync(id, ct);
+                if (initial == null) return null;
+                var user = await _userRepository.LockUserAsync(initial.UserId, ct);
+                if (user == null) return null;
+                var current = await _repository.GetMemberRecordAsync(id, ct);
+                return current == null || current.UserId != user.Id ? null : ToViewModel(current);
+            }, cancellationToken);
         }
 
         public async Task<MemberViewModel> GetSelfProfileAsync(CancellationToken cancellationToken = default)
@@ -70,6 +87,9 @@ namespace ASI.Basecode.Services.Services
             return ToViewModel(member);
         }
 
+        public Task<bool> HasMemberProfileAsync(int userId, CancellationToken cancellationToken = default) =>
+            _repository.UserHasMemberProfileAsync(userId, cancellationToken);
+
         public async Task CreateMemberFromApprovedAccountRequestAsync(int userId, MemberViewModel model, CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(model);
@@ -79,7 +99,7 @@ namespace ASI.Basecode.Services.Services
                 throw new DomainException(OutcomeCode.Invalid, "A valid linked user is required to create a member.");
             }
 
-            Normalize(model);
+            model.Normalize();
             Validate(model);
 
             await _unitOfWork.ExecuteInTransactionAsync(async ct =>
@@ -126,13 +146,14 @@ namespace ASI.Basecode.Services.Services
             }, cancellationToken);
         }
 
-        public async Task UpdateMemberAsync(MemberViewModel model, CancellationToken cancellationToken = default)
+        public async Task<bool> UpdateMemberAsync(MemberViewModel model, CancellationToken cancellationToken = default, MemberEditSnapshot original = null)
         {
             ArgumentNullException.ThrowIfNull(model);
             var verifiedActorId = RequireManagementActor();
-            Normalize(model);
+            model.Normalize();
 
-            await _unitOfWork.ExecuteInTransactionAsync(async ct =>
+            _repository.EnsureMemberCanRefresh(model.MemberId);
+            return await _unitOfWork.ExecuteInTransactionAsync(async ct =>
             {
                 var memberRecord = await _repository.GetMemberRecordAsync(model.MemberId, ct);
                 if (memberRecord == null)
@@ -146,14 +167,17 @@ namespace ASI.Basecode.Services.Services
                     throw new DomainException(OutcomeCode.NotFound, "The linked account was not found.");
                 }
 
-                var member = await _repository.GetMemberAsync(model.MemberId, ct);
+                var member = await _repository.GetMemberForEditAsync(model.MemberId, ct);
                 if (member == null)
                 {
                     throw new DomainException(OutcomeCode.NotFound, "Member not found.");
                 }
 
+                if (original == null || member.UserId != user.Id || original != MemberEditSnapshot.FromEntities(member, user.Name))
+                    throw new DomainException(OutcomeCode.Stale, "This form is out of date or could not be verified.");
+
                 Validate(model);
-                var correctingStudentNumber = !string.Equals(member.StudentNumber, model.StudentNumber, StringComparison.Ordinal);
+                var correctingStudentNumber = !string.Equals(member.StudentNumber?.Trim(), model.StudentNumber, StringComparison.Ordinal);
                 var reason = string.IsNullOrWhiteSpace(model.StudentNumberCorrectionReason)
                     ? null
                     : model.StudentNumberCorrectionReason.Trim();
@@ -168,11 +192,22 @@ namespace ASI.Basecode.Services.Services
                     throw new DomainException(OutcomeCode.Duplicate, "Student number already exists.", nameof(MemberViewModel.StudentNumber));
                 }
 
+                if (!correctingStudentNumber
+                    && string.Equals(ProfileOptions.NormalizeName(user.Name), model.FullName, StringComparison.Ordinal)
+                    && string.Equals(ProfileOptions.NormalizeCourse(member.Course), model.Course, StringComparison.Ordinal)
+                    && member.YearLevel == model.YearLevel
+                    && string.Equals(ProfileOptions.NormalizeSection(member.Section), model.Section, StringComparison.Ordinal)
+                    && string.Equals(NormalizeOptional(member.MobileNumber), model.MobileNumber, StringComparison.Ordinal)
+                    && string.Equals(NormalizeOptional(member.MembershipType), model.MembershipType, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
                 var oldValues = Snapshot(member, user.Name);
                 user.Name = model.FullName;
                 user.UpdatedById = verifiedActorId;
                 user.UpdatedTime = _timeProvider.GetUtcNow().UtcDateTime;
-                member.StudentNumber = model.StudentNumber;
+                if (correctingStudentNumber) member.StudentNumber = model.StudentNumber;
                 member.Course = model.Course;
                 member.YearLevel = model.YearLevel;
                 member.Section = model.Section;
@@ -191,6 +226,7 @@ namespace ASI.Basecode.Services.Services
                     OldValues: oldValues,
                     NewValues: Snapshot(member, user.Name)));
                 await _unitOfWork.SaveChangesAsync(ct);
+                return true;
             }, cancellationToken);
         }
 
@@ -221,18 +257,8 @@ namespace ASI.Basecode.Services.Services
             return actorId;
         }
 
-        private static void Normalize(MemberViewModel model)
-        {
-            model.FullName = model.FullName?.Trim();
-            model.StudentNumber = model.StudentNumber?.Trim();
-            model.Course = model.Course?.Trim();
-            model.Section = model.Section?.Trim();
-            model.MobileNumber = string.IsNullOrWhiteSpace(model.MobileNumber) ? null : model.MobileNumber.Trim();
-            model.MembershipType = string.IsNullOrWhiteSpace(model.MembershipType) ? null : model.MembershipType.Trim();
-            model.StudentNumberCorrectionReason = string.IsNullOrWhiteSpace(model.StudentNumberCorrectionReason)
-                ? null
-                : model.StudentNumberCorrectionReason.Trim();
-        }
+        private static string NormalizeOptional(string value) =>
+            string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
         private static void Validate(MemberViewModel model)
         {
@@ -276,7 +302,7 @@ namespace ASI.Basecode.Services.Services
                 FullName = member.FullName,
                 Email = member.Email,
                 StudentNumber = member.StudentNumber,
-                Course = member.Course,
+                Course = ProfileOptions.NormalizeCourse(member.Course),
                 YearLevel = member.YearLevel,
                 Section = member.Section,
                 MobileNumber = member.MobileNumber,

@@ -1,7 +1,7 @@
 @model MyEventsRegistrationsTabViewModel
 @if (Model.Cards.Count > 0)
 {
-    <div class="registration-list">
+    <div class="registration-list" data-paging-grid>
         @foreach (var card in Model.Cards)
         {
             <article class="registration-row" data-registration-id="@card.RegistrationId">

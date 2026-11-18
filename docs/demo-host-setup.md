@@ -1,5 +1,10 @@
 # Demo host provisioning and readiness
 
+> **Release #269 blocked:** The private-credential scenario provisioning and packaged
+> release are not yet available. This document does not establish their readiness; see
+> [release verification](release-269-verification.md). Do not run the historical scenario
+> seed against an existing database.
+
 This is a host-specific procedure, not evidence that a host is ready. Use a dedicated,
 isolated demo machine and SQL Server instance only; never use a shared or production system.
 Do not reset, replace, or reuse an existing database. Stop if `AttendTa_Demo` already exists.

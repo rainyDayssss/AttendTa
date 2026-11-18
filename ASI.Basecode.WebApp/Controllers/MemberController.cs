@@ -3,6 +3,7 @@ using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.WebApp.Mvc;
+using ASI.Basecode.WebApp.Authentication;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -21,6 +22,7 @@ namespace ASI.Basecode.WebApp.Controllers
         private readonly IMemberService _memberService;
         private readonly IAccessDialogService _accessDialogService;
         private readonly IMembershipAccessCommands _membershipAccessCommands;
+        private readonly MemberEditSnapshotProtector _snapshotProtector;
 
         private bool IsRecordDialog => Request.Headers["X-Record-Dialog"] == "true";
 
@@ -31,6 +33,12 @@ namespace ASI.Basecode.WebApp.Controllers
 
         private IActionResult EditorError(DomainException exception, MemberViewModel model)
         {
+            if (exception.Outcome == OutcomeCode.Stale)
+            {
+                ViewData["MemberEditConflict"] = true;
+                ModelState.AddModelError(string.Empty, exception.Message);
+                return Editor(model);
+            }
             if (!IsRecordDialog) return HandleDomainException(exception, model, "Index");
             ModelState.AddModelError(exception.Field ?? string.Empty, exception.Message);
             return Editor(model);
@@ -42,11 +50,13 @@ namespace ASI.Basecode.WebApp.Controllers
                                 IMapper mapper,
                                 IMemberService memberService,
                                 IAccessDialogService accessDialogService,
-                                IMembershipAccessCommands membershipAccessCommands) : base(httpContextAccessor, loggerFactory, configuration, mapper)
+                                 IMembershipAccessCommands membershipAccessCommands,
+                                 MemberEditSnapshotProtector snapshotProtector) : base(httpContextAccessor, loggerFactory, configuration, mapper)
         {
             _memberService = memberService;
             _accessDialogService = accessDialogService;
             _membershipAccessCommands = membershipAccessCommands;
+            _snapshotProtector = snapshotProtector;
         }
 
         [HttpGet]
@@ -131,19 +141,35 @@ namespace ASI.Basecode.WebApp.Controllers
         [Route("Member/Edit/{id:int}")]
         public async Task<IActionResult> Edit(int id)
         {
-            var model = await _memberService.GetMemberAsync(id, HttpContext.RequestAborted);
+            var model = await _memberService.GetMemberEditorAsync(id, HttpContext.RequestAborted);
             if (model == null)
             {
                 if (IsRecordDialog) return NotFound();
                 return RedirectToAction("Index");
             }
 
+            model.EditVersion = _snapshotProtector.Protect(MemberEditSnapshot.FromModel(model));
             return Editor(model);
         }
 
         [HttpPost]
         public async Task<IActionResult> Edit(MemberViewModel model)
         {
+            model.Normalize();
+            // Only clear validation for normalized string fields; keep binding errors (for example YearLevel).
+            foreach (var field in new[] { nameof(model.FullName), nameof(model.StudentNumber), nameof(model.Course),
+                nameof(model.Section), nameof(model.MobileNumber), nameof(model.MembershipType), nameof(model.StudentNumberCorrectionReason) })
+                ModelState.ClearValidationState(field);
+            ModelState.SetModelValue(nameof(model.Course), model.Course, model.Course);
+            ModelState.SetModelValue(nameof(model.Section), model.Section, model.Section);
+            ModelState.SetModelValue(nameof(model.MembershipType), model.MembershipType, model.MembershipType);
+            TryValidateModel(model);
+            var original = _snapshotProtector.Unprotect(model.EditVersion);
+            if (original == null || original.MemberId != model.MemberId)
+            {
+                await RestoreCanonicalEmailAsync(model);
+                return EditorError(new DomainException(OutcomeCode.Stale, "This form is out of date or could not be verified."), model);
+            }
             if (!ModelState.IsValid)
             {
                 await RestoreCanonicalEmailAsync(model);
@@ -152,8 +178,9 @@ namespace ASI.Basecode.WebApp.Controllers
 
             try
             {
-                await _memberService.UpdateMemberAsync(model, HttpContext.RequestAborted);
-                TempData["SuccessMessage"] = "Member updated successfully.";
+                var changed = await _memberService.UpdateMemberAsync(model, HttpContext.RequestAborted, original);
+                if (changed) TempData["SuccessMessage"] = "Member updated successfully.";
+                else TempData["MemberUnchangedMessage"] = "No changes were made to the member.";
                 if (IsRecordDialog) return Json(new { saved = true });
                 return RedirectToAction("Index");
             }

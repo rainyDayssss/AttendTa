@@ -1,5 +1,6 @@
 using ASI.Basecode.Services.ServiceModels;
 using System.IO;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -13,10 +14,13 @@ namespace ASI.Basecode.Services.Interfaces
     public interface IEventLifecycleService
     {
         Task<PagedResult<EventViewModel>> GetPageAsync(int? pageNumber, CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<EventTypeOption>> GetTypeFilterOptionsAsync(CancellationToken cancellationToken = default);
         Task<EventViewModel> GetEventAsync(int id, CancellationToken cancellationToken = default);
         Task<EventFormOptions> GetFormOptionsAsync(CancellationToken cancellationToken = default);
         Task<int> CreateDraftAsync(EventViewModel model, CancellationToken cancellationToken = default);
         Task UpdateDraftAsync(EventViewModel model, CancellationToken cancellationToken = default);
+        Task<int> CreateDraftWithCoverAsync(EventViewModel model, Stream image, string extension, CancellationToken cancellationToken = default);
+        Task UpdateDraftWithCoverAsync(EventViewModel model, Stream image, string extension, bool removeCover, CancellationToken cancellationToken = default);
         Task PublishAsync(int eventId, CancellationToken cancellationToken = default);
         Task CancelAsync(int eventId, string reason, CancellationToken cancellationToken = default);
 

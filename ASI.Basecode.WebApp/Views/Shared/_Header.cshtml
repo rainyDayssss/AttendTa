@@ -8,45 +8,47 @@
 
     var group = controller switch
     {
-        "Home" => "Overview",
-        "MemberEvents" => "Overview",
-        "Event" or "EventCover" => "Records",
-        "Member" or "DeactivationPreview" => "Records",
-        "EventType" => "Records",
-        "Venue" => "Records",
-        "AccountRequest" or "ManagementAccountRequest" => "Records",
-        "AdminAccounts" => "Records",
-        "ActivityLog" => "Records",
-        "MyEvents" or "Passes" => "Records",
-        "CheckIn" => "Output",
-        "RegistrationReview" => "Output",
-        "CertificateLedger" or "MyCertificates" => "Output",
-        "Reports" => "Output",
-        "Profile" => "Account",
-        "Account" => "Account",
-        _ => "Overview"
+        "MyEvents" or "MyCertificates" or "Passes" => NavGroups.MyParticipation,
+        "Home" => NavGroups.Overview,
+        "MemberEvents" => NavGroups.Overview,
+        "Event" => NavGroups.Manage,
+        "Member" => NavGroups.Manage,
+        "EventType" => NavGroups.Manage,
+        "Venue" => NavGroups.Manage,
+        "AccountRequest" => NavGroups.Manage,
+        "AdminAccounts" => NavGroups.Manage,
+        "ActivityLog" => NavGroups.Manage,
+        "CheckIn" => NavGroups.Operations,
+        "RegistrationReview" => NavGroups.Operations,
+        "CertificateLedger" => NavGroups.Operations,
+        "Reports" => NavGroups.Operations,
+        // Access denied is the only Account page management can reach, and the management
+        // rail has no Account group, so the trail stops at Home rather than naming one.
+        "Account" => string.Empty,
+        // An unmapped controller gets no section rather than a fabricated one.
+        _ => string.Empty
     };
 
     var pageLabel = controller switch
     {
-        "Home" => "Home",
-        "MemberEvents" => management ? "Browse events" : "Events",
-        "Event" or "EventCover" => "Events",
-        "Member" or "DeactivationPreview" => "Members",
-        "EventType" => "Event types",
-        "Venue" => "Venues",
-        "AccountRequest" or "ManagementAccountRequest" => "Account requests",
-        "AdminAccounts" => "Accounts",
-        "ActivityLog" => "Activity log",
-        "MyEvents" => "My Events",
-        "Passes" => "My Passes",
-        "CheckIn" => "Check-in",
-        "RegistrationReview" => "Registration review",
-        "CertificateLedger" or "MyCertificates" => "Certificates",
-        "Reports" => "Reports",
-        "Profile" => "Profile",
+        "MyEvents" or "MyCertificates" => NavDestinations.MyEvents,
+        "Passes" => NavDestinations.MyPasses,
+        "Home" => NavDestinations.Home,
+        "MemberEvents" => NavDestinations.BrowseEvents,
+        "Event" => NavDestinations.Events,
+        "Member" => NavDestinations.Members,
+        "EventType" => NavDestinations.EventTypes,
+        "Venue" => NavDestinations.Venues,
+        "AccountRequest" => NavDestinations.AccountRequests,
+        "AdminAccounts" => NavDestinations.Accounts,
+        "ActivityLog" => NavDestinations.ActivityLog,
+        "CheckIn" => NavDestinations.CheckIn,
+        "RegistrationReview" => NavDestinations.RegistrationReview,
+        "CertificateLedger" => NavDestinations.Certificates,
+        "Reports" => NavDestinations.Reports,
         "Account" => action == "AccessDenied" ? "Access denied" : "Account",
-        _ => "Home"
+        // An unmapped controller is named as itself, never presented as Home.
+        _ => controller
     };
 }
 @if (authenticated && management)
@@ -66,12 +68,24 @@
     <header class="topbar management-header">
         <nav class="breadcrumb" aria-label="Breadcrumb">
             <ol>
-                <li><a asp-controller="Home" asp-action="Index">Home</a></li>
-                @if (pageLabel != "Home")
+                @if (controller == "Home" && action == "Index")
                 {
-                    <li><span>@group</span></li>
+                    @* Home is the trail's root, so it is the current page rather than a link to itself. *@
+                    <li aria-current="page">@pageLabel</li>
                 }
-                <li aria-current="page">@pageLabel</li>
+                else
+                {
+                    <li><a asp-controller="Home" asp-action="Index">@NavDestinations.Home</a></li>
+                    @* The Overview group is Home's own group, so repeating it would imply a level below Home. *@
+                    @if (!string.IsNullOrEmpty(group) && group != NavGroups.Overview)
+                    {
+                        <li><span>@group</span></li>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(pageLabel))
+                    {
+                        <li aria-current="page">@pageLabel</li>
+                    }
+                }
             </ol>
         </nav>
 

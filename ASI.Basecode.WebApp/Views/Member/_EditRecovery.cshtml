@@ -1,0 +1,5 @@
+@model MemberViewModel
+@if (ViewData["MemberEditConflict"] is true)
+{
+    <p id="@ViewData["MemberEditRecoveryId"]" class="spacing-bottom" data-record-conflict>Your input is still here. <a asp-action="Edit" asp-route-id="@Model.MemberId" target="_blank" rel="noopener">Open latest member in a new tab</a>, copy the changes you want to keep into the fresh form, then save that form.</p>
+}

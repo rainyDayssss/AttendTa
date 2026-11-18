@@ -64,7 +64,7 @@ public sealed class AdminAccountReactivationTests : IClassFixture<SqlServerDatab
         await SetQrTokenAsync(registration.RegistrationId, new string('c', 64), ct);
         var certificateId = await SeedIssuedCertificateAsync(registration.RegistrationId, eventItem, actor.Id, ct);
 
-        await MemberEventTestSupport.SignInAsync(client, actor.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(client, actor.Email, password, ct);
         const string deactivationReason = "  Account deactivated before the reactivation test.  ";
         using (var deactivated = await DeactivateThroughEndpointAsync(client, target.Id, deactivationReason, ct))
         {
@@ -117,7 +117,7 @@ public sealed class AdminAccountReactivationTests : IClassFixture<SqlServerDatab
         var actor = await SeedUserAsync(RoleCode.Admin, "signin-actor", ct);
         var target = await SeedUserAsync(RoleCode.Member, "signin-target", ct);
 
-        await MemberEventTestSupport.SignInAsync(client, actor.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(client, actor.Email, password, ct);
         using (var deactivated = await DeactivateThroughEndpointAsync(client, target.Id, "Temporary suspension.", ct))
         {
             Assert.Equal(HttpStatusCode.Redirect, deactivated.StatusCode);
@@ -127,7 +127,7 @@ public sealed class AdminAccountReactivationTests : IClassFixture<SqlServerDatab
         var token = await MemberEventTestSupport.AntiforgeryTokenAsync(targetClient, "/Account/Login", ct);
         using (var refused = await targetClient.PostAsync("/Account/Login", MemberEventTestSupport.Form(new Dictionary<string, string>
         {
-            ["Email"] = target.UserId,
+            ["Email"] = target.Email,
             ["Password"] = password,
             ["__RequestVerificationToken"] = token
         }), ct))
@@ -140,7 +140,7 @@ public sealed class AdminAccountReactivationTests : IClassFixture<SqlServerDatab
             Assert.Equal(HttpStatusCode.Redirect, reactivated.StatusCode);
         }
 
-        await MemberEventTestSupport.SignInAsync(targetClient, target.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(targetClient, target.Email, password, ct);
         using var feed = await targetClient.GetAsync("/MemberEvents", ct);
         Assert.Equal(HttpStatusCode.OK, feed.StatusCode);
     }
@@ -154,7 +154,7 @@ public sealed class AdminAccountReactivationTests : IClassFixture<SqlServerDatab
         await SetActiveAsync(inactive.Id, false, ct);
         var active = await SeedUserAsync(RoleCode.Member, "refusal-reactivate-active", ct);
 
-        await MemberEventTestSupport.SignInAsync(client, actor.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(client, actor.Email, password, ct);
 
         using (var blank = await ReactivateThroughEndpointAsync(client, inactive.Id, "   ", ct))
         {
@@ -222,7 +222,7 @@ public sealed class AdminAccountReactivationTests : IClassFixture<SqlServerDatab
             Assert.IsType<AccountAccessService>(commands);
         }
 
-        await MemberEventTestSupport.SignInAsync(client, actor.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(client, actor.Email, password, ct);
         using (var deactivated = await DeactivateThroughEndpointAsync(client, target.Id, "Deactivation through the endpoint.", ct))
         {
             Assert.Equal(HttpStatusCode.Redirect, deactivated.StatusCode);
@@ -243,7 +243,7 @@ public sealed class AdminAccountReactivationTests : IClassFixture<SqlServerDatab
         }
 
         var page = await client.GetStringAsync(
-            $"/admin/accounts?search={Uri.EscapeDataString(target.UserId)}", ct);
+            $"/admin/accounts?search={Uri.EscapeDataString(target.Email)}", ct);
         var row = AccountRow(page, target.Id);
         Assert.Contains("badge-active", row, StringComparison.Ordinal);
         Assert.Contains(">Active<", row, StringComparison.Ordinal);

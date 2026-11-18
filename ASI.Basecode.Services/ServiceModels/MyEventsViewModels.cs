@@ -59,12 +59,12 @@ public abstract class MyEventsTabPage : IPagedResult
 {
     protected MyEventsTabPage()
     {
-        PageSize = PageRequest.FixedPageSize;
+        PageSize = PageRequest.DefaultPageSize;
     }
 
-    protected MyEventsTabPage(int pageNumber, int totalCount)
+    protected MyEventsTabPage(int pageNumber, int totalCount, int pageSize)
     {
-        PageSize = PageRequest.FixedPageSize;
+        PageSize = PageRequest.NormalizeSize(pageSize);
         TotalCount = Math.Max(0, totalCount);
         TotalPages = TotalCount == 0 ? 0 : (int)(((long)TotalCount + PageSize - 1) / PageSize);
         PageNumber = TotalPages == 0 ? 1 : Math.Clamp(pageNumber, 1, TotalPages);
@@ -77,7 +77,7 @@ public abstract class MyEventsTabPage : IPagedResult
     public bool HasPreviousPage => PageNumber > 1;
     public bool HasNextPage => PageNumber < TotalPages;
     public int FirstItemNumber => TotalCount == 0 ? 0 : ((PageNumber - 1) * PageSize) + 1;
-    public int LastItemNumber => TotalCount == 0 ? 0 : Math.Min(PageNumber * PageSize, TotalCount);
+    public int LastItemNumber => TotalCount == 0 ? 0 : (int)Math.Min((long)PageNumber * PageSize, TotalCount);
 }
 
 /// <summary>My Registrations tab. Filled by the registrations surface ticket.</summary>
@@ -90,8 +90,8 @@ public sealed class MyEventsRegistrationsTabViewModel : MyEventsTabPage
     private MyEventsRegistrationsTabViewModel(
         IReadOnlyList<MyEventRegistrationCardViewModel> cards,
         int pageNumber,
-        int totalCount)
-        : base(pageNumber, totalCount)
+        int totalCount, int pageSize)
+        : base(pageNumber, totalCount, pageSize)
     {
         Cards = cards;
     }
@@ -104,7 +104,7 @@ public sealed class MyEventsRegistrationsTabViewModel : MyEventsTabPage
     public static MyEventsRegistrationsTabViewModel From(PagedResult<MyEventRegistrationCardViewModel> page) =>
         page is null
             ? Empty()
-            : new MyEventsRegistrationsTabViewModel(page.Items, page.PageNumber, page.TotalCount);
+            : new MyEventsRegistrationsTabViewModel(page.Items, page.PageNumber, page.TotalCount, page.PageSize);
 }
 
 /// <summary>One registration card. The pass slot is filled by the pass surface ticket.</summary>
@@ -176,8 +176,8 @@ public sealed class MyEventsAttendanceTabViewModel : MyEventsTabPage
     private MyEventsAttendanceTabViewModel(
         IReadOnlyList<MyEventAttendanceRowViewModel> rows,
         int pageNumber,
-        int totalCount)
-        : base(pageNumber, totalCount)
+        int totalCount, int pageSize)
+        : base(pageNumber, totalCount, pageSize)
     {
         Rows = rows;
     }
@@ -190,7 +190,7 @@ public sealed class MyEventsAttendanceTabViewModel : MyEventsTabPage
     public static MyEventsAttendanceTabViewModel From(PagedResult<MyEventAttendanceRowViewModel> page) =>
         page is null
             ? Empty()
-            : new MyEventsAttendanceTabViewModel(page.Items, page.PageNumber, page.TotalCount);
+            : new MyEventsAttendanceTabViewModel(page.Items, page.PageNumber, page.TotalCount, page.PageSize);
 }
 
 /// <summary>One attendance record in the member history.</summary>
@@ -215,8 +215,8 @@ public sealed class MyEventsCertificatesTabViewModel : MyEventsTabPage
     private MyEventsCertificatesTabViewModel(
         IReadOnlyList<MyEventCertificateRowViewModel> rows,
         int pageNumber,
-        int totalCount)
-        : base(pageNumber, totalCount)
+        int totalCount, int pageSize)
+        : base(pageNumber, totalCount, pageSize)
     {
         Rows = rows;
     }
@@ -229,7 +229,7 @@ public sealed class MyEventsCertificatesTabViewModel : MyEventsTabPage
     public static MyEventsCertificatesTabViewModel From(PagedResult<MyEventCertificateRowViewModel> page) =>
         page is null
             ? Empty()
-            : new MyEventsCertificatesTabViewModel(page.Items, page.PageNumber, page.TotalCount);
+            : new MyEventsCertificatesTabViewModel(page.Items, page.PageNumber, page.TotalCount, page.PageSize);
 }
 
 public enum MyCertificateState { Unavailable, Pending, Eligible, Declined, Issued }

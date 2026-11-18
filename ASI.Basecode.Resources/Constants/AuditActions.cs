@@ -4,6 +4,7 @@ public static class AuditActions
 {
     public const string AccountRequestApproved = "account_request.approved";
     public const string AccountRequestRejected = "account_request.rejected";
+    public const string EventCreated = "event.created";
     public const string EventUpdated = "event.updated";
     public const string EventPublished = "event.published";
     public const string EventCancelled = "event.cancelled";

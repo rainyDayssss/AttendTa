@@ -29,7 +29,7 @@ public class EventLifecycleServiceTests
     private static readonly DateTime Deadline = new(2026, 3, 9, 9, 0, 0, DateTimeKind.Utc);
 
     [Fact]
-    public async Task CreateDraftStoresADraftWithTheActorAndInjectedClockAndWritesNoAudit()
+    public async Task CreateDraftStoresADraftWithTheActorAndInjectedClockAndWritesOneEventCreatedEntry()
     {
         var clock = new FixedClock { Now = new DateTimeOffset(2026, 3, 1, 2, 0, 0, TimeSpan.Zero) };
         var harness = new Harness(clock);
@@ -48,7 +48,15 @@ public class EventLifecycleServiceTests
         Assert.Equal(7, created.CreatedBy);
         Assert.Equal(clock.Now.UtcDateTime, created.CreatedAt);
         Assert.Equal(DateTimeKind.Utc, created.CreatedAt.Kind);
-        Assert.Empty(harness.Audit.Entries);
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Equal(AuditActions.EventCreated, audit.Action);
+        Assert.Equal("events", audit.EntityType);
+        Assert.Equal(id, audit.EntityId);
+        Assert.Null(audit.OldValues);
+        Assert.Contains("\"Title\":\"Orientation\"", Json(audit.NewValues));
+        Assert.Contains("\"Description\":\"Welcome\"", Json(audit.NewValues));
+        Assert.Contains("\"Status\":1", Json(audit.NewValues));
+        Assert.DoesNotContain("HasCover", Json(audit.NewValues));
     }
 
     [Fact]
@@ -159,6 +167,68 @@ public class EventLifecycleServiceTests
         Assert.Equal(Start, Assert.Single(harness.Events.Items).RegistrationDeadline);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CreationRejectsPreviousManilaDateBeforeAnyWrites(bool invalidStart)
+    {
+        var clock = new FixedClock { Now = new DateTimeOffset(2026, 3, 9, 16, 0, 0, TimeSpan.Zero) };
+        var harness = new Harness(clock);
+        var model = Model("Orientation", 1, 1);
+        var midnight = clock.Now.UtcDateTime;
+        model.StartsAt = invalidStart ? midnight.AddTicks(-1) : midnight;
+        model.RegistrationDeadline = midnight.AddTicks(-1);
+
+        using var cover = new MemoryStream([1]);
+        var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.CreateDraftWithCoverAsync(
+            model, cover, ".jpg", TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Invalid, error.Outcome);
+        Assert.Equal(invalidStart ? nameof(EventViewModel.StartsAt) : nameof(EventViewModel.RegistrationDeadline), error.Field);
+        Assert.Empty(harness.Events.Items);
+        Assert.Empty(harness.Audit.Entries);
+        Assert.Empty(harness.Locks);
+        Assert.Equal(0, harness.UnitOfWork.CommitCount);
+    }
+
+    [Fact]
+    public async Task CreationUsesManilaMidnightAndAllowsEarlierTimesToday()
+    {
+        var clock = new FixedClock { Now = new DateTimeOffset(2026, 3, 9, 15, 59, 59, TimeSpan.Zero) };
+        var harness = new Harness(clock);
+        var type = harness.AddType("Workshop", true);
+        var venue = harness.AddVenue("Room", 30, true);
+        var model = Model("Orientation", type.TypeId, venue.VenueId);
+        model.StartsAt = new DateTime(2026, 3, 8, 16, 0, 0, DateTimeKind.Utc);
+        model.RegistrationDeadline = model.StartsAt;
+
+        await harness.Service.CreateDraftAsync(model, TestContext.Current.CancellationToken);
+        clock.Now = clock.Now.AddSeconds(1);
+        var error = await Assert.ThrowsAsync<DomainException>(() =>
+            harness.Service.CreateDraftAsync(model, TestContext.Current.CancellationToken));
+
+        Assert.Equal(nameof(EventViewModel.StartsAt), error.Field);
+        Assert.Single(harness.Events.Items);
+        Assert.Single(harness.Audit.Entries);
+    }
+
+    [Fact]
+    public async Task EditingStillAllowsDatesBeforeToday()
+    {
+        var clock = new FixedClock();
+        var harness = new Harness(clock);
+        var type = harness.AddType("Workshop", true);
+        var venue = harness.AddVenue("Room", 30, true);
+        var model = Model("Orientation", type.TypeId, venue.VenueId);
+        model.EventId = await harness.Service.CreateDraftAsync(model, TestContext.Current.CancellationToken);
+        clock.Now = new DateTimeOffset(2026, 3, 11, 0, 0, 0, TimeSpan.Zero);
+        model.Title = "Edited";
+
+        await harness.Service.UpdateDraftAsync(model, TestContext.Current.CancellationToken);
+
+        Assert.Equal("Edited", Assert.Single(harness.Events.Items).Title);
+    }
+
     [Fact]
     public async Task EditingADraftUpdatesTheRowAndWritesOneEventUpdatedEntryWithOldAndNewValues()
     {
@@ -178,7 +248,7 @@ public class EventLifecycleServiceTests
         Assert.Equal(7, row.UpdatedBy);
         Assert.NotNull(row.UpdatedAt);
 
-        var entry = Assert.Single(harness.Audit.Entries);
+        var entry = Assert.Single(harness.Audit.Entries, entry => entry.Action == AuditActions.EventUpdated);
         Assert.Equal(AuditActions.EventUpdated, entry.Action);
         Assert.Equal("events", entry.EntityType);
         Assert.Equal(id, entry.EntityId);
@@ -211,7 +281,8 @@ public class EventLifecycleServiceTests
 
         Assert.Equal(OutcomeCode.Invalid, error.Outcome);
         Assert.Equal("Orientation", row.Title);
-        Assert.Empty(harness.Audit.Entries);
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Equal(AuditActions.EventCreated, audit.Action);
     }
 
     [Fact]
@@ -232,7 +303,7 @@ public class EventLifecycleServiceTests
         await harness.Service.UpdateDraftAsync(edit, TestContext.Current.CancellationToken);
         Assert.Equal(new[] { "type", "venue", "event" }, harness.Locks);
         Assert.Equal("New", row.Title);
-        var audit = Assert.Single(harness.Audit.Entries);
+        var audit = Assert.Single(harness.Audit.Entries, entry => entry.Action == AuditActions.EventUpdated);
         Assert.Contains("\"Description\":\"Before\"", Json(audit.OldValues));
         Assert.Contains("\"Description\":\"After\"", Json(audit.NewValues));
     }
@@ -261,7 +332,8 @@ public class EventLifecycleServiceTests
         var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.UpdateDraftAsync(edit, TestContext.Current.CancellationToken));
         Assert.Equal(OutcomeCode.Invalid, error.Outcome);
         Assert.Equal("Old", row.Title);
-        Assert.Empty(harness.Audit.Entries);
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Equal(AuditActions.EventCreated, audit.Action);
     }
 
     [Theory]
@@ -281,7 +353,8 @@ public class EventLifecycleServiceTests
         var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.UpdateDraftAsync(edit, TestContext.Current.CancellationToken));
         Assert.Equal(OutcomeCode.Stale, error.Outcome);
         Assert.Equal("Old", row.Title);
-        Assert.Empty(harness.Audit.Entries);
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Equal(AuditActions.EventCreated, audit.Action);
     }
 
     [Fact]
@@ -301,7 +374,8 @@ public class EventLifecycleServiceTests
 
         Assert.Equal(OutcomeCode.Stale, error.Outcome);
         Assert.Equal("Old", row.Title);
-        Assert.Empty(harness.Audit.Entries);
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Equal(AuditActions.EventCreated, audit.Action);
         Assert.Empty(harness.Locks);
     }
 
@@ -378,30 +452,30 @@ public class EventLifecycleServiceTests
 
         var first = await harness.Service.GetPageAsync(1, TestContext.Current.CancellationToken);
         Assert.Equal(26, first.TotalCount);
-        Assert.Equal(2, first.TotalPages);
+        Assert.Equal(6, first.TotalPages);
         Assert.Equal(1, first.PageNumber);
-        Assert.Equal(25, first.Items.Count);
-        Assert.Equal(Enumerable.Range(1, 25).Select(index => $"Event {index:D2}"), first.Items.Select(item => item.Title));
+        Assert.Equal(5, first.Items.Count);
+        Assert.Equal(Enumerable.Range(1, 5).Select(index => $"Event {index:D2}"), first.Items.Select(item => item.Title));
         Assert.Equal("Workshop", first.Items[0].TypeName);
         Assert.Equal("Room A", first.Items[0].VenueName);
 
-        var second = await harness.Service.GetPageAsync(2, TestContext.Current.CancellationToken);
-        Assert.Equal(2, second.PageNumber);
+        var second = await harness.Service.GetPageAsync(6, TestContext.Current.CancellationToken);
+        Assert.Equal(6, second.PageNumber);
         Assert.Single(second.Items);
         Assert.Equal("Event 26", second.Items[0].Title);
 
         var pastEnd = await harness.Service.GetPageAsync(999, TestContext.Current.CancellationToken);
-        Assert.Equal(2, pastEnd.PageNumber);
+        Assert.Equal(6, pastEnd.PageNumber);
         Assert.Single(pastEnd.Items);
         Assert.Equal("Event 26", pastEnd.Items[0].Title);
 
         var zero = await harness.Service.GetPageAsync(0, TestContext.Current.CancellationToken);
         Assert.Equal(1, zero.PageNumber);
-        Assert.Equal(25, zero.Items.Count);
+        Assert.Equal(5, zero.Items.Count);
 
         var missing = await harness.Service.GetPageAsync(null, TestContext.Current.CancellationToken);
         Assert.Equal(1, missing.PageNumber);
-        Assert.Equal(25, missing.Items.Count);
+        Assert.Equal(5, missing.Items.Count);
     }
 
     [Fact]
@@ -460,7 +534,7 @@ public class EventLifecycleServiceTests
         Assert.Equal(7, row.PublishedBy);
         Assert.Equal(clock.Now.UtcDateTime, row.PublishedAt);
         Assert.Equal(7, row.UpdatedBy);
-        var audit = Assert.Single(harness.Audit.Entries);
+        var audit = Assert.Single(harness.Audit.Entries, entry => entry.Action == AuditActions.EventPublished);
         Assert.Equal(AuditActions.EventPublished, audit.Action);
         Assert.Equal(id, audit.EntityId);
     }
@@ -495,7 +569,8 @@ public class EventLifecycleServiceTests
 
         Assert.Equal(OutcomeCode.Invalid, error.Outcome);
         Assert.Equal(status, row.EventStatusId);
-        Assert.Empty(harness.Audit.Entries);
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Equal(AuditActions.EventCreated, audit.Action);
     }
 
     [Fact]
@@ -518,7 +593,8 @@ public class EventLifecycleServiceTests
 
         Assert.Equal(OutcomeCode.Stale, stale.Outcome);
         Assert.Equal(EventStatusCode.Draft, row.EventStatusId);
-        Assert.Empty(harness.Audit.Entries);
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Equal(AuditActions.EventCreated, audit.Action);
     }
 
     [Theory]
@@ -590,7 +666,8 @@ public class EventLifecycleServiceTests
         Assert.Equal(Start, earlier.CancelledAt);
         Assert.Equal("earlier", earlier.CancellationReason);
 
-        Assert.Equal(4, harness.Audit.Entries.Count);
+        Assert.Single(harness.Audit.Entries, entry => entry.Action == AuditActions.EventCreated);
+        Assert.Equal(4, harness.Audit.Entries.Count(entry => entry.Action != AuditActions.EventCreated));
         Assert.Equal(3, harness.Audit.Entries.Count(entry => entry.Action == AuditActions.RegistrationCancelled));
         var eventAudit = Assert.Single(harness.Audit.Entries, entry => entry.Action == AuditActions.EventCancelled);
         Assert.Equal("events", eventAudit.EntityType);
@@ -629,7 +706,7 @@ public class EventLifecycleServiceTests
         Assert.Null(row.CheckInClosedBy);
         Assert.Null(row.CheckInClosedAt);
         Assert.Single(harness.Cancellations.Calls);
-        var audit = Assert.Single(harness.Audit.Entries);
+        var audit = Assert.Single(harness.Audit.Entries, entry => entry.Action == AuditActions.EventCancelled);
         Assert.Equal(AuditActions.EventCancelled, audit.Action);
         Assert.Contains("\"IsCheckInOpen\":false", Json(audit.OldValues));
     }
@@ -663,7 +740,8 @@ public class EventLifecycleServiceTests
         Assert.Equal(RegistrationStatusCode.Confirmed, harness.Registrations.Items[0].RegistrationStatusId);
         Assert.NotNull(harness.Registrations.Items[0].QrToken);
         Assert.Empty(harness.Cancellations.Calls);
-        Assert.Empty(harness.Audit.Entries);
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Equal(AuditActions.EventCreated, audit.Action);
     }
 
     [Theory]
@@ -686,7 +764,8 @@ public class EventLifecycleServiceTests
         Assert.Equal(status, row.EventStatusId);
         Assert.Empty(harness.Locks);
         Assert.Empty(harness.Cancellations.Calls);
-        Assert.Empty(harness.Audit.Entries);
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Equal(AuditActions.EventCreated, audit.Action);
     }
 
     [Fact]
@@ -725,7 +804,8 @@ public class EventLifecycleServiceTests
         Assert.Equal(EventStatusCode.Published, row.EventStatusId);
         Assert.True(row.IsCheckInOpen);
         Assert.Empty(harness.Cancellations.Calls);
-        Assert.Empty(harness.Audit.Entries);
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Equal(AuditActions.EventCreated, audit.Action);
     }
 
     [Theory]
@@ -760,7 +840,8 @@ public class EventLifecycleServiceTests
 
         Assert.Equal(OutcomeCode.Stale, error.Outcome);
         Assert.Empty(harness.Cancellations.Calls);
-        Assert.Empty(harness.Audit.Entries);
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Equal(AuditActions.EventCreated, audit.Action);
     }
 
     [Fact]
@@ -844,7 +925,8 @@ public class EventLifecycleServiceTests
         var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.CompleteAsync(id, ct));
 
         Assert.Equal(OutcomeCode.Stale, error.Outcome);
-        Assert.Empty(harness.Audit.Entries);
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Equal(AuditActions.EventCreated, audit.Action);
     }
 
     [Fact]
@@ -871,7 +953,7 @@ public class EventLifecycleServiceTests
         Assert.Equal(7, row.UpdatedBy);
         Assert.Equal(clock.Now.UtcDateTime, row.UpdatedAt);
 
-        var audit = Assert.Single(harness.Audit.Entries);
+        var audit = Assert.Single(harness.Audit.Entries, entry => entry.Action == AuditActions.EventCheckInOpened);
         Assert.Equal(AuditActions.EventCheckInOpened, audit.Action);
         Assert.Equal("events", audit.EntityType);
         Assert.Equal(id, audit.EntityId);
@@ -909,7 +991,7 @@ public class EventLifecycleServiceTests
         Assert.Equal(7, row.UpdatedBy);
         Assert.Equal(clock.Now.UtcDateTime, row.UpdatedAt);
 
-        var audit = Assert.Single(harness.Audit.Entries);
+        var audit = Assert.Single(harness.Audit.Entries, entry => entry.Action == AuditActions.EventCheckInClosed);
         Assert.Equal(AuditActions.EventCheckInClosed, audit.Action);
         Assert.Contains("\"IsCheckInOpen\":true", Json(audit.OldValues));
         Assert.Contains("\"IsCheckInOpen\":false", Json(audit.NewValues));
@@ -936,7 +1018,8 @@ public class EventLifecycleServiceTests
         Assert.False(row.IsCheckInOpen);
         Assert.Null(row.CheckInOpenedBy);
         Assert.Empty(harness.Locks);
-        Assert.Empty(harness.Audit.Entries);
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Equal(AuditActions.EventCreated, audit.Action);
     }
 
     [Theory]
@@ -958,7 +1041,8 @@ public class EventLifecycleServiceTests
         Assert.Equal(OutcomeCode.Invalid, error.Outcome);
         Assert.Equal(open, row.IsCheckInOpen);
         Assert.Empty(harness.Locks);
-        Assert.Empty(harness.Audit.Entries);
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Equal(AuditActions.EventCreated, audit.Action);
     }
 
     [Fact]
@@ -977,7 +1061,8 @@ public class EventLifecycleServiceTests
         var error = await Assert.ThrowsAsync<DomainException>(() => harness.Service.SetCheckInWindowAsync(id, true, ct));
 
         Assert.Equal(OutcomeCode.Stale, error.Outcome);
-        Assert.Empty(harness.Audit.Entries);
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Equal(AuditActions.EventCreated, audit.Action);
     }
 
     [Fact]
@@ -997,7 +1082,8 @@ public class EventLifecycleServiceTests
 
         Assert.Equal(OutcomeCode.Invalid, error.Outcome);
         Assert.False(Assert.Single(harness.Events.Items).IsCheckInOpen);
-        Assert.Empty(harness.Audit.Entries);
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Equal(AuditActions.EventCreated, audit.Action);
     }
 
     [Fact]
@@ -1046,7 +1132,8 @@ public class EventLifecycleServiceTests
         Assert.False(restored.IsCheckInOpen);
         Assert.Null(restored.CheckInOpenedBy);
         Assert.Null(restored.CheckInOpenedAt);
-        Assert.Empty(harness.Audit.Entries);
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Equal(AuditActions.EventCreated, audit.Action);
         Assert.Equal(commits, harness.UnitOfWork.CommitCount);
     }
 
@@ -1066,7 +1153,8 @@ public class EventLifecycleServiceTests
             Assert.NotEqual(RegistrationStatusCode.Cancelled, registration.RegistrationStatusId);
             Assert.NotNull(registration.QrToken);
         });
-        Assert.Empty(harness.Audit.Entries);
+        var audit = Assert.Single(harness.Audit.Entries);
+        Assert.Equal(AuditActions.EventCreated, audit.Action);
         Assert.Equal(expectedCommits, harness.UnitOfWork.CommitCount);
     }
 
@@ -1114,7 +1202,7 @@ public class EventLifecycleServiceTests
             Registrations = new MemoryRegistrations();
             Audit = new RecordingAudit();
             Actor = actor ?? new FixedActor(7);
-            Clock = clock ?? TimeProvider.System;
+            Clock = clock ?? new FixedClock();
             Cancellations = new RecordingCancellations(Registrations, Audit, Actor, Clock);
             UnitOfWork = new TransactionUnitOfWork(Events, Registrations, Audit);
             Service = new EventLifecycleService(
@@ -1229,6 +1317,7 @@ public class EventLifecycleServiceTests
         public Task<bool> HasValidAttendanceAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<int> CountReviewQueueAsync(RegistrationStatusCode status, int? eventId, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<RegistrationReviewRow>> GetReviewQueueAsync(RegistrationStatusCode status, int? eventId, int offset, int limit, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<RegistrationSummary>> GetSummariesAsync(IReadOnlyCollection<int> registrationIds, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<Registration> GetForUpdateAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<Registration>> GetOpenForEventAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<int>> DiscoverOpenEventIdsForUserAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();

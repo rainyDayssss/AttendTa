@@ -32,7 +32,7 @@ namespace ASI.Basecode.Data.Repositories
 
             return this.GetDbSet<User>()
                 .AsNoTracking()
-                .SingleOrDefaultAsync(user => user.UserId == email, cancellationToken);
+                .SingleOrDefaultAsync(user => user.Email == email, cancellationToken);
         }
 
         public Task<User> GetByIdAsync(int userId, CancellationToken cancellationToken = default)

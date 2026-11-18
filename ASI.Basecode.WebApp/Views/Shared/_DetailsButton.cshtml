@@ -1,0 +1,7 @@
+@model RecordDetailsViewModel
+@{ var menuId = Model.Id + "-menu"; }
+<partial name="_RowMenuTrigger" model="menuId" />
+<div id="@menuId" popover class="row-menu">
+    <partial name="_DetailsTrigger" model="Model" />
+</div>
+<partial name="_DetailsDialog" model="Model" />

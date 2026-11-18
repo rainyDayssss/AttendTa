@@ -22,6 +22,7 @@ namespace ASI.Basecode.Services.Services
     /// </summary>
     public sealed class MemberEventService : IMemberEventService
     {
+        private readonly ListReadOptions _readOptions;
         private readonly IEventRepository _events;
         private readonly IRegistrationRepository _registrations;
         private readonly IMemberRepository _members;
@@ -41,8 +42,9 @@ namespace ASI.Basecode.Services.Services
             TimeProvider timeProvider,
             ICurrentActor actor,
             IRegistrationCancellationService cancellation,
-            IMapper mapper)
+            IMapper mapper, ListReadOptions readOptions = null)
         {
+            _readOptions = readOptions;
             _events = events;
             _registrations = registrations;
             _members = members;
@@ -59,11 +61,11 @@ namespace ASI.Basecode.Services.Services
             RequireAuthenticatedActor();
 
             var totalCount = await _events.CountMemberVisibleAsync(cancellationToken);
-            var pageRequest = new PageRequest(pageNumber);
+            var pageRequest = new PageRequest(pageNumber, _readOptions?.PageSize);
             var normalizedPage = pageRequest.NormalizePageNumber(totalCount);
             var rows = await _events.GetMemberVisiblePageAsync(
                 pageRequest.GetOffset(normalizedPage),
-                PageRequest.FixedPageSize,
+                PageRequest.NormalizeSize(_readOptions?.PageSize),
                 cancellationToken);
 
             var now = _timeProvider.GetUtcNow().UtcDateTime;
@@ -76,7 +78,7 @@ namespace ASI.Basecode.Services.Services
                 items.Add(item);
             }
 
-            return new PagedResult<MemberEventListItemViewModel>(items, normalizedPage, totalCount);
+            return new PagedResult<MemberEventListItemViewModel>(items, normalizedPage, totalCount, PageRequest.NormalizeSize(_readOptions?.PageSize));
         }
 
         public async Task<MemberEventDetailViewModel> GetDetailAsync(int eventId, CancellationToken cancellationToken = default)
@@ -96,6 +98,7 @@ namespace ASI.Basecode.Services.Services
             model.IsStartCutoffPassed = StartCutoffPassed(row.StartsAt, now);
 
             var member = await _members.GetMemberByUserIdAsync(actorUserId, cancellationToken);
+            model.HasMemberProfile = member != null;
             var user = await _users.GetByIdAsync(actorUserId, cancellationToken);
             var eligible = user != null
                            && member != null

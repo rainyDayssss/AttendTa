@@ -20,88 +20,89 @@
             }
         </p>
     </div>
+    @if (management)
+    {
+        <a class="button button-secondary" asp-controller="MemberEvents" asp-action="Index">@NavDestinations.BrowseEvents</a>
+    }
 </header>
 
 @if (management)
 {
-    <section class="home-section" aria-labelledby="home-operations">
+    <div class="home-management-groups">
+    <section class="home-section" aria-labelledby="home-manage">
         <div class="section-head">
-            <h2 id="home-operations">Run the organization</h2>
+            <h2 id="home-manage">Manage records</h2>
         </div>
         <div class="panel dest-panel">
             <a class="dest-row" asp-controller="Event" asp-action="Index">
-                <span class="dest-name">Events</span>
+                <span class="dest-name">@NavDestinations.Events</span>
                 <p class="dest-desc">Create, publish, and manage event sessions.</p>
                 <span class="dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3.5 10.5 8 6 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
             </a>
-            <a class="dest-row" asp-controller="CheckIn" asp-action="Index">
-                <span class="dest-name">Check-in</span>
-                <p class="dest-desc">Scan passes and record attendance at the door.</p>
-                <span class="dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3.5 10.5 8 6 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
-            </a>
-            <a class="dest-row" asp-controller="RegistrationReview" asp-action="Index">
-                <span class="dest-name">Registration review</span>
-                <p class="dest-desc">Approve, decline, and promote registrations.</p>
-                <span class="dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3.5 10.5 8 6 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
-            </a>
-            <a class="dest-row" asp-controller="CertificateLedger" asp-action="Index">
-                <span class="dest-name">Certificates</span>
-                <p class="dest-desc">Review eligibility and issue certificates.</p>
-                <span class="dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3.5 10.5 8 6 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
-            </a>
-            <a class="dest-row" asp-controller="Reports" asp-action="Participation">
-                <span class="dest-name">Reports</span>
-                <p class="dest-desc">Read per-event participation and attendance.</p>
-                <span class="dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3.5 10.5 8 6 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
-            </a>
-            <a class="dest-row" asp-controller="MemberEvents" asp-action="Index">
-                <span class="dest-name">Browse events</span>
-                <p class="dest-desc">See the published event feed members use.</p>
-                <span class="dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3.5 10.5 8 6 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
-            </a>
-        </div>
-    </section>
-
-    <section class="home-section" aria-labelledby="home-records">
-        <div class="section-head">
-            <h2 id="home-records">Records and requests</h2>
-        </div>
-        <div class="panel dest-panel">
             <a class="dest-row" asp-controller="Member" asp-action="Index">
-                <span class="dest-name">Members</span>
+                <span class="dest-name">@NavDestinations.Members</span>
                 <p class="dest-desc">Maintain member records and membership status.</p>
                 <span class="dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3.5 10.5 8 6 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
             </a>
             <a class="dest-row" asp-controller="AccountRequest" asp-action="Index">
-                <span class="dest-name">Account requests</span>
+                <span class="dest-name">@NavDestinations.AccountRequests</span>
                 <p class="dest-desc">Review membership requests and record a decision.</p>
                 <span class="dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3.5 10.5 8 6 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
             </a>
             <a class="dest-row" asp-controller="EventType" asp-action="Index">
-                <span class="dest-name">Event types</span>
+                <span class="dest-name">@NavDestinations.EventTypes</span>
                 <p class="dest-desc">Maintain event classifications and their descriptions.</p>
                 <span class="dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3.5 10.5 8 6 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
             </a>
             <a class="dest-row" asp-controller="Venue" asp-action="Index">
-                <span class="dest-name">Venues</span>
+                <span class="dest-name">@NavDestinations.Venues</span>
                 <p class="dest-desc">Maintain campus facilities, capacity, and photos.</p>
                 <span class="dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3.5 10.5 8 6 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
             </a>
             @if (administrator)
             {
                 <a class="dest-row" asp-controller="AdminAccounts" asp-action="Index">
-                    <span class="dest-name">Accounts</span>
+                    <span class="dest-name">@NavDestinations.Accounts</span>
                     <p class="dest-desc">Manage account roles and access.</p>
                     <span class="dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3.5 10.5 8 6 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
                 </a>
                 <a class="dest-row" asp-controller="ActivityLog" asp-action="Index">
-                    <span class="dest-name">Activity log</span>
+                    <span class="dest-name">@NavDestinations.ActivityLog</span>
                     <p class="dest-desc">Read the append-only governance trail.</p>
                     <span class="dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3.5 10.5 8 6 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
                 </a>
             }
         </div>
     </section>
+
+    <section class="home-section" aria-labelledby="home-operations">
+        <div class="section-head">
+            <h2 id="home-operations">Run operations</h2>
+        </div>
+        <div class="panel dest-panel">
+            <a class="dest-row" asp-controller="CheckIn" asp-action="Index">
+                <span class="dest-name">@NavDestinations.CheckIn</span>
+                <p class="dest-desc">Scan passes and record attendance at the door.</p>
+                <span class="dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3.5 10.5 8 6 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
+            </a>
+            <a class="dest-row" asp-controller="RegistrationReview" asp-action="Index">
+                <span class="dest-name">@NavDestinations.RegistrationReview</span>
+                <p class="dest-desc">Approve, decline, and promote registrations.</p>
+                <span class="dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3.5 10.5 8 6 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
+            </a>
+            <a class="dest-row" asp-controller="CertificateLedger" asp-action="Index">
+                <span class="dest-name">@NavDestinations.Certificates</span>
+                <p class="dest-desc">Review eligibility and issue certificates.</p>
+                <span class="dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3.5 10.5 8 6 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
+            </a>
+            <a class="dest-row" asp-controller="Reports" asp-action="Participation">
+                <span class="dest-name">@NavDestinations.Reports</span>
+                <p class="dest-desc">Read per-event participation and attendance.</p>
+                <span class="dest-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3.5 10.5 8 6 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
+            </a>
+        </div>
+    </section>
+    </div>
 }
 else if (member)
 {

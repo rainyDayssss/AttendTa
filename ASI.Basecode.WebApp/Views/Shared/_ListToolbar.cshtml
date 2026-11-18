@@ -1,0 +1,41 @@
+@model ListToolbarViewModel
+@{
+    var query = Context.Request.Query;
+    var search = query["search"].ToString();
+    var fields = Model.Fields ?? Array.Empty<ListFilterField>();
+    var managed = new HashSet<string>(fields.Select(field => field.Name), StringComparer.OrdinalIgnoreCase) { "search", "page", "fit" };
+    var hasCriteria = !string.IsNullOrWhiteSpace(search)
+        || fields.Any(field => field.Name != "eventId" && !string.IsNullOrWhiteSpace(query[field.Name]))
+        || (!string.IsNullOrWhiteSpace(query["status"]) && query["status"] != "all");
+    // A POST re-render sets ListPath so the toolbar keeps pointing at the GET list route.
+    var listPath = ViewData["ListPath"] as string;
+}
+<form method="get" action="@(ListNavigation.Url(Context.Request, new Dictionary<string, string>(), listPath).Split('?')[0])" class="list-toolbar" role="search" data-list-search data-applied-search="@search">
+    @foreach (var pair in query.Where(pair => !managed.Contains(pair.Key) && !ListReadOptionsFactory.IsRetiredFilter(Context.Request, pair.Key)))
+    {
+        foreach (var value in pair.Value) { <input type="hidden" name="@pair.Key" value="@value" /> }
+    }
+    <div class="list-search-field">
+        <label for="list-search" class="field-label">Search</label>
+        <div class="search-group">
+            <input id="list-search" type="search" name="search" value="@search" class="field-control" aria-label="@Model.SearchLabel" placeholder="@Model.SearchLabel" />
+            <button type="submit" class="button button-secondary">Search</button>
+        </div>
+    </div>
+    @foreach (var field in fields)
+    {
+        <div class="field">
+            <label for="list-@field.Name">@field.Label</label>
+            @if (field.Options != null)
+            {
+                <select id="list-@field.Name" name="@field.Name">
+                    @if (field.AllowEmpty) { <option value="">All</option> }
+                    @foreach (var option in field.Options) { <option value="@option.Value" selected="@(string.Equals(query[field.Name], option.Value, StringComparison.OrdinalIgnoreCase))">@option.Label</option> }
+                </select>
+            }
+            else { <input id="list-@field.Name" name="@field.Name" type="@field.Type" value="@query[field.Name]" /> }
+        </div>
+    }
+    @if (fields.Count > 0) { <button type="submit" class="button button-secondary">Apply filters</button> }
+    @if (hasCriteria) { <a href="@ListNavigation.Reset(Context.Request, fields.Select(field => field.Name), listPath)" class="button button-secondary" data-filter-clear>Reset</a> }
+</form>

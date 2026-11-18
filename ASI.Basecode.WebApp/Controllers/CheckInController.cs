@@ -137,7 +137,7 @@ public sealed class CheckInController : ControllerBase<CheckInController>
     private void SetOutcomeMessage(int eventId, CheckInOutcomeViewModel outcome)
     {
         // Carry the full result across POST/redirect/GET, so manual and no-JS operators get the
-        // same persistent identity/time/outcome panel as camera and pass-code AJAX callers.
+        // same persistent identity/time/outcome panel as camera scan callers.
         TempData["CheckInOutcome"] = JsonSerializer.Serialize(outcome);
         TempData["CheckInOutcomeEventId"] = eventId;
         var message = outcome.Outcome switch

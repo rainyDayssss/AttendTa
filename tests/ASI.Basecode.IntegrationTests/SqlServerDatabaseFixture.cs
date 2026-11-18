@@ -160,9 +160,14 @@ public sealed class SqlServerDatabaseFixture : IAsyncLifetime
         }
     }
 
-    private static bool IsLocalSqlServer(string dataSource)
+    internal static bool IsLocalSqlServer(string dataSource)
     {
-        return dataSource.StartsWith("(localdb)\\", StringComparison.OrdinalIgnoreCase)
+        // LocalDB discovery can fail while its local process remains available by pipe.
+        // Accept only the local-machine LocalDB pipe shape, never a remote UNC host.
+        return System.Text.RegularExpressions.Regex.IsMatch(dataSource,
+                @"\Anp:\\\\\.\\pipe\\LOCALDB#[0-9A-F]{8}\\tsql\\query\z",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant)
+            || dataSource.StartsWith("(localdb)\\", StringComparison.OrdinalIgnoreCase)
             || dataSource.Equals(".", StringComparison.OrdinalIgnoreCase)
             || dataSource.StartsWith(".\\", StringComparison.OrdinalIgnoreCase)
             || dataSource.Equals("(local)", StringComparison.OrdinalIgnoreCase)

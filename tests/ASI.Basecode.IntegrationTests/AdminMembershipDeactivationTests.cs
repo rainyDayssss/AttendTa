@@ -71,7 +71,7 @@ public sealed class AdminMembershipDeactivationTests : IClassFixture<SqlServerDa
         var past = await MemberEventTestSupport.SeedRegistrationAsync(fixture.ConnectionString, pastEvent.EventId, member.MemberId, RegistrationStatusCode.Confirmed, actor.Id, ct);
         var peer = await MemberEventTestSupport.SeedRegistrationAsync(fixture.ConnectionString, firstEvent.EventId, peerMember.MemberId, RegistrationStatusCode.Waitlisted, actor.Id, ct);
 
-        await MemberEventTestSupport.SignInAsync(client, actor.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(client, actor.Email, password, ct);
         var dialog = await client.GetStringAsync($"/Member/{member.MemberId}/access", ct);
 
         Assert.Contains($"data-registration-id=\"{confirmed.RegistrationId}\"", dialog, StringComparison.Ordinal);
@@ -105,7 +105,7 @@ public sealed class AdminMembershipDeactivationTests : IClassFixture<SqlServerDa
         await SetQrTokenAsync(confirmed.RegistrationId, new string('a', 64), ct);
         await SetQrTokenAsync(pending.RegistrationId, new string('b', 64), ct);
 
-        await MemberEventTestSupport.SignInAsync(client, actor.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(client, actor.Email, password, ct);
         const string reason = "  Membership deactivated for cascade test.  ";
         using var response = await DeactivateThroughEndpointAsync(client, member.MemberId, reason, ct);
 
@@ -166,14 +166,14 @@ public sealed class AdminMembershipDeactivationTests : IClassFixture<SqlServerDa
         var target = await SeedUserAsync(RoleCode.Member, "signin-target", ct);
         var member = await MemberEventTestSupport.SeedMemberAsync(fixture.ConnectionString, target.Id, MembershipStatusCode.Active, ct);
 
-        await MemberEventTestSupport.SignInAsync(client, actor.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(client, actor.Email, password, ct);
         using (var deactivated = await DeactivateThroughEndpointAsync(client, member.MemberId, "Membership suspended.", ct))
         {
             Assert.Equal(HttpStatusCode.Redirect, deactivated.StatusCode);
         }
 
         using var targetClient = CreateClient(factory);
-        await MemberEventTestSupport.SignInAsync(targetClient, target.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(targetClient, target.Email, password, ct);
         using var feed = await targetClient.GetAsync("/MemberEvents", ct);
         Assert.Equal(HttpStatusCode.OK, feed.StatusCode);
     }
@@ -195,7 +195,7 @@ public sealed class AdminMembershipDeactivationTests : IClassFixture<SqlServerDa
         var registration = await MemberEventTestSupport.SeedRegistrationAsync(fixture.ConnectionString, eventItem.EventId, member.MemberId, RegistrationStatusCode.Confirmed, actor.Id, ct);
         await SetQrTokenAsync(registration.RegistrationId, new string('c', 64), ct);
 
-        await MemberEventTestSupport.SignInAsync(client, actor.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(client, actor.Email, password, ct);
 
         using (var blank = await DeactivateThroughEndpointAsync(client, member.MemberId, "   ", ct))
         {
@@ -285,7 +285,7 @@ public sealed class AdminMembershipDeactivationTests : IClassFixture<SqlServerDa
             Assert.IsType<MembershipAccessService>(scope.ServiceProvider.GetRequiredService<IMembershipAccessCommands>());
         }
 
-        await MemberEventTestSupport.SignInAsync(client, actor.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(client, actor.Email, password, ct);
         using (var response = await DeactivateThroughEndpointAsync(client, member.MemberId, "Deactivation through the endpoint.", ct))
         {
             Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);

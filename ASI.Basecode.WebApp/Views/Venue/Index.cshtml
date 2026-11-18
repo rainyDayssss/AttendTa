@@ -1,6 +1,7 @@
 @model PagedResult<VenueViewModel>
 @using Microsoft.AspNetCore.Http.Extensions
 @{
+    ViewData["ListControls"] = true;
     ViewData["Title"] = "Campus Facilities & Venues";
     ViewData["Feature"] = "record-dialog";
     var statusFilter = ViewBag.Status as string;
@@ -12,11 +13,12 @@
     <a asp-action="Create" class="button button-primary" data-record-open="create-venue" data-record-title="New Venue">New Venue</a>
 </div>
 
+<partial name="_ListToolbar" model='@(new ListToolbarViewModel("Search venue or location"))' />
 <div class="sheet-keys">
     <nav class="filter-tabs" aria-label="Venue status">
-        <a class="filter-tab" asp-action="Index" aria-current="@(string.IsNullOrEmpty(statusFilter) ? "page" : null)">All</a>
-        <a class="filter-tab" asp-action="Index" asp-route-status="active" aria-current="@(statusFilter == "active" ? "page" : null)">Active</a>
-        <a class="filter-tab" asp-action="Index" asp-route-status="inactive" aria-current="@(statusFilter == "inactive" ? "page" : null)">Inactive</a>
+        <a href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["status"] = null })' class="filter-tab" aria-current="@(string.IsNullOrEmpty(statusFilter) ? "page" : null)">All</a>
+        <a href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["status"] = "active" })' class="filter-tab" aria-current="@(statusFilter == "active" ? "page" : null)">Active</a>
+        <a href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["status"] = "inactive" })' class="filter-tab" aria-current="@(statusFilter == "inactive" ? "page" : null)">Inactive</a>
     </nav>
 </div>
 
@@ -29,16 +31,14 @@
         <a href="@Context.Request.GetEncodedPathAndQuery()">Try again</a>
     </div>
     <div class="table-scroll" role="region" aria-label="Venue table" tabindex="0" data-list-region>
-        <table class="data-table table-sticky">
+        <table class="data-table table-sticky venue-table">
             <thead>
                 <tr>
                     <th scope="col">Room Name</th>
-                    <th scope="col">Capacity</th>
                     <th scope="col">Location</th>
-                    <th scope="col">Availability Notes</th>
-                    <th scope="col">Contact Person</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Actions</th>
+                    <th scope="col" class="numeric">Capacity</th>
+                    <th scope="col" class="column-status">Status</th>
+                    <th scope="col" class="actions actions-tight">Actions</th>
                 </tr>
             </thead>
         </table>
@@ -47,21 +47,19 @@
 else if (Model.Items.Count == 0)
 {
     <div class="table-scroll" role="region" aria-label="Venue table" tabindex="0" data-list-region>
-        <table class="data-table table-sticky">
+        <table class="data-table table-sticky venue-table">
             <thead>
                 <tr>
                     <th scope="col">Room Name</th>
-                    <th scope="col">Capacity</th>
                     <th scope="col">Location</th>
-                    <th scope="col">Availability Notes</th>
-                    <th scope="col">Contact Person</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Actions</th>
+                    <th scope="col" class="numeric">Capacity</th>
+                    <th scope="col" class="column-status">Status</th>
+                    <th scope="col" class="actions actions-tight">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td colspan="7" class="empty-state">
+                    <td colspan="5" class="empty-state">
                         @if (string.IsNullOrEmpty(statusFilter))
                         {
                             <text>No venues yet. Use "New Venue" to create the first one.</text>
@@ -79,34 +77,33 @@ else if (Model.Items.Count == 0)
 else
 {
     <div class="table-scroll" role="region" aria-label="Venue table" tabindex="0" data-list-region>
-        <table class="data-table table-sticky">
+        <table class="data-table table-sticky venue-table">
             <thead>
                 <tr>
                     <th scope="col">Room Name</th>
-                    <th scope="col">Capacity</th>
                     <th scope="col">Location</th>
-                    <th scope="col">Availability Notes</th>
-                    <th scope="col">Contact Person</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Actions</th>
+                    <th scope="col" class="numeric">Capacity</th>
+                    <th scope="col" class="column-status">Status</th>
+                    <th scope="col" class="actions actions-tight">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var venue in Model.Items)
                 {
+                    var details = new RecordDetailsViewModel($"venue-details-{venue.VenueId}", venue.RoomName, new Dictionary<string, string> { ["Availability notes"] = venue.AvailabilityNotes, ["Contact person"] = venue.ContactPerson }, Url.Action("Photo", "Venue", new { id = venue.VenueId }));
                     <tr data-venue-id="@venue.VenueId">
-                        <td class="cell-name"><span class="cell-strong">@venue.RoomName</span></td>
-                        <td class="numeric">@venue.Capacity</td>
-                        <td>@venue.Location</td>
-                        <td class="cell-notes">@venue.AvailabilityNotes</td>
-                        <td>@venue.ContactPerson</td>
-                        <td><span class="badge @(venue.IsActive ? "badge-active" : "badge-inactive")">@(venue.IsActive ? "Active" : "Inactive")</span></td>
-                        <td class="actions">
+                        <td data-label="Room Name" class="cell-name"><span class="cell-strong">@venue.RoomName</span></td>
+                        <td data-label="Location">@venue.Location</td>
+                        <td data-label="Capacity" class="numeric">@venue.Capacity</td>
+                        <td data-label="Status"><span class="badge @(venue.IsActive ? "badge-active" : "badge-inactive")">@(venue.IsActive ? "Active" : "Inactive")</span></td>
+                        <td data-label="Actions" class="actions">
                             <div class="row-actions">
+
                                 <a asp-action="Edit" asp-route-id="@venue.VenueId" class="button button-small button-secondary" data-record-open="edit-venue-@venue.VenueId" data-record-title="Edit Venue">Edit</a>
                                 <partial name="_RowMenuTrigger" model="@($"row-menu-venue-{venue.VenueId}")" />
                             </div>
                             <div id="row-menu-venue-@venue.VenueId" popover class="row-menu">
+                                <partial name="_DetailsTrigger" model="details" />
                                 <form asp-action="ToggleActive" asp-route-id="@venue.VenueId" method="post">
                                     <input type="hidden" name="page" value="@Model.PageNumber" />
                                     <div class="@(venue.IsActive ? "row-menu-danger" : null)">
@@ -114,6 +111,7 @@ else
                                     </div>
                                 </form>
                             </div>
+                        <partial name="_DetailsDialog" model="details" />
                         </td>
                     </tr>
                 }
@@ -126,7 +124,3 @@ else
 
 <partial name="_ResultCount" model="Model" />
 <partial name="_RecordDialog" />
-
-@section Scripts {
-    <script src="~/js/features/list-feedback.js" asp-append-version="true"></script>
-}

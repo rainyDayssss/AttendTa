@@ -2,7 +2,6 @@ using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
-using ASI.Basecode.Services.Services;
 using ASI.Basecode.WebApp.Mvc;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
@@ -24,7 +23,6 @@ namespace ASI.Basecode.WebApp.Controllers
         private const string VenueIndexRoute = "VenueIndex";
 
         private readonly IVenueService _venueService;
-        private readonly IPrivateFileStore _privateFileStore;
 
         private bool IsRecordDialog => Request.Headers["X-Record-Dialog"] == "true";
 
@@ -47,27 +45,15 @@ namespace ASI.Basecode.WebApp.Controllers
         {
             if (model.VenueId <= 0) return;
             var imagePath = _venueService.GetVenue(model.VenueId)?.ImagePath;
-            model.ImagePath = IsServablePhoto(imagePath) ? imagePath : null;
+            model.ImagePath = _venueService.IsServablePhoto(imagePath) ? imagePath : null;
             if (selectedPhoto && model.ImagePath != null) ViewData["PhotoReselect"] = true;
         }
 
-        private static bool IsServablePhoto(string path)
-        {
-            const string prefix = "uploads/venues/";
-            return !string.IsNullOrWhiteSpace(path) &&
-                path.StartsWith(prefix, StringComparison.Ordinal) &&
-                path.Length > prefix.Length &&
-                path.IndexOf('\0') < 0 &&
-                path.IndexOfAny(new[] { '/', '\\' }, prefix.Length) < 0 &&
-                Path.GetExtension(path).ToLowerInvariant() is ".jpg" or ".jpeg" or ".png";
-        }
-
         public VenueController(IHttpContextAccessor httpContextAccessor, ILoggerFactory loggerFactory,
-            IConfiguration configuration, IMapper mapper, IVenueService venueService, IPrivateFileStore privateFileStore)
+            IConfiguration configuration, IMapper mapper, IVenueService venueService)
             : base(httpContextAccessor, loggerFactory, configuration, mapper)
         {
             _venueService = venueService;
-            _privateFileStore = privateFileStore;
         }
 
         [HttpGet]
@@ -88,7 +74,7 @@ namespace ASI.Basecode.WebApp.Controllers
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                _logger.LogWarning("Venue list read failed ({ExceptionType}).", exception.GetType().Name);
+                _logger.LogWarning(exception, "Venue list read failed.");
                 ViewData["ListError"] = "The venue list could not be loaded. Please try again.";
                 return View(EmptyPage());
             }
@@ -100,17 +86,8 @@ namespace ASI.Basecode.WebApp.Controllers
         [HttpGet]
         public async Task<IActionResult> Photo(int id, CancellationToken cancellationToken)
         {
-            var venue = _venueService.GetVenue(id);
-            if (venue?.ImagePath == null || venue.ImagePath.Contains('\0') || !venue.ImagePath.StartsWith("uploads/venues/", StringComparison.Ordinal)) return NotFound();
-            var contentType = Path.GetExtension(venue.ImagePath ?? string.Empty).ToLowerInvariant() switch
-            {
-                ".jpg" or ".jpeg" => "image/jpeg",
-                ".png" => "image/png",
-                _ => null
-            };
-            if (contentType == null) return NotFound();
-            try { return File(await _privateFileStore.OpenSafelyAsync(venue.ImagePath, cancellationToken), contentType); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DomainException { Outcome: OutcomeCode.NotFound }) { return NotFound(); }
+            var photo = await _venueService.GetPhotoAsync(id, cancellationToken);
+            return photo == null ? NotFound() : File(photo.Content, photo.ContentType);
         }
 
         [HttpGet]

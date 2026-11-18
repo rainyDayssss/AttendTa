@@ -23,9 +23,9 @@ namespace ASI.Basecode.Data
             {
                 entity.ToTable("users");
                 entity.HasKey(user => user.Id);
-                entity.HasIndex(user => user.UserId).IsUnique();
+                entity.HasIndex(user => user.Email).IsUnique();
                 entity.Property(user => user.Id).ValueGeneratedOnAdd().HasColumnName("user_id");
-                entity.Property(user => user.UserId).IsRequired().HasMaxLength(255).HasColumnName("email");
+                entity.Property(user => user.Email).IsRequired().HasMaxLength(255).HasColumnName("email");
                 entity.Property(user => user.Name).IsRequired().HasMaxLength(255).HasColumnName("full_name");
                 entity.Property(user => user.Password).IsRequired().HasColumnType("varchar(255)").HasMaxLength(255).HasColumnName("password_hash");
                 entity.Property(user => user.RoleId).HasConversion<byte>().HasColumnType("tinyint").HasColumnName("role_id").HasDefaultValue(RoleCode.Member);

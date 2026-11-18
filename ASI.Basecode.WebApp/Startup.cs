@@ -1,5 +1,5 @@
 ﻿using ASI.Basecode.Data;
-using ASI.Basecode.WebApp.Extensions.Configuration;
+using ASI.Basecode.WebApp.Configuration;
 using ASI.Basecode.WebApp.Hotspot;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
@@ -13,6 +13,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 using Serilog.Context;
 using Microsoft.Extensions.Logging;
@@ -61,6 +62,12 @@ namespace ASI.Basecode.WebApp
         {
             this._services = services;
 
+            // Validate Common:SetupRoot before Data Protection keys or log files are created
+            // beneath it. The hosting environment is already registered by the web host builder,
+            // and ConfigureServices runs before ConfigureApp, where _environment is assigned.
+            var environment = GetHostingEnvironment(services);
+            var setupRoot = SetupRootPath.Resolve(this.Configuration, environment);
+
             services.AddMemoryCache();
 
             var connectionString = Configuration.GetConnectionString("DefaultConnection");
@@ -81,9 +88,13 @@ namespace ASI.Basecode.WebApp
             });
 
             services.AddControllersWithViews();
-            services.AddRazorPages().AddRazorRuntimeCompilation();
+            var razorPages = services.AddRazorPages();
+            if (environment.IsDevelopment())
+            {
+                razorPages.AddRazorRuntimeCompilation();
+            }
 
-            this.ConfigureDataProtection();
+            this.ConfigureDataProtection(setupRoot);
 
             // DI Services AutoMapper(Add Profile)
             this.ConfigureAutoMapper();
@@ -160,26 +171,37 @@ namespace ASI.Basecode.WebApp
 
             this._app.UseAuthentication();
             this._app.UseAuthorization();
+            this._app.Use(Models.AutoFitPagination.NormalizeAsync);
         }
 
         /// <summary>
         /// Persists Data Protection keys under <c>Common:SetupRoot/keys</c> so cookies survive restarts.
         /// </summary>
-        private void ConfigureDataProtection()
+        /// <param name="setupRoot">The validated setup root returned by <see cref="SetupRootPath.Resolve"/>.</param>
+        private void ConfigureDataProtection(string setupRoot)
         {
-            var setupRoot = Configuration.GetSetupRootDirectoryPath();
-            if (string.IsNullOrWhiteSpace(setupRoot))
-            {
-                throw new InvalidOperationException(
-                    "Common:SetupRoot must be configured so Data Protection keys can be stored under its keys folder.");
-            }
-
             var keyDirectory = new DirectoryInfo(Path.Combine(setupRoot, "keys"));
             keyDirectory.Create();
 
             this._services.AddDataProtection()
                 .PersistKeysToFileSystem(keyDirectory)
                 .SetApplicationName("AttendTa");
+        }
+
+        /// <summary>
+        /// Gets the hosting environment the web host registered before user services are configured.
+        /// </summary>
+        /// <param name="services">Service collection being assembled.</param>
+        /// <returns>The registered hosting environment.</returns>
+        private static IWebHostEnvironment GetHostingEnvironment(IServiceCollection services)
+        {
+            var environment = services
+                .FirstOrDefault(descriptor => descriptor.ServiceType == typeof(IWebHostEnvironment))
+                ?.ImplementationInstance as IWebHostEnvironment;
+
+            return environment
+                ?? throw new InvalidOperationException(
+                    "IWebHostEnvironment must be registered before the application services are configured.");
         }
     }
 }

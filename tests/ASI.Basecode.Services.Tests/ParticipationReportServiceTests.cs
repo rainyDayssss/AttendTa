@@ -14,6 +14,24 @@ namespace ASI.Basecode.Services.Tests;
 
 public sealed class ParticipationReportServiceTests
 {
+    [Fact]
+    public async Task FilteredParticipantPagingKeepsSummaryAndBreakdownsEventWide()
+    {
+        var events = new FakeEvents { EventItem = Event(1, EventStatusCode.Completed) };
+        events.Items.Add(new EventListItem { EventId = 1, Title = "Filtered" });
+        var snapshot = new FakeSnapshot();
+        for (var index = 1; index <= 12; index++) snapshot.Rows.Add(DetailRow(index, index <= 7 ? $"Match {index}" : $"Other {index}", checkedInAt: CheckedInAt));
+        var options = new ASI.Basecode.Data.Queries.ListReadOptions { PageSize = 3, Search = "match", Filter = "Confirmed", Type = "attended" };
+        var service = new ParticipationReportService(events, snapshot, options);
+        var result = await service.GetReportAsync(1, 2, TestContext.Current.CancellationToken);
+        Assert.Equal(7, result.TotalCount);
+        Assert.Equal(3, result.TotalPages);
+        Assert.Equal(new[] { 4, 5, 6 }, result.Rows.Select(row => row.RegistrationId));
+        Assert.Equal(12, result.ConfirmedCount);
+        Assert.Equal(12, result.ValidAttendeeCount);
+        Assert.Equal(12, result.CourseBreakdown.Sum(item => item.Count));
+    }
+
     private static readonly DateTime CheckedInAt = new(2026, 3, 10, 9, 0, 0, DateTimeKind.Utc);
 
     [Fact]
@@ -32,7 +50,7 @@ public sealed class ParticipationReportServiceTests
         snapshot.Rows.Add(DetailRow(7, "Pending", status: RegistrationStatusCode.Pending));
         snapshot.Rows.Add(DetailRow(8, "Waitlisted", status: RegistrationStatusCode.Waitlisted));
         snapshot.Rows.Add(DetailRow(9, "Cancelled", status: RegistrationStatusCode.Cancelled));
-        var service = new ParticipationReportService(events, snapshot);
+        var service = new ParticipationReportService(events, snapshot, new ASI.Basecode.Data.Queries.ListReadOptions { PageSize = 25 });
 
         var report = await service.GetReportAsync(1, null, TestContext.Current.CancellationToken);
 
@@ -76,7 +94,7 @@ public sealed class ParticipationReportServiceTests
         var snapshot = new FakeSnapshot();
         snapshot.Rows.Add(DetailRow(1, "Absent A"));
         snapshot.Rows.Add(DetailRow(2, "Absent B"));
-        var service = new ParticipationReportService(events, snapshot);
+        var service = new ParticipationReportService(events, snapshot, new ASI.Basecode.Data.Queries.ListReadOptions { PageSize = 25 });
 
         var report = await service.GetReportAsync(1, null, TestContext.Current.CancellationToken);
 
@@ -97,7 +115,7 @@ public sealed class ParticipationReportServiceTests
         var snapshot = new FakeSnapshot();
         snapshot.Rows.Add(DetailRow(1, "Attended", checkedInAt: CheckedInAt));
         snapshot.Rows.Add(DetailRow(2, "Absent"));
-        var service = new ParticipationReportService(events, snapshot);
+        var service = new ParticipationReportService(events, snapshot, new ASI.Basecode.Data.Queries.ListReadOptions { PageSize = 25 });
 
         var report = await service.GetReportAsync(1, null, TestContext.Current.CancellationToken);
 
@@ -128,7 +146,7 @@ public sealed class ParticipationReportServiceTests
         var events = new FakeEvents();
         events.Items.Add(new EventListItem { EventId = 1, Title = "First" });
         var snapshot = new FakeSnapshot();
-        var service = new ParticipationReportService(events, snapshot);
+        var service = new ParticipationReportService(events, snapshot, new ASI.Basecode.Data.Queries.ListReadOptions { PageSize = 25 });
 
         var report = await service.GetReportAsync(null, 2, TestContext.Current.CancellationToken);
 
@@ -148,7 +166,7 @@ public sealed class ParticipationReportServiceTests
         var events = new FakeEvents();
         events.Items.Add(new EventListItem { EventId = 1, Title = "First" });
         var snapshot = new FakeSnapshot();
-        var service = new ParticipationReportService(events, snapshot);
+        var service = new ParticipationReportService(events, snapshot, new ASI.Basecode.Data.Queries.ListReadOptions { PageSize = 25 });
 
         var report = await service.GetReportAsync(99, null, TestContext.Current.CancellationToken);
 
@@ -180,7 +198,7 @@ public sealed class ParticipationReportServiceTests
             });
         }
 
-        var service = new ParticipationReportService(events, snapshot);
+        var service = new ParticipationReportService(events, snapshot, new ASI.Basecode.Data.Queries.ListReadOptions { PageSize = 25 });
 
         var report = await service.GetReportAsync(1, page, TestContext.Current.CancellationToken);
 
@@ -205,7 +223,7 @@ public sealed class ParticipationReportServiceTests
             snapshot.Rows.Add(DetailRow(index, $"Participant {index:D2}", checkedInAt: CheckedInAt));
         }
 
-        var service = new ParticipationReportService(events, snapshot);
+        var service = new ParticipationReportService(events, snapshot, new ASI.Basecode.Data.Queries.ListReadOptions { PageSize = 25 });
 
         var first = await service.GetReportAsync(1, 1, TestContext.Current.CancellationToken);
 
@@ -247,7 +265,7 @@ public sealed class ParticipationReportServiceTests
             snapshot.Rows.Add(DetailRow(index, $"Participant {index:D2}", checkedInAt: CheckedInAt));
         }
 
-        var service = new ParticipationReportService(events, snapshot);
+        var service = new ParticipationReportService(events, snapshot, new ASI.Basecode.Data.Queries.ListReadOptions { PageSize = 25 });
 
         var report = await service.GetReportAsync(1, page, TestContext.Current.CancellationToken);
 
@@ -269,7 +287,7 @@ public sealed class ParticipationReportServiceTests
         snapshot.Rows.Add(DetailRow(4, "Pending", status: RegistrationStatusCode.Pending));
         snapshot.Rows.Add(DetailRow(5, "Cancelled", status: RegistrationStatusCode.Cancelled, checkedInAt: CheckedInAt));
 
-        var service = new ParticipationReportService(events, snapshot);
+        var service = new ParticipationReportService(events, snapshot, new ASI.Basecode.Data.Queries.ListReadOptions { PageSize = 25 });
 
         var report = await service.GetReportAsync(1, null, TestContext.Current.CancellationToken);
 
@@ -320,7 +338,7 @@ public sealed class ParticipationReportServiceTests
         events.Items.Add(new EventListItem { EventId = 1, Title = "Published" });
         var snapshot = new FakeSnapshot();
         snapshot.Rows.Add(DetailRow(1, "Waiting"));
-        var service = new ParticipationReportService(events, snapshot);
+        var service = new ParticipationReportService(events, snapshot, new ASI.Basecode.Data.Queries.ListReadOptions { PageSize = 25 });
 
         var report = await service.GetReportAsync(1, null, TestContext.Current.CancellationToken);
 
@@ -338,7 +356,7 @@ public sealed class ParticipationReportServiceTests
         var events = new FakeEvents { EventItem = Event(1, EventStatusCode.Completed) };
         events.Items.Add(new EventListItem { EventId = 1, Title = "Empty" });
         var snapshot = new FakeSnapshot();
-        var service = new ParticipationReportService(events, snapshot);
+        var service = new ParticipationReportService(events, snapshot, new ASI.Basecode.Data.Queries.ListReadOptions { PageSize = 25 });
 
         var report = await service.GetReportAsync(1, 3, TestContext.Current.CancellationToken);
 

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>AttendTa-Demo-Standalone</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(DemoPackagePath)" LogicalName="AttendTa.Demo.Package.zip" />
+  </ItemGroup>
+  <Target Name="ValidateDemoPackage" BeforeTargets="PrepareForBuild">
+    <Error Condition="'$(DemoPackagePath)' == '' or !Exists('$(DemoPackagePath)')"
+           Text="DemoPackagePath must identify the freshly built Windows package ZIP." />
+  </Target>
+</Project>

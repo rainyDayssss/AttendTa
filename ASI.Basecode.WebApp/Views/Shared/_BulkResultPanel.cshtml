@@ -1,0 +1,23 @@
+@model BulkResultViewModel
+<section class="bulk-result" aria-labelledby="bulk-result-title">
+    <h2 class="bulk-result-title" id="bulk-result-title">@Model.Title</h2>
+    <p class="bulk-result-counts">@Model.SucceededCount of @Model.TotalCount succeeded; @Model.FailedCount failed@(Model.FailedCount > 0 ? ". Failed records were left unchanged." : ".")</p>
+    @if (Model.TotalCount > 0)
+    {
+    <details class="bulk-result-details">
+        <summary>View @(Model.TotalCount == 1 ? "1 result" : $"all {Model.TotalCount} results")</summary>
+        <ul class="bulk-result-list">
+        @foreach (var item in Model.Items)
+        {
+            <li class="bulk-result-item">
+                <span class="bulk-result-label">@item.Label</span>
+                @* A surface that names its own outcome (Confirmed, Waitlisted) supplies both the
+                   label and the tint; otherwise the panel keeps its success/failure wording. *@
+                <span class="badge @(item.Tone ?? (item.Succeeded ? "badge-approved" : "badge-rejected"))">@(item.Status ?? (item.Succeeded ? Model.SuccessLabel : Model.FailureLabel))</span>
+                <span class="bulk-result-message">@item.Message</span>
+            </li>
+        }
+        </ul>
+    </details>
+    }
+</section>

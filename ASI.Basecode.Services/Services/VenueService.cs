@@ -1,3 +1,4 @@
+using ASI.Basecode.Data.Queries;
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Resources;
@@ -16,6 +17,7 @@ namespace ASI.Basecode.Services.Services
 {
     public class VenueService : IVenueService
     {
+        private readonly ListReadOptions _readOptions;
         private readonly IVenueRepository _repository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly TimeProvider _timeProvider;
@@ -25,8 +27,9 @@ namespace ASI.Basecode.Services.Services
         private readonly ICurrentActor _actor;
         private readonly ILogger<VenueService> _logger;
 
-        public VenueService(IVenueRepository repository, IUnitOfWork unitOfWork, IMapper mapper, TimeProvider timeProvider, IPrivateFileStore files, IActivityLogWriter audit, ICurrentActor actor, ILogger<VenueService> logger)
+        public VenueService(IVenueRepository repository, IUnitOfWork unitOfWork, IMapper mapper, TimeProvider timeProvider, IPrivateFileStore files, IActivityLogWriter audit, ICurrentActor actor, ILogger<VenueService> logger, ListReadOptions readOptions = null)
         {
+            _readOptions = readOptions;
             _repository = repository;
             _unitOfWork = unitOfWork;
             _timeProvider = timeProvider;
@@ -40,15 +43,15 @@ namespace ASI.Basecode.Services.Services
         public async Task<PagedResult<VenueViewModel>> GetPageAsync(string status, int? pageNumber, CancellationToken cancellationToken = default)
         {
             var totalCount = await _repository.CountAsync(status, cancellationToken);
-            var pageRequest = new PageRequest(pageNumber);
+            var pageRequest = new PageRequest(pageNumber, _readOptions?.PageSize);
             var normalizedPage = pageRequest.NormalizePageNumber(totalCount);
             var venues = await _repository.GetPageAsync(
                 status,
                 pageRequest.GetOffset(normalizedPage),
-                PageRequest.FixedPageSize,
+                PageRequest.NormalizeSize(_readOptions?.PageSize),
                 cancellationToken);
             var items = _mapper.Map<List<VenueViewModel>>(venues);
-            return new PagedResult<VenueViewModel>(items, normalizedPage, totalCount);
+            return new PagedResult<VenueViewModel>(items, normalizedPage, totalCount, PageRequest.NormalizeSize(_readOptions?.PageSize));
         }
 
         public VenueViewModel GetVenue(int id)
@@ -64,10 +67,41 @@ namespace ASI.Basecode.Services.Services
         private static VenueAuditValues Snapshot(Venue venue, bool photoChanged) =>
             new(venue.RoomName, venue.Capacity, venue.Location, venue.AvailabilityNotes, venue.ContactPerson, photoChanged);
 
-        private static bool IsVenuePhoto(string key) =>
-            !string.IsNullOrWhiteSpace(key) && key.StartsWith("uploads/venues/", StringComparison.Ordinal) &&
-            key.Length > "uploads/venues/".Length && key.IndexOfAny(new[] { '/', '\\' }, "uploads/venues/".Length) < 0 &&
-            key != "uploads/venues/..";
+        public bool IsServablePhoto(string path)
+        {
+            const string prefix = "uploads/venues/";
+            return !string.IsNullOrWhiteSpace(path) &&
+                path.StartsWith(prefix, StringComparison.Ordinal) &&
+                path.Length > prefix.Length &&
+                path.IndexOf('\0') < 0 &&
+                path.IndexOfAny(new[] { '/', '\\' }, prefix.Length) < 0 &&
+                Path.GetExtension(path).ToLowerInvariant() is ".jpg" or ".jpeg" or ".png";
+        }
+
+        private bool IsVenuePhoto(string key) => IsServablePhoto(key);
+
+        public async Task<VenuePhotoStream> GetPhotoAsync(int venueId, CancellationToken cancellationToken = default)
+        {
+            var venue = _repository.GetVenue(venueId);
+            if (venue == null || !IsServablePhoto(venue.ImagePath)) return null;
+
+            var contentType = Path.GetExtension(venue.ImagePath).ToLowerInvariant() switch
+            {
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                _ => null
+            };
+            if (contentType == null) return null;
+
+            try
+            {
+                return new VenuePhotoStream(await _files.OpenSafelyAsync(venue.ImagePath, cancellationToken), contentType);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or DomainException { Outcome: OutcomeCode.NotFound })
+            {
+                return null;
+            }
+        }
 
         private int RequireManagementActor(string message = "A valid authenticated user is required.")
         {
@@ -84,7 +118,7 @@ namespace ASI.Basecode.Services.Services
         {
             if (model.Capacity <= 0)
                 throw new DomainException(OutcomeCode.Invalid, "Capacity must be greater than 0.", nameof(VenueViewModel.Capacity));
-            if (_unitOfWork.Database.Database.CurrentTransaction != null || System.Transactions.Transaction.Current != null)
+            if (_unitOfWork.HasActiveTransaction || System.Transactions.Transaction.Current != null)
                 throw new InvalidOperationException("Venue writes require ownership of the transaction.");
         }
 

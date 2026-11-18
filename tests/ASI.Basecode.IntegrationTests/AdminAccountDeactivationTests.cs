@@ -67,7 +67,7 @@ public sealed class AdminAccountDeactivationTests : IClassFixture<SqlServerDatab
         await SetQrTokenAsync(confirmed.RegistrationId, new string('a', 64), ct);
         await SetQrTokenAsync(pending.RegistrationId, new string('b', 64), ct);
 
-        await MemberEventTestSupport.SignInAsync(client, actor.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(client, actor.Email, password, ct);
         const string reason = "  Account deactivated for cascade test.  ";
         using var response = await DeactivateThroughEndpointAsync(client, officer.Id, reason, ct);
 
@@ -163,10 +163,10 @@ public sealed class AdminAccountDeactivationTests : IClassFixture<SqlServerDatab
         var officer = await SeedUserAsync(RoleCode.Officer, "session-officer", ct);
 
         using var officerClient = CreateClient();
-        await MemberEventTestSupport.SignInAsync(officerClient, officer.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(officerClient, officer.Email, password, ct);
         Assert.Equal(HttpStatusCode.OK, (await officerClient.GetAsync("/Member", ct)).StatusCode);
 
-        await MemberEventTestSupport.SignInAsync(client, actor.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(client, actor.Email, password, ct);
         using var response = await DeactivateThroughEndpointAsync(client, officer.Id, "Session refusal test.", ct);
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
 
@@ -182,7 +182,7 @@ public sealed class AdminAccountDeactivationTests : IClassFixture<SqlServerDatab
         var actor = await SeedUserAsync(RoleCode.Admin, "validation-deactivate-actor", ct);
         var target = await SeedUserAsync(RoleCode.Member, "validation-deactivate-target", ct);
 
-        await MemberEventTestSupport.SignInAsync(client, actor.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(client, actor.Email, password, ct);
 
         using (var blank = await DeactivateThroughEndpointAsync(client, target.Id, "   ", ct))
         {

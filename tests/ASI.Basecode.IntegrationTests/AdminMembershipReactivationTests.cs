@@ -66,7 +66,7 @@ public sealed class AdminMembershipReactivationTests : IClassFixture<SqlServerDa
             member.MemberId, RegistrationStatusCode.Confirmed, actor.Id, ct);
         await SetQrTokenAsync(cancelled.RegistrationId, new string('e', 64), ct);
 
-        await MemberEventTestSupport.SignInAsync(client, actor.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(client, actor.Email, password, ct);
         using (var deactivated = await DeactivateThroughEndpointAsync(client, member.MemberId, "Suspended before reactivation.", ct))
         {
             Assert.Equal(HttpStatusCode.Redirect, deactivated.StatusCode);
@@ -81,7 +81,7 @@ public sealed class AdminMembershipReactivationTests : IClassFixture<SqlServerDa
         }
 
         using var targetClient = CreateClient(factory);
-        await MemberEventTestSupport.SignInAsync(targetClient, target.UserId, password, ct);
+        await MemberEventTestSupport.SignInAsync(targetClient, target.Email, password, ct);
         using (var feed = await targetClient.GetAsync("/MemberEvents", ct))
         {
             Assert.Equal(HttpStatusCode.OK, feed.StatusCode);

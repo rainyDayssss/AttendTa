@@ -1,14 +1,16 @@
 @model MemberViewModel
 @{
     ViewData["Title"] = "Edit Member";
+    ViewData["MemberEditRecoveryId"] = "member-edit-recovery-page";
 }
 
 <div class="page-heading">
     <h1>Edit Member</h1>
 </div>
 
-<form asp-action="Edit" method="post" class="form-panel">
-    <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
+<form asp-action="Edit" asp-route-id="" method="post" class="form-panel">
+    <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert" tabindex="-1" autofocus="@(ViewData["MemberEditConflict"] is true)" aria-describedby="@(ViewData["MemberEditConflict"] is true ? ViewData["MemberEditRecoveryId"] : null)"></div>
+    <partial name="_EditRecovery" model="Model" />
     <input type="hidden" asp-for="MemberId" />
     <div class="field">
         <label asp-for="Email" class="field-label">Email</label>

@@ -13,13 +13,17 @@
   .record-dialog-close:focus-visible { outline: 2px solid var(--color-cobalt); outline-offset: 2px; }
   .record-dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--color-border); }
   .record-dialog [data-record-message]:not(:empty) { margin: 16px 0; color: var(--color-ink-secondary); font-size: 12.5px; }
+  .record-dialog [data-record-errors][aria-describedby="member-edit-recovery-dialog"] { margin-bottom: 16px; }
+  .record-dialog [data-record-errors][aria-describedby="member-edit-recovery-dialog"]:focus { outline: 2px solid var(--color-cobalt); outline-offset: 2px; }
+  .record-result-sticky { position: sticky; top: 64px; z-index: 20; }
+  .record-result-focus { scroll-margin-top: 140px; }
   .record-dialog [data-record-recovery]:not([hidden]) { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
   .record-dialog [data-record-preview] { display: block; margin-top: 8px; }
   .record-dialog [data-record-preview][hidden] { display: none; }
   .record-dialog-preview-image { width: 160px; height: 106px; border: 1px solid var(--color-border); border-radius: var(--radius-control); object-fit: cover; }
   .record-dialog > #record-dialog-description { margin: 8px 0 0; color: var(--color-ink-muted); font-size: .875rem; }
-  .record-dialog .field { margin-bottom: 10px; }
-  .record-dialog fieldset { min-width: 0; margin: 0 0 12px; }
+  .record-dialog .field { margin-bottom: 16px; }
+  .record-dialog fieldset { min-width: 0; margin: 0 0 24px; }
   .record-dialog fieldset:last-of-type { margin-bottom: 0; }
   .record-dialog legend { margin-bottom: 10px; color: var(--color-ink); font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
   .venue-photo { width: 100%; max-width: 260px; aspect-ratio: 16 / 9; height: auto; border: 1px solid var(--color-border); border-radius: var(--radius-control); object-fit: cover; }

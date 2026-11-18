@@ -71,7 +71,7 @@ public sealed class CheckInLookupFlowTests(SqlServerDatabaseFixture fixture) : I
     }
 
     [Fact]
-    public async Task SearchPagesAt25AndWritesNothing()
+    public async Task SearchPagesAtFiveAndWritesNothing()
     {
         var ct = TestContext.Current.CancellationToken;
         var setup = await SeedEventAsync();
@@ -82,24 +82,24 @@ public sealed class CheckInLookupFlowTests(SqlServerDatabaseFixture fixture) : I
 
         var first = await lookup.SearchAsync(setup.EventId, NamePrefix, 1, ct);
         Assert.Equal(30, first.TotalCount);
-        Assert.Equal(25, first.Rows.Count);
-        Assert.Equal(2, first.TotalPages);
+        Assert.Equal(5, first.Rows.Count);
+        Assert.Equal(6, first.TotalPages);
         Assert.Equal(1, first.PageNumber);
         Assert.True(first.HasNextPage);
         Assert.Equal(setup.RegistrationIds[0], first.Rows[0].RegistrationId);
-        Assert.Equal(setup.RegistrationIds[24], first.Rows[24].RegistrationId);
+        Assert.Equal(setup.RegistrationIds[4], first.Rows[4].RegistrationId);
 
         var second = await lookup.SearchAsync(setup.EventId, NamePrefix, 2, ct);
         Assert.Equal(30, second.TotalCount);
         Assert.Equal(5, second.Rows.Count);
-        Assert.Equal(2, second.TotalPages);
+        Assert.Equal(6, second.TotalPages);
         Assert.Equal(2, second.PageNumber);
-        Assert.False(second.HasNextPage);
-        Assert.Equal(setup.RegistrationIds[25], second.Rows[0].RegistrationId);
-        Assert.Equal(setup.RegistrationIds[29], second.Rows[4].RegistrationId);
+        Assert.True(second.HasNextPage);
+        Assert.Equal(setup.RegistrationIds[5], second.Rows[0].RegistrationId);
+        Assert.Equal(setup.RegistrationIds[9], second.Rows[4].RegistrationId);
 
         // A page past the end resolves to the last page; an invalid page resolves to page one.
-        Assert.Equal(2, (await lookup.SearchAsync(setup.EventId, NamePrefix, 99, ct)).PageNumber);
+        Assert.Equal(6, (await lookup.SearchAsync(setup.EventId, NamePrefix, 99, ct)).PageNumber);
         Assert.Equal(1, (await lookup.SearchAsync(setup.EventId, NamePrefix, 0, ct)).PageNumber);
 
         Assert.Equal(attendanceBefore, await AttendanceCountAsync());

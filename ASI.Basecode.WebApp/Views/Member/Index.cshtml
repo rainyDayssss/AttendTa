@@ -1,29 +1,32 @@
 @model PagedResult<MemberViewModel>
 @using Microsoft.AspNetCore.Http.Extensions
 @{
+    ViewData["ListControls"] = true;
     ViewData["Title"] = "Organization Members";
     ViewData["Feature"] = "record-dialog";
     var statusFilter = ViewBag.Status as string;
     var searchTerm = ViewBag.Search as string;
     var listError = ViewData["ListError"] as string;
-    var entryNumber = Model.FirstItemNumber;
+    var unchangedMessage = TempData["MemberUnchangedMessage"] as string;
+
+}
+
+@if (!string.IsNullOrWhiteSpace(unchangedMessage))
+{
+    <div id="member-edit-unchanged" class="notice notice-amber" role="status" data-member-edit-unchanged>@unchangedMessage</div>
 }
 
 <div class="page-heading">
     <h1>Organization Members</h1>
 </div>
 
+<partial name="_ListToolbar" model='@(new ListToolbarViewModel("Search name, email, or student number", new ListFilterField[] { ListToolbarViewModel.Course, ListToolbarViewModel.Year }))' />
 <div class="sheet-keys">
-    <form asp-action="Index" method="get" class="search-group">
-        <input type="text" name="search" aria-label="Search members" value="@ViewBag.Search" class="field-control" placeholder="Search by name or student number" />
-        <input type="hidden" name="status" value="@statusFilter" />
-        <button type="submit" class="button button-secondary">Search</button>
-    </form>
 
     <nav class="filter-tabs" aria-label="Membership status">
-        <a class="filter-tab" asp-action="Index" asp-route-search="@searchTerm" aria-current="@(string.IsNullOrEmpty(statusFilter) ? "page" : null)">All</a>
-        <a class="filter-tab" asp-action="Index" asp-route-search="@searchTerm" asp-route-status="active" aria-current="@(statusFilter == "active" ? "page" : null)">Active</a>
-        <a class="filter-tab" asp-action="Index" asp-route-search="@searchTerm" asp-route-status="inactive" aria-current="@(statusFilter == "inactive" ? "page" : null)">Inactive</a>
+        <a href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["status"] = null })' class="filter-tab" aria-current="@(string.IsNullOrEmpty(statusFilter) ? "page" : null)">All</a>
+        <a href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["status"] = "active" })' class="filter-tab" aria-current="@(statusFilter == "active" ? "page" : null)">Active</a>
+        <a href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["status"] = "inactive" })' class="filter-tab" aria-current="@(statusFilter == "inactive" ? "page" : null)">Inactive</a>
     </nav>
 </div>
 
@@ -39,17 +42,11 @@
         <table class="data-table roster-table table-sticky">
             <thead>
                 <tr>
-                    <th scope="col" class="entry-gutter"><span class="sr-only">Entry</span></th>
-                    <th scope="col">Student Number</th>
                     <th scope="col">Full Name</th>
                     <th scope="col">Email</th>
-                    <th scope="col">Course</th>
-                    <th scope="col">Year</th>
-                    <th scope="col">Section</th>
-                    <th scope="col">Mobile</th>
-                    <th scope="col">Membership Type</th>
-                    <th scope="col">Status</th>
-                    <th scope="col" class="actions">Actions</th>
+                    <th scope="col">Course / year / section</th>
+                    <th scope="col" class="column-status">Status</th>
+                    <th scope="col" class="actions actions-tight">Actions</th>
                 </tr>
             </thead>
         </table>
@@ -61,22 +58,16 @@ else if (Model.Items.Count == 0)
         <table class="data-table roster-table table-sticky">
             <thead>
                 <tr>
-                    <th scope="col" class="entry-gutter"><span class="sr-only">Entry</span></th>
-                    <th scope="col">Student Number</th>
                     <th scope="col">Full Name</th>
                     <th scope="col">Email</th>
-                    <th scope="col">Course</th>
-                    <th scope="col">Year</th>
-                    <th scope="col">Section</th>
-                    <th scope="col">Mobile</th>
-                    <th scope="col">Membership Type</th>
-                    <th scope="col">Status</th>
-                    <th scope="col" class="actions">Actions</th>
+                    <th scope="col">Course / year / section</th>
+                    <th scope="col" class="column-status">Status</th>
+                    <th scope="col" class="actions actions-tight">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td colspan="11" class="empty-state">
+                    <td colspan="5" class="empty-state">
                         @if (!string.IsNullOrWhiteSpace(searchTerm))
                         {
                             <text>No members match your search. Try a different name or student number.</text>
@@ -101,51 +92,43 @@ else
         <table class="data-table roster-table table-sticky">
             <thead>
                 <tr>
-                    <th scope="col" class="entry-gutter"><span class="sr-only">Entry</span></th>
-                    <th scope="col">Student Number</th>
                     <th scope="col">Full Name</th>
                     <th scope="col">Email</th>
-                    <th scope="col">Course</th>
-                    <th scope="col">Year</th>
-                    <th scope="col">Section</th>
-                    <th scope="col">Mobile</th>
-                    <th scope="col">Membership Type</th>
-                    <th scope="col">Status</th>
-                    <th scope="col" class="actions">Actions</th>
+                    <th scope="col">Course / year / section</th>
+                    <th scope="col" class="column-status">Status</th>
+                    <th scope="col" class="actions actions-tight">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var member in Model.Items)
                 {
-                    var entry = entryNumber++;
+
                     var displayName = member.FullName ?? string.Empty;
                     var initials = string.Concat(displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(part => part[0]));
+                    var details = new RecordDetailsViewModel($"member-details-{member.MemberId}", member.FullName, new Dictionary<string, string> { ["Student number"] = member.StudentNumber, ["Mobile"] = member.MobileNumber, ["Membership type"] = member.MembershipType }, null);
                     <tr data-member-id="@member.MemberId">
-                        <td class="entry-gutter">@entry</td>
-                        <td class="numeric cell-identifier">@member.StudentNumber</td>
-                        <td>
+                        <td data-label="Full Name">
                             <span class="name-cell">
                                 <span class="name-initials" aria-hidden="true">@initials</span>
-                                <span class="name-text">@member.FullName</span>
+                                <span class="name-text">@member.FullName<small class="cell-meta">@member.StudentNumber</small></span>
                             </span>
                         </td>
-                        <td>@member.Email</td>
-                        <td>@member.Course</td>
-                        <td class="numeric">@member.YearLevel</td>
-                        <td>@member.Section</td>
-                        <td class="numeric cell-identifier">@member.MobileNumber</td>
-                        <td>@member.MembershipType</td>
-                        <td><span class="badge @(member.Status == "active" ? "badge-active" : "badge-inactive")">@(member.Status == "active" ? "Active" : "Inactive")</span></td>
-                        <td class="actions">
+                        <td data-label="Email" class="cell-email">@member.Email</td>
+                        <td data-label="Course / year / section">@member.Course · @member.YearLevel · @(string.IsNullOrWhiteSpace(member.Section) ? "Not provided" : member.Section)</td>
+                        <td data-label="Status"><span class="badge @(member.Status == "active" ? "badge-active" : "badge-inactive")">@(member.Status == "active" ? "Active" : "Inactive")</span></td>
+                        <td data-label="Actions" class="actions">
                             <div class="row-actions">
+
                                 <a asp-action="Edit" asp-route-id="@member.MemberId" class="button button-small button-secondary" data-record-open="edit-member-@member.MemberId" data-record-title="Edit Member" data-record-subtitle="@member.FullName · @member.StudentNumber">Edit</a>
                                 <partial name="_RowMenuTrigger" model="@($"row-menu-member-{member.MemberId}")" />
                             </div>
                             <div id="row-menu-member-@member.MemberId" popover class="row-menu">
+                                <partial name="_DetailsTrigger" model="details" />
                                 <div class="row-menu-danger">
                                     <partial name="_AccessActions" model="MembershipAccessViewModel.For(member)" />
                                 </div>
                             </div>
+                        <partial name="_DetailsDialog" model="details" />
                         </td>
                     </tr>
                 }
@@ -158,7 +141,3 @@ else
 
 <partial name="_ResultCount" model="Model" />
 <partial name="_RecordDialog" />
-
-@section Scripts {
-    <script src="~/js/features/list-feedback.js" asp-append-version="true"></script>
-}

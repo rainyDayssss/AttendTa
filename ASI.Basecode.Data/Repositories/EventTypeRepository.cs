@@ -1,3 +1,4 @@
+using ASI.Basecode.Data.Queries;
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
 using Basecode.Data.Repositories;
@@ -12,8 +13,10 @@ namespace ASI.Basecode.Data.Repositories
 {
     public class EventTypeRepository : BaseRepository, IEventTypeRepository
     {
-        public EventTypeRepository(IUnitOfWork unitOfWork) : base(unitOfWork)
+        private readonly ListReadOptions _readOptions;
+        public EventTypeRepository(IUnitOfWork unitOfWork, ListReadOptions readOptions = null) : base(unitOfWork)
         {
+            _readOptions = readOptions;
         }
 
         public async Task<IReadOnlyList<EventType>> GetActiveEventTypesAsync(CancellationToken cancellationToken = default)
@@ -47,6 +50,10 @@ namespace ASI.Basecode.Data.Repositories
         private IQueryable<EventType> FilterEventTypes(string status)
         {
             var query = this.GetDbSet<EventType>().AsNoTracking();
+            if (_readOptions?.IsSurface("EventType") == true && !string.IsNullOrWhiteSpace(_readOptions.Search)) {
+                var term = _readOptions.Search;
+                query = query.Where(row => row.TypeName.Contains(term) || (row.Description != null && row.Description.Contains(term)));
+            }
             return status switch
             {
                 "active" => query.Where(eventType => eventType.IsActive),

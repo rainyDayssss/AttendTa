@@ -1,6 +1,11 @@
 /* Home: role-aware destinations as hairline rows in a section panel, never a card grid. */
 @layer components {
-  .home-section + .home-section { margin-top: 24px; }
+  .home-management-groups { display: grid; gap: 24px; }
+  .home-management-groups .home-section { min-width: 0; }
+
+  @media (min-width: 1024px) {
+    .home-management-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  }
 
   .home-section .section-head { margin-bottom: 12px; }
 

@@ -1,3 +1,4 @@
+using ASI.Basecode.Data.Queries;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -7,7 +8,7 @@ using ASI.Basecode.Services.ServiceModels;
 
 namespace ASI.Basecode.Services.Services;
 
-public sealed class AccountAdministrationService(IAccountAdministrationRepository accountAdministrationRepository) : IAccountAdministrationService
+public sealed class AccountAdministrationService(IAccountAdministrationRepository accountAdministrationRepository, ListReadOptions readOptions = null) : IAccountAdministrationService
 {
     public async Task<PagedResult<AccountSummaryViewModel>> GetPageAsync(
         string search,
@@ -16,12 +17,12 @@ public sealed class AccountAdministrationService(IAccountAdministrationRepositor
     {
         var normalizedSearch = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
         var totalCount = await accountAdministrationRepository.CountAsync(normalizedSearch, cancellationToken);
-        var pageRequest = new PageRequest(pageNumber);
+        var pageRequest = new PageRequest(pageNumber, readOptions?.PageSize);
         var normalizedPage = pageRequest.NormalizePageNumber(totalCount);
         var records = await accountAdministrationRepository.GetPageAsync(
             normalizedSearch,
             pageRequest.GetOffset(normalizedPage),
-            PageRequest.FixedPageSize,
+            PageRequest.NormalizeSize(readOptions?.PageSize),
             cancellationToken);
 
         var items = records.Select(record => new AccountSummaryViewModel
@@ -34,6 +35,6 @@ public sealed class AccountAdministrationService(IAccountAdministrationRepositor
             IsActive = record.IsActive
         }).ToList();
 
-        return new PagedResult<AccountSummaryViewModel>(items, normalizedPage, totalCount);
+        return new PagedResult<AccountSummaryViewModel>(items, normalizedPage, totalCount, PageRequest.NormalizeSize(readOptions?.PageSize));
     }
 }

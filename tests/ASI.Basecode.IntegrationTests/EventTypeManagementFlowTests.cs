@@ -37,38 +37,48 @@ public sealed class EventTypeManagementFlowTests(SqlServerDatabaseFixture fixtur
         var emptyResponse = await officerClient.GetAsync("/EventType", ct);
         Assert.Equal(HttpStatusCode.OK, emptyResponse.StatusCode);
         var empty = await emptyResponse.Content.ReadAsStringAsync(ct);
+        Assert.Contains("<h1>Event types</h1>", empty, StringComparison.Ordinal);
+        Assert.DoesNotContain("Event Classifications", empty, StringComparison.Ordinal);
         Assert.Contains("No event types yet. Use \"New Event Type\" to create the first one.", empty, StringComparison.Ordinal);
         Assert.Contains("data-table", empty, StringComparison.Ordinal);
         Assert.DoesNotContain("aria-label=\"Pagination\"", empty, StringComparison.Ordinal);
 
         await SeedEventTypesAsync(officerId, ct);
 
+        var noMatches = await officerClient.GetStringAsync("/EventType?search=no-such-event-type", ct);
+        Assert.Contains("No event types match your search.", noMatches, StringComparison.Ordinal);
+        Assert.DoesNotContain("No event types yet.", noMatches, StringComparison.Ordinal);
+        Assert.Contains("Reset", noMatches, StringComparison.Ordinal);
+
+        var filteredNoMatches = await officerClient.GetStringAsync("/EventType?status=active&search=no-such-event-type", ct);
+        Assert.Contains("No event types match your search.", filteredNoMatches, StringComparison.Ordinal);
+
         var firstPageResponse = await officerClient.GetAsync("/EventType", ct);
         Assert.Equal(HttpStatusCode.OK, firstPageResponse.StatusCode);
         var firstPage = await firstPageResponse.Content.ReadAsStringAsync(ct);
-        Assert.Contains("Page 1 of 2", firstPage, StringComparison.Ordinal);
-        Assert.Equal(25, Regex.Matches(firstPage, "data-type-id=\"(\\d+)\"").Count);
+        Assert.Contains("Page 1 of 6", firstPage, StringComparison.Ordinal);
+        Assert.Equal(5, Regex.Matches(firstPage, "data-type-id=\"(\\d+)\"").Count);
         Assert.Contains("Flow Type 01", firstPage, StringComparison.Ordinal);
-        Assert.Contains("Flow Type 25", firstPage, StringComparison.Ordinal);
+        Assert.Contains("Flow Type 05", firstPage, StringComparison.Ordinal);
         Assert.DoesNotContain("Flow Type 26", firstPage, StringComparison.Ordinal);
         Assert.Contains("data-table", firstPage, StringComparison.Ordinal);
         Assert.Contains("class=\"badge badge-active\">Active</span>", firstPage, StringComparison.Ordinal);
         Assert.Contains("page=2", firstPage, StringComparison.Ordinal);
         Assert.Contains("aria-label=\"Next page\"", firstPage, StringComparison.Ordinal);
 
-        var lastPage = await officerClient.GetStringAsync("/EventType?page=2", ct);
-        Assert.Contains("Page 2 of 2", lastPage, StringComparison.Ordinal);
-        Assert.Contains("name=\"page\" value=\"2\"", lastPage, StringComparison.Ordinal);
+        var lastPage = await officerClient.GetStringAsync("/EventType?page=6", ct);
+        Assert.Contains("Page 6 of 6", lastPage, StringComparison.Ordinal);
+        Assert.Contains("name=\"page\" value=\"6\"", lastPage, StringComparison.Ordinal);
         Assert.Contains("Flow Type 26", lastPage, StringComparison.Ordinal);
         Assert.DoesNotContain("Flow Type 01", lastPage, StringComparison.Ordinal);
         Assert.DoesNotContain("aria-label=\"Next page\"", lastPage, StringComparison.Ordinal);
 
         var pastEnd = await officerClient.GetStringAsync("/EventType?page=999", ct);
-        Assert.Contains("Page 2 of 2", pastEnd, StringComparison.Ordinal);
+        Assert.Contains("Page 6 of 6", pastEnd, StringComparison.Ordinal);
         Assert.Contains("Flow Type 26", pastEnd, StringComparison.Ordinal);
 
         var zero = await officerClient.GetStringAsync("/EventType?page=0", ct);
-        Assert.Contains("Page 1 of 2", zero, StringComparison.Ordinal);
+        Assert.Contains("Page 1 of 6", zero, StringComparison.Ordinal);
 
         var duplicateToken = await AntiforgeryTokenAsync(officerClient, "/EventType/Create", ct);
         var duplicateResponse = await officerClient.PostAsync("/EventType/Create", Form(new Dictionary<string, string>
@@ -157,7 +167,7 @@ public sealed class EventTypeManagementFlowTests(SqlServerDatabaseFixture fixtur
         await using var context = Context();
         var officer = new User
         {
-            UserId = officerEmail,
+            Email = officerEmail,
             Name = "Event Type Officer",
             Password = hasher.Hash(password),
             RoleId = RoleCode.Officer,
@@ -165,7 +175,7 @@ public sealed class EventTypeManagementFlowTests(SqlServerDatabaseFixture fixtur
         };
         var member = new User
         {
-            UserId = memberEmail,
+            Email = memberEmail,
             Name = "Event Type Member",
             Password = hasher.Hash(password),
             RoleId = RoleCode.Member,

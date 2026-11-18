@@ -5,8 +5,10 @@
     var token = Antiforgery.GetAndStoreTokens(Context).RequestToken;
     var error = TempData["ErrorMessage"] as string;
     var success = TempData["SuccessMessage"] as string;
-    var message = !string.IsNullOrWhiteSpace(error) ? error : success;
+    var info = TempData["InfoMessage"] as string;
+    var message = !string.IsNullOrWhiteSpace(error) ? error : !string.IsNullOrWhiteSpace(success) ? success : info;
     var isError = !string.IsNullOrWhiteSpace(error);
+    var isInfo = !isError && string.IsNullOrWhiteSpace(success);
     var authenticated = User.Identity?.IsAuthenticated == true;
     var management = User.IsInRole(RoleCodes.Admin) || User.IsInRole(RoleCodes.Officer);
     var shellWidth = authenticated ? null : ViewData["ShellWidth"] as string;
@@ -24,6 +26,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="RequestVerificationToken" content="@token" />
     <title>@ViewData["Title"] · AttendTa</title>
+    <link rel="icon" type="image/x-icon" href="~/favicon.ico" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
     @await RenderSectionAsync("Styles", required: false)
 </head>
@@ -34,13 +37,19 @@
         <main id="main-content" class="main-content" tabindex="-1">
             @if (!string.IsNullOrWhiteSpace(message))
             {
-                <div class="notice @(isError ? "notice-error" : "notice-success")" role="@(isError ? "alert" : "status")">@message</div>
+                <div class="notice @(isError ? "notice-error" : isInfo ? "notice-amber" : "notice-success")" role="@(isError ? "alert" : "status")">@message</div>
             }
             @RenderBody()
+            @if (ViewData["CertificatePreview"] is true) { <partial name="_CertificatePreview" /> }
         </main>
     </div>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    @if (ViewData["ListControls"] is true)
+    {
+        <script src="~/js/features/list-controls.js" asp-append-version="true"></script>
+        <script src="~/js/features/list-feedback.js" asp-append-version="true"></script>
+    }
     @{
         var feature = ViewData["Feature"] as string;
     }
@@ -49,5 +58,9 @@
         <script src="~/js/features/@(feature).js" asp-append-version="true"></script>
     }
     @await RenderSectionAsync("Scripts", required: false)
+    @if (ViewData["CertificatePreview"] is true)
+    {
+        <script src="~/js/features/certificate-preview.js" asp-append-version="true"></script>
+    }
 </body>
 </html>

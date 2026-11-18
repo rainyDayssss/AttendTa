@@ -1,0 +1,16 @@
+@model BulkSelectionViewModel
+@*
+    The selection bar. It owns the count, the page-scoped select/deselect controls and the
+    button that opens the confirmation dialog. The button deliberately does not use
+    data-dialog-open: the feature script writes the selected ids into the dialog first.
+*@
+<div class="bulk-bar" role="group" aria-label="Bulk selection">
+    <p class="bulk-count" data-bulk-count role="status" aria-live="polite">0 selected</p>
+    <div class="bulk-bar-actions">
+        <button type="button" class="button button-small button-secondary" data-bulk-select-all>Select all on this page</button>
+        <button type="button" class="button button-small button-secondary" data-bulk-clear>Deselect all</button>
+        @* Secondary, not primary: the queue already carries a cobalt Approve on every pending
+           row, and the confirmation dialog's submit is the one primary fill for the batch. *@
+        <button type="button" class="button button-small button-secondary" data-bulk-open="@Model.DialogId" disabled>@Model.ActionLabel</button>
+    </div>
+</div>

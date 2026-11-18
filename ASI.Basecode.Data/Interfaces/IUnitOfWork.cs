@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,6 +17,13 @@ namespace ASI.Basecode.Data.Interfaces
         /// The database.
         /// </value>
         DbContext Database { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether this unit of work is currently inside a database
+        /// transaction, whether it owns the transaction or joined an ambient one.
+        /// </summary>
+        bool HasActiveTransaction => Database is not null && Database.Database.CurrentTransaction is not null;
+
         /// <summary>
         /// Saves the changes to database
         /// </summary>

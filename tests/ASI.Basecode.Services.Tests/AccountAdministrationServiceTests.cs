@@ -22,7 +22,7 @@ public class AccountAdministrationServiceTests
     public async Task PageNumberIsNormalizedBeforeOneFixedSizePageIsFetched(int? requestedPage, int expectedPage, int expectedSkip)
     {
         var repository = new FakeRepository(totalCount: 26);
-        var service = new AccountAdministrationService(repository);
+        var service = new AccountAdministrationService(repository, new ASI.Basecode.Data.Queries.ListReadOptions { PageSize = 25 });
 
         var result = await service.GetPageAsync(null, requestedPage, TestContext.Current.CancellationToken);
 
@@ -30,14 +30,14 @@ public class AccountAdministrationServiceTests
         Assert.Equal(2, result.TotalPages);
         Assert.Equal(26, result.TotalCount);
         Assert.Equal(expectedSkip, repository.LastSkip);
-        Assert.Equal(PageRequest.FixedPageSize, repository.LastTake);
+        Assert.Equal(25, repository.LastTake);
     }
 
     [Fact]
     public async Task EmptyResultUsesPageOneWithoutNavigation()
     {
         var repository = new FakeRepository(totalCount: 0);
-        var service = new AccountAdministrationService(repository);
+        var service = new AccountAdministrationService(repository, new ASI.Basecode.Data.Queries.ListReadOptions { PageSize = 25 });
 
         var result = await service.GetPageAsync("nobody", 9, TestContext.Current.CancellationToken);
 
@@ -53,7 +53,7 @@ public class AccountAdministrationServiceTests
     public async Task SearchIsTrimmedAndAppliedToBothCountAndPage(string input, string expected)
     {
         var repository = new FakeRepository(totalCount: 0);
-        var service = new AccountAdministrationService(repository);
+        var service = new AccountAdministrationService(repository, new ASI.Basecode.Data.Queries.ListReadOptions { PageSize = 25 });
 
         await service.GetPageAsync(input, 1, TestContext.Current.CancellationToken);
 
@@ -68,7 +68,7 @@ public class AccountAdministrationServiceTests
     public async Task BlankSearchIsTreatedAsNoFilter(string? input)
     {
         var repository = new FakeRepository(totalCount: 0);
-        var service = new AccountAdministrationService(repository);
+        var service = new AccountAdministrationService(repository, new ASI.Basecode.Data.Queries.ListReadOptions { PageSize = 25 });
 
         await service.GetPageAsync(input!, 1, TestContext.Current.CancellationToken);
 
@@ -89,7 +89,7 @@ public class AccountAdministrationServiceTests
             RoleLabel = "Officer",
             IsActive = false
         });
-        var service = new AccountAdministrationService(repository);
+        var service = new AccountAdministrationService(repository, new ASI.Basecode.Data.Queries.ListReadOptions { PageSize = 25 });
 
         var result = await service.GetPageAsync(null, 1, TestContext.Current.CancellationToken);
 

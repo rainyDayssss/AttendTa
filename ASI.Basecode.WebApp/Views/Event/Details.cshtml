@@ -4,6 +4,10 @@
 @using System.Linq
 @{
     var item = Model.Event;
+    var promotionCandidate = ViewData["PromotionCandidate"] as ASI.Basecode.Data.Interfaces.RegistrationSummary;
+    ViewData["ListControls"] = true;
+    ViewData["PagingMode"] = "roster";
+    ViewData["ResultNoun"] = $"{Model.Status} registration";
     ViewData["Title"] = item.Title;
     ViewData["Feature"] = "record-dialog";
     var mutable = item.EventStatusId is EventStatusCode.Draft or EventStatusCode.Published;
@@ -20,6 +24,43 @@
         ? $"Registration #{failedRegistrationId} · {item.Title}"
         : $"{failedRegistration.MemberName} ({failedRegistration.StudentNumber}) · Registration #{failedRegistrationId}";
     var tabs = new[] { ("pending", "Pending Review", Model.PendingCount), ("confirmed", "Confirmed", Model.ConfirmedCount), ("waitlisted", "Waitlisted", Model.WaitlistedCount) };
+    // A POST re-render sets ListPath so the tabs keep pointing at the GET dossier route.
+    var listPath = ViewData["ListPath"] as string;
+    var bulkError = ViewBag.BulkError as string;
+    var bulkResult = ViewBag.BulkResult as BulkResultViewModel;
+    // Selection exists only where a decision can be made: the pending roster of a published event
+    // that has not started. Every other tab and state renders the table alone.
+    var canBulkApprove = Model.CanReview && Model.Status == "pending";
+    var hasSelectableRows = canBulkApprove && Model.Roster.Items.Any(row => row.Status == RegistrationStatusCode.Pending);
+    var columnCount = hasSelectableRows ? 6 : 5;
+    // Carry the current view into the POST so the dossier re-renders the same roster. The key is
+    // "id" because that is the dossier's own route parameter, and search/pageSize ride along or a
+    // batch taken from a searched roster would come back unfiltered.
+    var bulkRoute = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["id"] = item.EventId.ToString(),
+        ["status"] = Model.Status,
+        ["page"] = Model.Roster.PageNumber.ToString()
+    };
+    foreach (var key in new[] { "search", "pageSize" })
+    {
+        var value = Context.Request.Query[key].ToString();
+        if (!string.IsNullOrWhiteSpace(value)) bulkRoute[key] = value;
+    }
+    var bulkSelection = new BulkSelectionViewModel
+    {
+        ActionLabel = "Approve selected",
+        DialogId = "bulk-approve-dialog",
+        DialogTitle = "Approve selected registrations",
+        Consequence = "Each registration is approved on its own against this event's live capacity, start cutoff and waitlist priority. A participant is confirmed only when a seat is free and no earlier eligible participant has priority; otherwise they join the waitlist. A registration that cannot be approved is reported on its own and stays pending.",
+        SubmitLabel = "Approve selected",
+        SubmittingLabel = "Approving…",
+        SelectionListLabel = "Selected registrations",
+        RecordNoun = "registration",
+        Controller = "Event",
+        Action = "ApproveSelected",
+        RouteValues = bulkRoute
+    };
 }
 
 <div class="detail-back">
@@ -35,7 +76,6 @@
         @if (mutable)
         {
             <a asp-action="Edit" asp-route-id="@item.EventId" class="button button-secondary" data-record-open="edit-event-@item.EventId" data-record-title="Edit event" data-record-subtitle="@item.Title">Edit event</a>
-            <a asp-action="Cover" asp-route-id="@item.EventId" class="button button-secondary">Manage cover</a>
             <button type="button" class="button button-secondary" data-dialog-open="event-cancel">Cancel event</button>
         }
         @if (published)
@@ -77,27 +117,59 @@
 <section aria-labelledby="roster-title">
     <div class="section-head">
         <h2 id="roster-title">Registration roster</h2>
-        @if (Model.CanReview && Model.WaitlistedCount > 0)
+        @if (Model.CanReview && promotionCandidate != null)
         {
             <button type="button" class="button button-secondary" data-dialog-open="promote">Promote next eligible participant</button>
+        }
+        else if (Model.CanReview && Model.WaitlistedCount > 0)
+        {
+            <span class="muted">No eligible waitlisted participant is available.</span>
         }
     </div>
     @if (!mutable) { <p class="notice">This event is @item.StatusLabel.ToLowerInvariant(). Its roster is read-only.</p> }
     else if (Model.HasStarted) { <p class="notice">The event start cutoff has passed. Reviews and promotions are closed. Pending and waitlisted participants were not confirmed before cutoff.</p> }
     else if (!published) { <p class="notice">Publish this event to review registrations.</p> }
-    <nav class="filter-tabs" aria-label="Registration status">
+    @* The batch result leads the roster block, matching the membership queue and the review queue:
+       it is the first thing to read after a decision, before the search and status tabs. *@
+    @if (bulkError != null)
+    {
+        <div class="notice notice-error" role="alert">@bulkError</div>
+    }
+    @if (bulkResult != null)
+    {
+        <partial name="_BulkResultPanel" model="bulkResult" />
+    }
+    <partial name="_ListToolbar" model='@(new ListToolbarViewModel("Search participant or student number"))' />
+<p class="muted" data-list-status role="status" data-list-busy-label="Loading records…"></p>
+<nav class="filter-tabs" aria-label="Registration status">
         @foreach (var tab in tabs)
         {
-            <a asp-action="Details" asp-route-id="@item.EventId" asp-route-status="@tab.Item1" class="filter-tab" aria-current="@(Model.Status == tab.Item1 ? "page" : null)">@tab.Item2 <span class="filter-tab-count">@tab.Item3</span></a>
+            <a href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["status"] = tab.Item1 }, listPath)' class="filter-tab" aria-current="@(Model.Status == tab.Item1 ? "page" : null)">@tab.Item2 <span class="filter-tab-count">@tab.Item3</span></a>
         }
-        <a asp-action="Details" asp-route-id="@item.EventId" asp-route-status="cancelled" class="filter-tab" aria-current="@(Model.Status == "cancelled" ? "page" : null)">Cancelled / declined</a>
+        <a href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["status"] = "cancelled" }, listPath)' class="filter-tab" aria-current="@(Model.Status == "cancelled" ? "page" : null)">Cancelled / declined</a>
     </nav>
-    <div class="table-scroll" role="region" aria-label="Registration roster" tabindex="0">
+    <div data-bulk-root data-bulk-noun="registration">
+        @if (hasSelectableRows)
+        {
+            <partial name="_BulkSelectionBar" model="bulkSelection" />
+        }
+        <div class="table-scroll" role="region" aria-label="Registration roster" tabindex="0" data-list-region>
         <table class="data-table dossier-roster table-sticky">
-            @if (Model.Roster.Items.Count > 0) { <caption>Times shown in Asia/Manila.</caption> }
-            <thead><tr><th scope="col">Participant</th><th scope="col">Student number</th><th scope="col">Submitted</th><th scope="col">Status</th><th scope="col" class="actions">Actions</th></tr></thead>
+            <thead>
+                <tr>
+                    @if (hasSelectableRows)
+                    {
+                        <th scope="col" class="select-column">
+                            <label class="select-target">
+                                <input type="checkbox" data-bulk-all aria-label="Select all pending registrations on this page" />
+                            </label>
+                        </th>
+                    }
+                    <th scope="col">Participant</th><th scope="col">Submission date</th><th scope="col">Submission time</th><th scope="col">Status</th><th scope="col" class="actions">Actions</th>
+                </tr>
+            </thead>
             <tbody>
-                @if (Model.Roster.Items.Count == 0) { <tr><td colspan="5" class="empty-state">No @Model.Status registrations for this event.</td></tr> }
+                @if (Model.Roster.Items.Count == 0) { <tr><td colspan="@columnCount" class="empty-state">No @Model.Status registrations for this event.</td></tr> }
                 @foreach (var row in Model.Roster.Items)
                 {
                     var initials = string.Concat(row.MemberName
@@ -106,16 +178,36 @@
                         .Select(part => char.ToUpperInvariant(part[0])));
                     var cutoffLabel = Model.HasStarted && row.Status is RegistrationStatusCode.Pending or RegistrationStatusCode.Waitlisted;
                     <tr data-registration-id="@row.RegistrationId">
-                        <td class="cell-name">
+                        @if (hasSelectableRows)
+                        {
+                            if (row.Status == RegistrationStatusCode.Pending)
+                            {
+                                <td data-label="Select" class="select-column">
+                                    <label class="select-target">
+                                        <input type="checkbox"
+                                               data-bulk-row
+                                               value="@row.RegistrationId"
+                                               data-bulk-label="@row.MemberName (@row.StudentNumber)"
+                                               aria-label="Select @row.MemberName (@row.StudentNumber)" />
+                                    </label>
+                                </td>
+                            }
+                            else
+                            {
+                                <td class="select-column" aria-hidden="true"></td>
+                            }
+                        }
+                        <td data-label="Participant" class="cell-name">
                             <span class="name-cell">
                                 <span class="name-initials" aria-hidden="true">@initials</span>
-                                <span class="name-text">@row.MemberName</span>
+                                <span class="name-text">@row.MemberName<small class="cell-meta">@row.StudentNumber</small></span>
                             </span>
                         </td>
-                        <td class="numeric cell-identifier">@row.StudentNumber</td>
-                        <td class="numeric cell-date">@ManilaTimeFormatter.Format(row.SubmittedAt)</td>
-                        <td><span class="badge @(cutoffLabel ? "badge-closed" : RegistrationStatusDisplay.BadgeClass(row.Status, false))">@(cutoffLabel ? "Not confirmed before cutoff" : row.Status.ToString())</span></td>
-                        <td class="actions"><div class="row-actions">
+                        <td data-label="Submission date" class="numeric">@ManilaTimeFormatter.FormatDate(row.SubmittedAt)</td>
+                        <td data-label="Submission time" class="numeric">@ManilaTimeFormatter.FormatTime(row.SubmittedAt)</td>
+                        <td data-label="Status"><span class="badge @(cutoffLabel ? "badge-closed" : RegistrationStatusDisplay.BadgeClass(row.Status, false))">@(cutoffLabel ? "Not confirmed before cutoff" : row.Status.ToString())</span></td>
+                        <td data-label="Actions" class="actions"><div class="row-actions">
+
                             @if (Model.CanReview && row.Status == RegistrationStatusCode.Pending)
                             {
                                 <button type="button" class="button button-primary button-small" data-dialog-open="approve" data-dialog-value-id="@row.RegistrationId" data-dialog-value-summary="Review @row.MemberName (@row.StudentNumber) for approval?">Approve</button>
@@ -126,28 +218,35 @@
                                 <button type="button" class="button button-secondary button-small button-quiet-danger" data-dialog-open="registration-cancel" data-dialog-value-id="@row.RegistrationId" data-dialog-value-summary="Cancel the registration for @row.MemberName (@row.StudentNumber)?">Cancel registration</button>
                             }
                             else { <span class="muted">No actions available</span> }
+                            <partial name="_DetailsButton" model='@(new RecordDetailsViewModel($"registration-details-{row.RegistrationId}", row.MemberName, new Dictionary<string, string> { ["Student number"] = row.StudentNumber, ["Event"] = item.Title, ["Submitted"] = ManilaTimeFormatter.Format(row.SubmittedAt), ["Status"] = row.Status.ToString() }, null))' />
                         </div></td>
                     </tr>
                 }
             </tbody>
         </table>
     </div>
+    @if (hasSelectableRows)
+    {
+        <partial name="_BulkConfirmDialog" model="bulkSelection" />
+    }
+    </div>
     <partial name="_Pager" model="Model.Roster" />
-    <partial name="_ResultCount" model="Model.Roster" view-data="@(new ViewDataDictionary(ViewData) { ["ResultNoun"] = "registration" })" />
+    <partial name="_ResultCount" model="Model.Roster" />
 </section>
 
 @foreach (var decision in new[] { ("approve", "Approve registration", "Approve", false), ("decline", "Decline registration", "Decline", true), ("registration-cancel", "Cancel registration", "Cancel", true), ("promote", "Promote next eligible participant", "Promote", false), ("event-cancel", "Cancel event", "CancelFromDossier", true), ("complete", "Mark event as completed?", "Complete", false) })
 {
     var eventCommand = decision.Item1 is "event-cancel" or "complete";
     var retry = reopen == decision.Item1;
-    <dialog id="@decision.Item1" class="task-dialog" aria-labelledby="@decision.Item1-title" aria-describedby="@decision.Item1-summary" data-reopen="@(retry ? "true" : null)" data-reopen-id="@failedId" data-reopen-reason="@reason">
+    <dialog id="@decision.Item1" class="task-dialog" aria-labelledby="@decision.Item1-title" aria-describedby="@decision.Item1-summary@(decision.Item1 == "promote" ? " promote-consequence" : "")" data-reopen="@(retry ? "true" : null)" data-reopen-id="@failedId" data-reopen-reason="@reason">
         <form asp-controller="@(eventCommand ? "Event" : "RegistrationReview")" asp-action="@decision.Item3" method="post">
             <input type="hidden" name="id" value="@item.EventId" data-dialog-field="id" />
             <input type="hidden" name="eventId" value="@item.EventId" /><input type="hidden" name="status" value="@Model.Status" /><input type="hidden" name="page" value="@Model.Roster.PageNumber" /><input type="hidden" name="dossier" value="true" />
+            @if (decision.Item1 == "promote") { <input type="hidden" name="expectedRegistrationId" value="@promotionCandidate?.RegistrationId" /> }
             <div class="dialog-header"><h2 id="@decision.Item1-title">@decision.Item2</h2><button type="button" class="dialog-close" data-dialog-close aria-label="Close dialog"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg></button></div>
-            <p id="@decision.Item1-summary" class="muted" data-dialog-field="summary">@(retry && !eventCommand && decision.Item1 != "promote" ? retrySummary : item.Title)</p>
+            <p id="@decision.Item1-summary" class="muted" data-dialog-field="summary">@(decision.Item1 == "promote" ? (promotionCandidate == null ? "No eligible waitlisted participant is available." : $"Promote {promotionCandidate.MemberName} ({promotionCandidate.StudentNumber})?") : retry && !eventCommand ? retrySummary : item.Title)</p>
             @if (decision.Item1 == "approve") { <p class="dialog-consequence">Approval confirms a participant only when a seat is available and no earlier eligible waitlisted participant has priority. Otherwise, the registration joins the waitlist.</p> }
-            @if (decision.Item1 == "promote") { <p class="dialog-consequence">This confirms the earliest eligible waitlisted participant if a seat is available. No other registrations are promoted automatically.</p> }
+            @if (decision.Item1 == "promote") { <p id="promote-consequence" class="dialog-consequence">This confirms the earliest eligible waitlisted participant if a seat is available. No other registrations are promoted automatically.</p> }
             @if (decision.Item1 == "event-cancel") { <p class="dialog-consequence">Pending, confirmed and waitlisted registrations will be cancelled, passes invalidated and check-in closed. This cannot be undone.</p> }
             @if (decision.Item1 == "registration-cancel") { <p class="dialog-consequence">The pass will be invalidated and any seat released. No participant is promoted automatically. Valid attendance prevents cancellation.</p> }
             @if (decision.Item1 == "complete") { <p class="dialog-consequence">Completion closes check-in and makes this event read-only. Complete only after the event has started.</p> }
@@ -156,9 +255,15 @@
             {
                 <div class="field"><label for="@decision.Item1-reason">Reason (required)</label><textarea id="@decision.Item1-reason" name="reason" class="field-control" rows="4" required maxlength="500" placeholder="Enter a reason">@(retry ? reason : "")</textarea></div>
             }
-            <div class="dialog-actions"><button type="button" class="button button-secondary" data-dialog-close>Go back</button><button type="submit" class="button button-primary" data-submitting-label="Saving…">Confirm</button></div>
+            <div class="dialog-actions"><button type="button" class="button button-secondary" data-dialog-close>Go back</button><button type="submit" class="button button-primary" data-submitting-label="Saving…" disabled="@(decision.Item1 == "promote" && promotionCandidate == null)">Confirm</button></div>
         </form>
     </dialog>
 }
 
 <partial name="_RecordDialog" />
+
+@section Scripts {
+    @* ViewData["Feature"] already carries record-dialog, so the dossier loads the shared bulk
+       selection script through its own section instead of a second feature key. *@
+    <script src="~/js/features/bulk-selection.js" asp-append-version="true"></script>
+}

@@ -1,0 +1,27 @@
+@model BulkSelectionViewModel
+@*
+    The confirmation dialog. It names the selected people and the consequence, then posts the
+    selected ids to the bulk action. The ids, the summary and the name list are written by the
+    feature script when the dialog opens; the dialog itself carries no surface-specific fields.
+*@
+<dialog id="@Model.DialogId" class="task-dialog" aria-labelledby="@(Model.DialogId)-title" aria-describedby="@(Model.DialogId)-summary @(Model.DialogId)-consequence" data-bulk-dialog>
+    <form asp-controller="@Model.Controller" asp-action="@Model.Action" asp-all-route-data="@Model.RouteValues" method="post" data-bulk-form>
+        <div data-bulk-dialog-ids></div>
+        <div class="dialog-header">
+            @* tabindex="-1" lets the feature script land focus on the heading rather than the
+               close button, so the trust moment opens on what is about to happen. *@
+            <h2 id="@(Model.DialogId)-title" tabindex="-1">@Model.DialogTitle</h2>
+            <button type="button" class="dialog-close" data-dialog-close aria-label="Close dialog">&times;</button>
+        </div>
+        <p class="muted" id="@(Model.DialogId)-summary" data-bulk-dialog-summary></p>
+        <p class="muted">Up to @Model.MaxBatchSize @(Model.RecordNoun)s at a time. Each @Model.RecordNoun is decided on its own.</p>
+        <p class="dialog-consequence" id="@(Model.DialogId)-consequence">@Model.Consequence</p>
+        @* A scroll container has to take focus, or a keyboard user cannot reach the names
+           past the visible height. *@
+        <ul class="bulk-dialog-list" data-bulk-dialog-list tabindex="0" aria-label="@Model.SelectionListLabel"></ul>
+        <div class="dialog-actions">
+            <button type="button" class="button button-secondary" data-dialog-close>Cancel</button>
+            <button type="submit" class="button button-primary" data-submitting-label="@Model.SubmittingLabel">@Model.SubmitLabel</button>
+        </div>
+    </form>
+</dialog>

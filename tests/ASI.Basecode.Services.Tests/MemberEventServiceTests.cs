@@ -43,18 +43,18 @@ public sealed class MemberEventServiceTests
         var first = await harness.Service.GetFeedAsync(1, TestContext.Current.CancellationToken);
 
         Assert.Equal(27, first.TotalCount);
-        Assert.Equal(2, first.TotalPages);
-        Assert.Equal(25, first.Items.Count);
+        Assert.Equal(6, first.TotalPages);
+        Assert.Equal(5, first.Items.Count);
         Assert.DoesNotContain(first.Items, item => item.EventId == draft.EventId);
         Assert.Contains(first.Items, item => item.EventId == closed.EventId);
         Assert.False(first.Items.Single(item => item.EventId == closed.EventId).IsSignupOpen);
         Assert.Equal(first.Items.OrderBy(item => item.StartsAt).ThenBy(item => item.EventId).Select(item => item.EventId), first.Items.Select(item => item.EventId));
 
-        var second = await harness.Service.GetFeedAsync(2, TestContext.Current.CancellationToken);
+        var second = await harness.Service.GetFeedAsync(6, TestContext.Current.CancellationToken);
         Assert.Equal(2, second.Items.Count);
 
         var pastEnd = await harness.Service.GetFeedAsync(999, TestContext.Current.CancellationToken);
-        Assert.Equal(2, pastEnd.PageNumber);
+        Assert.Equal(6, pastEnd.PageNumber);
         Assert.Equal(2, pastEnd.Items.Count);
 
         var invalid = await harness.Service.GetFeedAsync(0, TestContext.Current.CancellationToken);
@@ -746,7 +746,7 @@ public sealed class MemberEventServiceTests
             var user = new User
             {
                 Id = Users.Items.Count + 1,
-                UserId = $"user-{Users.Items.Count + 1}@attendta.test",
+                Email = $"user-{Users.Items.Count + 1}@attendta.test",
                 Name = $"User {Users.Items.Count + 1}",
                 Password = string.Empty,
                 RoleId = role,
@@ -973,6 +973,7 @@ public sealed class MemberEventServiceTests
         public Task<bool> HasIssuedCertificateForEventAsync(int eventId, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<int> CountReviewQueueAsync(RegistrationStatusCode status, int? eventId, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<RegistrationReviewRow>> GetReviewQueueAsync(RegistrationStatusCode status, int? eventId, int offset, int limit, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<RegistrationSummary>> GetSummariesAsync(IReadOnlyCollection<int> registrationIds, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<Registration> GetForUpdateAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<Registration>> GetOpenForEventAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<int>> DiscoverOpenEventIdsForUserAsync(int id, CancellationToken ct = default) => throw new NotSupportedException();
@@ -1055,6 +1056,8 @@ public sealed class MemberEventServiceTests
         public Task<MemberRecord> GetMemberRecordByUserIdAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Member> GetMemberAsync(int memberId, CancellationToken cancellationToken = default) =>
             Task.FromResult(Items.Single(member => member.MemberId == memberId));
+        public void EnsureMemberCanRefresh(int memberId) => throw new NotSupportedException();
+        public Task<Member> GetMemberForEditAsync(int memberId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddMemberAsync(Member member, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task UpdateMemberAsync(Member member, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<bool> UserHasMemberProfileAsync(int userId, CancellationToken cancellationToken = default) =>

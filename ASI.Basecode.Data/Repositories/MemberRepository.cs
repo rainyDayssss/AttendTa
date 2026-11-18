@@ -1,3 +1,4 @@
+using ASI.Basecode.Data.Queries;
 using ASI.Basecode.Data.Interfaces;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
@@ -13,8 +14,10 @@ namespace ASI.Basecode.Data.Repositories
 {
     public class MemberRepository : BaseRepository, IMemberRepository
     {
-        public MemberRepository(IUnitOfWork unitOfWork) : base(unitOfWork)
+        private readonly ListReadOptions _readOptions;
+        public MemberRepository(IUnitOfWork unitOfWork, ListReadOptions readOptions = null) : base(unitOfWork)
         {
+            _readOptions = readOptions;
         }
 
         public IQueryable<MemberRecord> GetMemberRecords()
@@ -29,7 +32,7 @@ namespace ASI.Basecode.Data.Repositories
                        MemberId = member.MemberId,
                        UserId = member.UserId,
                        FullName = user.Name,
-                       Email = user.UserId,
+                       Email = user.Email,
                        StudentNumber = member.StudentNumber,
                        Course = member.Course,
                        YearLevel = member.YearLevel,
@@ -69,6 +72,12 @@ namespace ASI.Basecode.Data.Repositories
         private IQueryable<MemberRecord> FilterMembers(string search, string status)
         {
             var query = GetMemberRecords();
+            if (!string.IsNullOrWhiteSpace(_readOptions?.Course)) {
+                var course = _readOptions.Course;
+                var legacy = course == "BSIT" ? "BS Information Technology" : course == "BSCS" ? "BS Computer Science" : course;
+                query = query.Where(row => row.Course == course || row.Course == legacy);
+            }
+            if (_readOptions?.Year is int year) query = query.Where(row => row.YearLevel == year);
             if (!string.IsNullOrWhiteSpace(search))
             {
                 query = query.Where(member => member.FullName.Contains(search) || member.Email.Contains(search) || member.StudentNumber.Contains(search));
@@ -95,10 +104,23 @@ namespace ASI.Basecode.Data.Repositories
                 .SingleOrDefaultAsync(member => member.UserId == userId, cancellationToken);
         }
 
-        public Task<Member> GetMemberAsync(int memberId, CancellationToken cancellationToken = default)
+        public Task<Member> GetMemberAsync(int memberId, CancellationToken cancellationToken = default) =>
+            this.GetDbSet<Member>().FirstOrDefaultAsync(member => member.MemberId == memberId, cancellationToken);
+
+        public void EnsureMemberCanRefresh(int memberId)
         {
-            return this.GetDbSet<Member>()
-                .FirstOrDefaultAsync(member => member.MemberId == memberId, cancellationToken);
+            var entry = Context.ChangeTracker.Entries<Member>().FirstOrDefault(item => item.Entity.MemberId == memberId);
+            if (entry != null && entry.State != EntityState.Unchanged)
+                throw new InvalidOperationException("Cannot refresh a member with unsaved tracked changes.");
+        }
+
+        public async Task<Member> GetMemberForEditAsync(int memberId, CancellationToken cancellationToken = default)
+        {
+            EnsureMemberCanRefresh(memberId);
+            var entry = Context.ChangeTracker.Entries<Member>().FirstOrDefault(item => item.Entity.MemberId == memberId);
+            if (entry == null) return await GetMemberAsync(memberId, cancellationToken);
+            await entry.ReloadAsync(cancellationToken);
+            return entry.State == EntityState.Detached ? null : entry.Entity;
         }
 
         public Task AddMemberAsync(Member member, CancellationToken cancellationToken = default)

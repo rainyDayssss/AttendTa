@@ -1,5 +1,35 @@
 (() => {
     'use strict';
+    document.addEventListener('focusin', event => {
+        const input = event.target.closest('[data-manila-date-min]');
+        if (!input) return;
+        const parts = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit'
+        }).formatToParts(new Date());
+        const part = type => parts.find(item => item.type === type).value;
+        const today = `${part('year')}-${part('month')}-${part('day')}T00:00`;
+        if (today > input.min) input.min = today;
+    });
+    let fallbackPreviewUrl;
+    document.addEventListener('change', event => {
+        const input = event.target.closest('input[type="file"]');
+        if (!input || input.closest('#record-dialog')) return;
+        const host = input.closest('form')?.querySelector('[data-record-preview]');
+        if (!host) return;
+        if (fallbackPreviewUrl) URL.revokeObjectURL(fallbackPreviewUrl);
+        fallbackPreviewUrl = null;
+        host.replaceChildren();
+        host.hidden = true;
+        const file = input.files?.[0];
+        if (!file || !file.type?.startsWith('image/') || !URL.createObjectURL) return;
+        fallbackPreviewUrl = URL.createObjectURL(file);
+        const image = document.createElement('img');
+        image.src = fallbackPreviewUrl;
+        image.alt = host.dataset.recordPreviewAlt || 'Preview of the selected image';
+        image.className = 'record-dialog-preview-image';
+        host.append(image);
+        host.hidden = false;
+    });
     const dialog = document.querySelector('#record-dialog');
     if (!dialog || typeof dialog.showModal !== 'function') return;
     const body = dialog.querySelector('[data-record-body]');
@@ -7,17 +37,31 @@
     const recovery = dialog.querySelector('[data-record-recovery]');
     const subtitle = dialog.querySelector('[data-record-subtitle]');
     let trigger, busy = false, request, previewUrl;
+    const lockedControls = new Set();
     const headers = { 'X-Record-Dialog': 'true' };
     const restoreKey = 'attendta-record-focus';
     const previous = sessionStorage.getItem(restoreKey);
     if (previous) {
         sessionStorage.removeItem(restoreKey);
-        (Array.from(document.querySelectorAll('[data-record-open]')).find(a => a.dataset.recordOpen === previous)
-            || document.querySelector('[data-record-open]'))?.focus();
+        const restored = Array.from(document.querySelectorAll('[data-record-open]')).find(a => a.dataset.recordOpen === previous);
+        const unchanged = document.querySelector('[data-member-edit-unchanged]');
+        if (restored && unchanged && previous.startsWith('edit-member-')) {
+            unchanged.classList.add('record-result-sticky');
+            restored.classList.add('record-result-focus');
+            const descriptions = (restored.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean);
+            if (!descriptions.includes(unchanged.id)) descriptions.push(unchanged.id);
+            restored.setAttribute('aria-describedby', descriptions.join(' '));
+        }
+        (restored || document.querySelector('[data-record-open]'))?.focus();
+        if (restored && unchanged && previous.startsWith('edit-member-')) {
+            window.addEventListener('load', () => {
+                if (document.activeElement === restored) restored.scrollIntoView({ block: 'center', inline: 'nearest' });
+            }, { once: true });
+        }
     }
     function focusForm() {
         const errors = body.querySelector('.validation-summary-errors');
-        (errors || body.querySelector('input:not([type="hidden"]):not([readonly]):not([disabled]), textarea, select, button'))?.focus();
+        (errors || body.querySelector('.input-validation-error:not([type="hidden"]):not([disabled])') || body.querySelector('input:not([type="hidden"]):not([readonly]):not([disabled]), textarea, select, button'))?.focus();
     }
     function clearPreview() {
         if (previewUrl) {
@@ -50,7 +94,14 @@
     function setBusy(value) {
         busy = value;
         dialog.setAttribute('aria-busy', String(value));
-        dialog.querySelectorAll('button').forEach(button => { button.disabled = value; });
+        if (value) {
+            dialog.querySelectorAll('button, input, select, textarea').forEach(control => {
+                if (!control.disabled) { lockedControls.add(control); control.disabled = true; }
+            });
+        } else {
+            lockedControls.forEach(control => { control.disabled = false; });
+            lockedControls.clear();
+        }
     }
     async function load() {
         request?.abort();
@@ -67,6 +118,7 @@
             if (request !== current || !dialog.open) return;
             body.innerHTML = html;
             message.textContent = '';
+            window.AttendTaDialogs?.track(dialog, true);
             focusForm();
         } catch (error) {
             if (error.name === 'AbortError' || request !== current) return;
@@ -90,7 +142,7 @@
         load();
     });
     dialog.addEventListener('click', event => {
-        if (event.target.closest('[data-record-close]') && !busy) dialog.close();
+        if (event.target.closest('[data-record-close]') && !busy) window.AttendTaDialogs?.requestClose(dialog);
         if (event.target.closest('[data-record-retry]') && !busy) load();
     });
     dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });
@@ -130,7 +182,9 @@
             if (!html.includes('data-record-form')) throw new Error();
             clearPreview();
             body.innerHTML = html;
-            message.textContent = 'Please correct the highlighted errors.';
+            message.textContent = body.querySelector('[data-record-conflict]')
+                ? 'The member could not be saved. Your input is retained; follow the recovery instructions.'
+                : 'Please correct the highlighted errors.';
             setBusy(false);
             focusForm();
         } catch {

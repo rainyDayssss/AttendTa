@@ -3,11 +3,20 @@
 @using System.Globalization
 @using Microsoft.AspNetCore.Http.Extensions
 @{
+    var autoFit = ViewData["ListControls"] as bool? == true && ViewData["AutoFit"] as bool? != false;
+    var pagingMode = autoFit ? ViewData["PagingMode"] as string ?? "auto" : "fixed";
+    // The paging fit navigates to the current URL. A document a POST produced sits on a POST-only
+    // action, so a fit there would issue a GET to it and land the reader on a 405. The POST
+    // re-render already carries the reader's page size, so there is nothing left to fit. The mark
+    // is separate from pagingMode because autoFit also governs which query keys the pager links
+    // keep, and a POST re-render must keep pageSize.
+    var fitAllowed = HttpMethods.IsGet(Context.Request.Method);
     string PageUrl(int pageNumber)
     {
         var query = new QueryBuilder();
         foreach (var parameter in Context.Request.Query)
         {
+            if (ListReadOptionsFactory.IsRetiredFilter(Context.Request, parameter.Key) || !autoFit && parameter.Key is "pageSize" or "fit") continue;
             if (string.Equals(parameter.Key, "page", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
@@ -25,19 +34,26 @@
     }
 }
 
-@if (Model.TotalPages > 1)
+@if (Model.TotalCount > 0)
 {
-    <nav class="pager" aria-label="Pagination">
-        <span aria-live="polite" class="numeric">Page @Model.PageNumber of @Model.TotalPages</span>
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+    var noun = ListPagingLabels.Noun(controller, ViewContext.RouteData.Values["action"]?.ToString(), Model.TotalCount, ViewData["ResultNoun"] as string);
+    var filtered = ListPagingLabels.IsFiltered(Context.Request);
+    <nav class="pager" aria-label="Pagination" data-paging-size="@Model.PageSize" data-paging-page="@Model.PageNumber" data-paging-mode="@pagingMode" data-paging-total="@Model.TotalCount" data-paging-fit="@(fitAllowed ? null : "off")">
+        <p class="pagination-summary" aria-live="polite">Showing @Model.FirstItemNumber–@Model.LastItemNumber of @Model.TotalCount @(filtered ? "matching " : "")@noun</p>
+        <span class="sr-only">@(fitAllowed ? "Auto · " : "")@Model.PageSize per page</span>
         <div class="pager-actions">
             @if (Model.HasPreviousPage)
             {
                 <a class="button button-secondary" rel="prev" href="@PageUrl(Model.PageNumber - 1)" aria-label="Previous page">Previous</a>
             }
+            else { <button type="button" class="button button-secondary" disabled>Previous</button> }
+            <span class="numeric">Page @Model.PageNumber of @Model.TotalPages</span>
             @if (Model.HasNextPage)
             {
                 <a class="button button-secondary" rel="next" href="@PageUrl(Model.PageNumber + 1)" aria-label="Next page">Next</a>
             }
+            else { <button type="button" class="button button-secondary" disabled>Next</button> }
         </div>
     </nav>
 }

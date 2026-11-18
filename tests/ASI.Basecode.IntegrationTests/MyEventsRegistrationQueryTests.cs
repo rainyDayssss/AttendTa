@@ -12,7 +12,7 @@ namespace ASI.Basecode.IntegrationTests;
 
 /// <summary>
 /// Proves the My Events registrations tab reads one owner-scoped cross-event page: only the
-/// actor's rows, newest start first, 25 per page, every status label including the derived
+/// actor's rows, newest start first, an explicitly requested 25 per page, every status label including the derived
 /// cutoff label, and the guarded "View event" link.
 /// </summary>
 public sealed class MyEventsRegistrationQueryTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
@@ -88,8 +88,8 @@ public sealed class MyEventsRegistrationQueryTests(SqlServerDatabaseFixture fixt
 
         await MemberEventTestSupport.SignInAsync(client, memberEmail, password, ct);
 
-        var firstPage = await client.GetStringAsync("/MyEvents/Registrations", ct);
-        Assert.Contains("Showing 1–25 of 26 records.", firstPage, StringComparison.Ordinal);
+        var firstPage = await client.GetStringAsync("/MyEvents/Registrations?pageSize=25", ct);
+        Assert.Contains("Showing 1–25 of 26 registrations", firstPage, StringComparison.Ordinal);
         Assert.Contains("Page 1 of 2", firstPage, StringComparison.Ordinal);
 
         var firstPageIds = RegistrationIds(firstPage);
@@ -127,8 +127,8 @@ public sealed class MyEventsRegistrationQueryTests(SqlServerDatabaseFixture fixt
         Assert.Contains($"/MemberEvents/Details?id={events[26].EventId}", firstPage, StringComparison.Ordinal);
         Assert.Contains("View event", firstPage, StringComparison.Ordinal);
 
-        var secondPage = await client.GetStringAsync("/MyEvents/Registrations?page=2", ct);
-        Assert.Contains("Showing 26–26 of 26 records.", secondPage, StringComparison.Ordinal);
+        var secondPage = await client.GetStringAsync("/MyEvents/Registrations?pageSize=25&page=2", ct);
+        Assert.Contains("Showing 26–26 of 26 registrations", secondPage, StringComparison.Ordinal);
         Assert.Contains("Page 2 of 2", secondPage, StringComparison.Ordinal);
         Assert.Equal(new[] { registrations[1].RegistrationId }, RegistrationIds(secondPage));
         Assert.Contains("Not confirmed before cutoff", secondPage, StringComparison.Ordinal);
@@ -136,14 +136,14 @@ public sealed class MyEventsRegistrationQueryTests(SqlServerDatabaseFixture fixt
         Assert.DoesNotContain("View event", secondPage, StringComparison.Ordinal);
         Assert.DoesNotContain("/MemberEvents/Details", secondPage, StringComparison.Ordinal);
 
-        var pastEnd = await client.GetStringAsync("/MyEvents/Registrations?page=99", ct);
+        var pastEnd = await client.GetStringAsync("/MyEvents/Registrations?pageSize=25&page=99", ct);
         Assert.Equal(RegistrationIds(secondPage), RegistrationIds(pastEnd));
         Assert.Contains("Page 2 of 2", pastEnd, StringComparison.Ordinal);
 
         // A member with no registrations sees the empty state and no pager.
         using var emptyClient = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
         await MemberEventTestSupport.SignInAsync(emptyClient, emptyEmail, emptyPassword, ct);
-        var emptyPage = await emptyClient.GetStringAsync("/MyEvents/Registrations", ct);
+        var emptyPage = await emptyClient.GetStringAsync("/MyEvents/Registrations?pageSize=25", ct);
         Assert.Contains("No registrations to show yet.", emptyPage, StringComparison.Ordinal);
         Assert.DoesNotContain("Showing ", emptyPage, StringComparison.Ordinal);
         Assert.DoesNotContain("Page ", emptyPage, StringComparison.Ordinal);

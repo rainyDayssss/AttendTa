@@ -1,7 +1,8 @@
 /* Per-event participation report. */
 @layer components {
+  .report-scope { margin-bottom: 8px; }
   .report-summary { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); margin-bottom: 16px; }
-  .report-summary .panel { margin: 0; padding: 14px 16px; }
+  .report-summary .panel, .report-summary .panel + .panel { margin: 0; padding: 14px 16px; }
   /* A KPI label is a micro label, not a panel heading. */
   .report-summary h2 { margin: 0 0 6px; color: var(--color-ink-muted); font-size: 11.5px; font-weight: 600; letter-spacing: 0.06em; line-height: 1.3; text-transform: uppercase; }
   .report-summary .report-value { margin: 0; color: var(--color-ink); font-size: 26px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
@@ -13,7 +14,7 @@
   .report-status-count .numeric { color: var(--color-ink); font-size: 13px; font-weight: 600; }
 
   .report-breakdowns { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); margin-top: 16px; }
-  .report-breakdowns .panel { margin-top: 0; }
+  .report-breakdowns .panel, .report-breakdowns .panel + .panel { margin-top: 0; }
   .report-breakdown { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
   .report-breakdown li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; padding-bottom: 8px; border-bottom: 1px solid var(--color-border); }
   .report-breakdown-label { min-width: 0; color: var(--color-ink-secondary); font-size: 13px; overflow-wrap: anywhere; }

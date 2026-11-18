@@ -46,9 +46,9 @@
   .scanner-camera-note { margin: 0; color: var(--color-ink-muted); font-size: 13px; overflow-wrap: anywhere; }
   .scanner-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 
-  .scanner-code-form, .scanner-lookup-form { display: grid; gap: 12px; max-width: 32rem; }
-  .scanner-code-form .field, .scanner-lookup-form .field { margin: 0; }
-  .scanner-code-form .button, .scanner-lookup-form .button { justify-self: start; }
+  .scanner-lookup-form { display: grid; gap: 12px; max-width: 32rem; }
+  .scanner-lookup-form .field { margin: 0; }
+  .scanner-lookup-form .button { justify-self: start; }
   .scanner-window .field label { color: var(--color-ink-secondary); }
   .scanner-window .field-hint { color: var(--color-ink-muted); }
   .scanner-window .scanner-panel > .muted,
@@ -75,7 +75,6 @@
   @media (pointer: coarse) {
     .scanner-mode,
     .scanner-actions .button,
-    .scanner-code-form .button,
     .scanner-lookup-form .button { min-height: 56px; }
   }
 
@@ -85,7 +84,6 @@
     .scanner-modes { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; }
     .scanner-mode { width: 100%; }
     .scanner-viewport { min-height: 12rem; }
-    .scanner-code-form .button,
     .scanner-lookup-form .button { width: 100%; justify-self: stretch; }
   }
 }

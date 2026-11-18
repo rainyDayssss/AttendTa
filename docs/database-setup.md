@@ -147,6 +147,24 @@ The script is idempotent and does not move files. It checks every legacy key aga
 column limit before updating any row. If a key would be too long, it prints the affected venue IDs and
 stops with all paths unchanged. Do not run it against `AsiBasecodeDB`, shared databases, or production.
 
+## Legacy profile values
+
+The shared profile rules (issue #238) require eight-digit student numbers, sections A–F, year
+levels 1–4, and eleven-digit mobile numbers starting with `09`. Rows stored before those rules can
+no longer be saved through the member editor, and a pending account request that holds one cannot
+be approved, because approval runs member creation through the same rules.
+
+List the affected rows before deploying, and again after, with the read-only inventory:
+
+```powershell
+sqlcmd -S "(localdb)\MSSQLLocalDB" -E -b -d "AttendTaMVP_Test" -i "database\inventory-legacy-profile-values.sql"
+```
+
+The script only reads: it prints the pending requests and members that fail a rule, the first
+failing field for each, and the totals. It never updates, deletes or coerces a stored value, so it
+is safe to run anywhere. Correct the rows through the member editor (which records a reason for a
+student-number correction), or reject the pending request and ask the applicant to resubmit.
+
 ## Integration tests
 
 The integration test project creates and drops its own `AttendTa_IT_<guid>` database for each

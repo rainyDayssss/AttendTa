@@ -5,6 +5,7 @@ using ASI.Basecode.Data;
 using ASI.Basecode.Data.Models;
 using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Services.Security;
+using ASI.Basecode.Services.ServiceModels;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -164,7 +165,7 @@ public sealed class VenueToggleAuditTests : IClassFixture<SqlServerDatabaseFixtu
         context.EventTypes.Add(type);
         await context.SaveChangesAsync(cancellationToken);
 
-        var venues = Enumerable.Range(1, 25).Select(index => new Venue
+        var venues = Enumerable.Range(1, PageRequest.DefaultPageSize).Select(index => new Venue
         {
             RoomName = $"Filler Venue {index:D2}",
             Capacity = 20,
@@ -209,7 +210,7 @@ public sealed class VenueToggleAuditTests : IClassFixture<SqlServerDatabaseFixtu
         await using var context = new AsiBasecodeDBContext(options);
         var user = new User
         {
-            UserId = email,
+            Email = email,
             Name = "Venue toggle audit test",
             Password = hasher.Hash(Password),
             RoleId = role,

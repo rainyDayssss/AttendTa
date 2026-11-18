@@ -8,6 +8,8 @@ namespace ASI.Basecode.Data.Interfaces;
 
 public interface IAccountRequestRepository
 {
+    Task<PendingRequestCredential> GetPendingCredentialAsync(string email, CancellationToken cancellationToken = default);
+    Task<bool> IsPendingCredentialAsync(int requestId, string passwordHash, CancellationToken cancellationToken = default);
     Task<AccountRequest> LockAccountRequestAsync(int requestId, CancellationToken cancellationToken = default);
 
     /// <summary>Counts requests for one status, or every request when <paramref name="status"/> is null.</summary>
@@ -18,6 +20,12 @@ public interface IAccountRequestRepository
 
     /// <summary>Counts requests per status so the queue can label its filters.</summary>
     Task<AccountRequestStatusCounts> GetStatusCountsAsync(string search, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reads display-only identity for the given requests in one query. Used to name people in a
+    /// bulk result panel after the decided rows have left the pending page.
+    /// </summary>
+    Task<IReadOnlyList<AccountRequestSummary>> GetSummariesAsync(IReadOnlyCollection<int> requestIds, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Stages a new account request. The caller saves through the unit of work.

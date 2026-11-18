@@ -32,7 +32,7 @@ public class AccountRequestServiceTests
 
         var request = Assert.Single(harness.Requests.Requests);
         Assert.Equal(AccountRequestStatusCode.Pending, request.AccountRequestStatusId);
-        Assert.Equal("2023-01234", request.StudentNumber);
+        Assert.Equal("20230123", request.StudentNumber);
         Assert.Equal("Ana Reyes", request.FullName);
         Assert.Equal("ana.reyes@example.com", request.Email);
         Assert.Equal("BSIT", request.Course);
@@ -57,7 +57,7 @@ public class AccountRequestServiceTests
     public async Task DuplicateEmailForAnActiveUserIsRejectedOnTheEmailField()
     {
         var harness = new Harness();
-        harness.Users.Users.Add(new User { UserId = "ana.reyes@example.com", Name = "Existing", IsActive = true });
+        harness.Users.Users.Add(new User { Email = "ana.reyes@example.com", Name = "Existing", IsActive = true });
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => harness.Service.SubmitAsync(ValidModel(), TestContext.Current.CancellationToken));
@@ -72,7 +72,7 @@ public class AccountRequestServiceTests
     public async Task DuplicateEmailForAnInactiveUserIsRejectedOnTheEmailField()
     {
         var harness = new Harness();
-        harness.Users.Users.Add(new User { UserId = "ana.reyes@example.com", Name = "Inactive", IsActive = false });
+        harness.Users.Users.Add(new User { Email = "ana.reyes@example.com", Name = "Inactive", IsActive = false });
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => harness.Service.SubmitAsync(ValidModel(), TestContext.Current.CancellationToken));
@@ -89,7 +89,7 @@ public class AccountRequestServiceTests
         harness.Requests.Requests.Add(new AccountRequest
         {
             Email = "ana.reyes@example.com",
-            StudentNumber = "2023-00001",
+            StudentNumber = "20230001",
             AccountRequestStatusId = AccountRequestStatusCode.Pending
         });
 
@@ -107,7 +107,7 @@ public class AccountRequestServiceTests
         var harness = new Harness();
         harness.Members.Members.Add(new Member
         {
-            StudentNumber = "2023-01234",
+            StudentNumber = "20230123",
             MembershipStatusId = MembershipStatusCode.Active
         });
 
@@ -125,7 +125,7 @@ public class AccountRequestServiceTests
         var harness = new Harness();
         harness.Members.Members.Add(new Member
         {
-            StudentNumber = "2023-01234",
+            StudentNumber = "20230123",
             MembershipStatusId = MembershipStatusCode.Inactive
         });
 
@@ -144,7 +144,7 @@ public class AccountRequestServiceTests
         harness.Requests.Requests.Add(new AccountRequest
         {
             Email = "someone.else@example.com",
-            StudentNumber = "2023-01234",
+            StudentNumber = "20230123",
             AccountRequestStatusId = AccountRequestStatusCode.Pending
         });
 
@@ -190,7 +190,148 @@ public class AccountRequestServiceTests
 
         Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
         Assert.Equal(nameof(AccountRequestViewModel.YearLevel), exception.Field);
+        Assert.Equal("Choose a year level from 1 to 4.", exception.Message);
         Assert.Empty(harness.Requests.Requests);
+    }
+
+    [Fact]
+    public async Task YearLevelFiveIsRejectedOnTheYearLevelField()
+    {
+        var harness = new Harness();
+        var model = ValidModel();
+        model.YearLevel = 5;
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => harness.Service.SubmitAsync(model, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
+        Assert.Equal(nameof(AccountRequestViewModel.YearLevel), exception.Field);
+        Assert.Equal("Choose a year level from 1 to 4.", exception.Message);
+        Assert.Empty(harness.Requests.Requests);
+    }
+
+    [Theory]
+    [InlineData(nameof(AccountRequestViewModel.StudentNumber), "1234567")]
+    [InlineData(nameof(AccountRequestViewModel.StudentNumber), "123456789")]
+    [InlineData(nameof(AccountRequestViewModel.StudentNumber), "2000012A")]
+    [InlineData(nameof(AccountRequestViewModel.MobileNumber), "0917-123-4567")]
+    [InlineData(nameof(AccountRequestViewModel.MobileNumber), "0917123456")]
+    [InlineData(nameof(AccountRequestViewModel.MobileNumber), "12345678901")]
+    [InlineData(nameof(AccountRequestViewModel.MobileNumber), "08171234567")]
+    [InlineData(nameof(AccountRequestViewModel.Section), "G")]
+    [InlineData(nameof(AccountRequestViewModel.Section), "3A")]
+    public async Task ProfileValueOutsideTheSharedRulesIsRejectedWithItsFieldName(string field, string value)
+    {
+        var harness = new Harness();
+        var model = ValidModel();
+        typeof(AccountRequestViewModel).GetProperty(field)!.SetValue(model, value);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => harness.Service.SubmitAsync(model, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
+        Assert.Equal(field, exception.Field);
+        Assert.Empty(harness.Requests.Requests);
+        Assert.Equal(0, harness.UnitOfWork.SaveCount);
+    }
+
+    [Fact]
+    public async Task StudentNumberWithALeadingZeroIsStoredAsEntered()
+    {
+        var harness = new Harness();
+        var model = ValidModel();
+        model.StudentNumber = "01234567";
+
+        await harness.Service.SubmitAsync(model, TestContext.Current.CancellationToken);
+
+        var request = Assert.Single(harness.Requests.Requests);
+        Assert.Equal("01234567", request.StudentNumber);
+    }
+
+    [Fact]
+    public async Task UnknownCourseIsRejectedOnTheCourseField()
+    {
+        var harness = new Harness();
+        var model = ValidModel();
+        model.Course = "BSN";
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => harness.Service.SubmitAsync(model, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
+        Assert.Equal(nameof(AccountRequestViewModel.Course), exception.Field);
+        Assert.Empty(harness.Requests.Requests);
+    }
+
+    [Theory]
+    [InlineData("abcdefgh")]
+    [InlineData("short1")]
+    [InlineData("12345678")]
+    public async Task WeakPasswordIsRejectedOnThePasswordField(string password)
+    {
+        var harness = new Harness();
+        var model = ValidModel();
+        model.Password = password;
+        model.ConfirmPassword = password;
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => harness.Service.SubmitAsync(model, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
+        Assert.Equal(nameof(AccountRequestViewModel.Password), exception.Field);
+        Assert.Equal("Use at least 8 characters with a letter and a digit.", exception.Message);
+        Assert.Empty(harness.Requests.Requests);
+        Assert.Equal(0, harness.UnitOfWork.SaveCount);
+    }
+
+    [Fact]
+    public async Task MinimumLengthPasswordIsAccepted()
+    {
+        var harness = new Harness();
+        var model = ValidModel();
+        model.Password = "Passw0rd";
+        model.ConfirmPassword = "Passw0rd";
+
+        await harness.Service.SubmitAsync(model, TestContext.Current.CancellationToken);
+
+        Assert.Single(harness.Requests.Requests);
+    }
+
+    [Fact]
+    public async Task ApprovalStoresTheNameInTitleCase()
+    {
+        var harness = new Harness();
+        var request = PendingRequest();
+        request.FullName = "SETH PINCA";
+        harness.Requests.Requests.Add(request);
+
+        await harness.Service.ApproveAsync(request.RequestId, harness.Actor.UserId, TestContext.Current.CancellationToken);
+
+        var user = Assert.Single(harness.Users.Users);
+        Assert.Equal("Seth Pinca", user.Name);
+    }
+
+    [Theory]
+    [InlineData("SETH PINCA", "Seth Pinca")]
+    [InlineData("JOHN PAUL A. SINGCO", "John Paul A. Singco")]
+    [InlineData("J.R.R. TOLKIEN", "J.R.R. Tolkien")]
+    [InlineData("maria dela cruz", "Maria Dela Cruz")]
+    [InlineData("ANNE-MARIE LOPEZ", "Anne-Marie Lopez")]
+    [InlineData("o'neil santos", "O'Neil Santos")]
+    [InlineData("JOHN PAUL II", "John Paul II")]
+    [InlineData("JOHN SINGCO JR.", "John Singco Jr.")]
+    [InlineData("ANA 3RD", "Ana 3rd")]
+    [InlineData("  ana   reyes  ", "Ana Reyes")]
+    public async Task NameIsStoredInTitleCase(string typed, string stored)
+    {
+        var harness = new Harness();
+        var model = ValidModel();
+        model.FullName = typed;
+
+        await harness.Service.SubmitAsync(model, TestContext.Current.CancellationToken);
+
+        var request = Assert.Single(harness.Requests.Requests);
+        Assert.Equal(stored, request.FullName);
     }
 
     [Fact]
@@ -246,7 +387,7 @@ public class AccountRequestServiceTests
         harness.Requests.Requests.Add(new AccountRequest
         {
             Email = "ana.reyes@example.com",
-            StudentNumber = "2023-01234",
+            StudentNumber = "20230123",
             AccountRequestStatusId = AccountRequestStatusCode.Rejected
         });
 
@@ -261,21 +402,21 @@ public class AccountRequestServiceTests
     {
         var harness = new Harness();
         var model = ValidModel();
-        model.StudentNumber = "  2023-01234  ";
+        model.StudentNumber = "  20230123  ";
         model.FullName = "  Ana Reyes  ";
         model.Email = "  Ana.Reyes@Example.com  ";
         model.Course = "  BSIT  ";
-        model.Section = "  A  ";
+        model.Section = "  b  ";
         model.MobileNumber = "   ";
 
         await harness.Service.SubmitAsync(model, TestContext.Current.CancellationToken);
 
         var request = Assert.Single(harness.Requests.Requests);
-        Assert.Equal("2023-01234", request.StudentNumber);
+        Assert.Equal("20230123", request.StudentNumber);
         Assert.Equal("Ana Reyes", request.FullName);
         Assert.Equal("Ana.Reyes@Example.com", request.Email);
         Assert.Equal("BSIT", request.Course);
-        Assert.Equal("A", request.Section);
+        Assert.Equal("B", request.Section);
         Assert.Null(request.MobileNumber);
     }
 
@@ -290,7 +431,7 @@ public class AccountRequestServiceTests
         await harness.Service.ApproveAsync(request.RequestId, harness.Actor.UserId, TestContext.Current.CancellationToken);
 
         var user = Assert.Single(harness.Users.Users);
-        Assert.Equal(request.Email, user.UserId);
+        Assert.Equal(request.Email, user.Email);
         Assert.Equal(request.FullName, user.Name);
         Assert.Equal(originalHash, user.Password);
         Assert.Equal(RoleCode.Member, user.RoleId);
@@ -388,7 +529,7 @@ public class AccountRequestServiceTests
         harness.Requests.Requests.Add(request);
         if (emailConflict)
         {
-            harness.Users.Users.Add(new User { Id = 17, UserId = request.Email, IsActive = false });
+            harness.Users.Users.Add(new User { Id = 17, Email = request.Email, IsActive = false });
         }
         else
         {
@@ -439,11 +580,161 @@ public class AccountRequestServiceTests
         Assert.Equal(AccountRequestStatusCode.Pending, harness.Requests.Requests[1].AccountRequestStatusId);
     }
 
+    [Fact]
+    public async Task BulkApprovalApprovesEveryValidRecordAndReportsTheRefusedOne()
+    {
+        var harness = new Harness();
+        var first = PendingRequest(7, "first@example.com", "20230007", "First Person");
+        var second = PendingRequest(8, "second@example.com", "20230008", "Second Person");
+        var taken = PendingRequest(9, "third@example.com", "20230009", "Third Person");
+        harness.Requests.Requests.AddRange(first, second, taken);
+        harness.Members.Members.Add(new Member
+        {
+            StudentNumber = "20230009",
+            MembershipStatusId = MembershipStatusCode.Active
+        });
+
+        var outcomes = await harness.Service.ApproveManyAsync(
+            new[] { 7, 8, 9 },
+            harness.Actor.UserId,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, outcomes.Count);
+        Assert.True(outcomes.Single(outcome => outcome.RequestId == 7).Succeeded);
+        Assert.True(outcomes.Single(outcome => outcome.RequestId == 8).Succeeded);
+        var refused = outcomes.Single(outcome => outcome.RequestId == 9);
+        Assert.False(refused.Succeeded);
+        Assert.Equal("Third Person", refused.FullName);
+        Assert.Equal("This student number is already in use.", refused.Message);
+        Assert.Equal(2, harness.Users.Users.Count);
+        Assert.Equal(2, harness.MemberService.Calls.Count);
+        Assert.Equal(2, harness.Audit.Entries.Count);
+        Assert.Equal(AccountRequestStatusCode.Pending, taken.AccountRequestStatusId);
+        Assert.Equal(3, harness.UnitOfWork.TransactionCount);
+    }
+
+    [Fact]
+    public async Task BulkApprovalRefusesARecordDecidedElsewhereWithoutWritingAnything()
+    {
+        var harness = new Harness();
+        var decided = PendingRequest(11, "decided@example.com", "20230011", "Decided Person");
+        decided.AccountRequestStatusId = AccountRequestStatusCode.Approved;
+        decided.PasswordHash = null;
+        harness.Requests.Requests.Add(decided);
+
+        var outcomes = await harness.Service.ApproveManyAsync(
+            new[] { 11 },
+            harness.Actor.UserId,
+            TestContext.Current.CancellationToken);
+
+        var outcome = Assert.Single(outcomes);
+        Assert.False(outcome.Succeeded);
+        Assert.Equal("Decided Person", outcome.FullName);
+        Assert.Equal("This account request has already been decided.", outcome.Message);
+        Assert.Empty(harness.Users.Users);
+        Assert.Empty(harness.MemberService.Calls);
+        Assert.Empty(harness.Audit.Entries);
+        Assert.Equal(AccountRequestStatusCode.Approved, decided.AccountRequestStatusId);
+    }
+
+    [Fact]
+    public async Task BulkApprovalDecidesADuplicateIdOnceAndReportsItOnce()
+    {
+        var harness = new Harness();
+        harness.Requests.Requests.Add(PendingRequest(7, "seven@example.com", "20230007", "Seven"));
+        harness.Requests.Requests.Add(PendingRequest(8, "eight@example.com", "20230008", "Eight"));
+
+        var outcomes = await harness.Service.ApproveManyAsync(
+            new[] { 7, 7, 8 },
+            harness.Actor.UserId,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, outcomes.Count);
+        Assert.Equal(new[] { 7, 8 }, outcomes.Select(outcome => outcome.RequestId).ToArray());
+        Assert.All(outcomes, outcome => Assert.True(outcome.Succeeded));
+        Assert.Equal(2, harness.Users.Users.Count);
+        Assert.Equal(2, harness.Audit.Entries.Count);
+        Assert.Equal(2, harness.UnitOfWork.TransactionCount);
+    }
+
+    [Fact]
+    public async Task RepeatingTheSameBatchRefusesEveryRowAndWritesNothingNew()
+    {
+        var harness = new Harness();
+        harness.Requests.Requests.Add(PendingRequest(7, "seven@example.com", "20230007", "Seven"));
+        harness.Requests.Requests.Add(PendingRequest(8, "eight@example.com", "20230008", "Eight"));
+
+        var first = await harness.Service.ApproveManyAsync(
+            new[] { 7, 8 },
+            harness.Actor.UserId,
+            TestContext.Current.CancellationToken);
+        var second = await harness.Service.ApproveManyAsync(
+            new[] { 7, 8 },
+            harness.Actor.UserId,
+            TestContext.Current.CancellationToken);
+
+        Assert.All(first, outcome => Assert.True(outcome.Succeeded));
+        Assert.All(second, outcome => Assert.False(outcome.Succeeded));
+        Assert.All(second, outcome => Assert.Equal("This account request has already been decided.", outcome.Message));
+        Assert.Equal(2, harness.Users.Users.Count);
+        Assert.Equal(2, harness.MemberService.Calls.Count);
+        Assert.Equal(2, harness.Audit.Entries.Count);
+    }
+
+    [Fact]
+    public async Task EmptyBatchIsRejectedBeforeAnyDecision()
+    {
+        var harness = new Harness();
+        harness.Requests.Requests.Add(PendingRequest(7, "seven@example.com", "20230007", "Seven"));
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => harness.Service.ApproveManyAsync(Array.Empty<int>(), harness.Actor.UserId, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
+        Assert.Equal("Select at least one account request to approve.", exception.Message);
+        Assert.Empty(harness.Users.Users);
+        Assert.Equal(0, harness.UnitOfWork.TransactionCount);
+    }
+
+    [Fact]
+    public async Task OverBoundBatchIsRejectedBeforeAnyDecision()
+    {
+        var harness = new Harness();
+        var ids = Enumerable.Range(1, BulkApproval.MaxBatchSize + 1).ToArray();
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => harness.Service.ApproveManyAsync(ids, harness.Actor.UserId, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Invalid, exception.Outcome);
+        Assert.Equal($"You can approve up to {BulkApproval.MaxBatchSize} account requests at a time.", exception.Message);
+        Assert.Empty(harness.Users.Users);
+        Assert.Equal(0, harness.UnitOfWork.TransactionCount);
+    }
+
+    [Theory]
+    [InlineData(false, "officer", 42)]
+    [InlineData(true, "member", 42)]
+    [InlineData(true, "admin", 43)]
+    public async Task BulkApprovalRequiresAnAuthenticatedMatchingManagementActor(bool authenticated, string role, int actorId)
+    {
+        var harness = new Harness();
+        harness.Actor.IsAuthenticatedValue = authenticated;
+        harness.Actor.RoleValue = role;
+        harness.Requests.Requests.Add(PendingRequest(7, "seven@example.com", "20230007", "Seven"));
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => harness.Service.ApproveManyAsync(new[] { 7 }, actorId, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Forbidden, exception.Outcome);
+        Assert.Empty(harness.Users.Users);
+        Assert.Equal(0, harness.UnitOfWork.TransactionCount);
+    }
+
     private static AccountRequestViewModel ValidModel()
     {
         return new AccountRequestViewModel
         {
-            StudentNumber = "2023-01234",
+            StudentNumber = "20230123",
             FullName = "Ana Reyes",
             Email = "ana.reyes@example.com",
             Course = "BSIT",
@@ -455,12 +746,14 @@ public class AccountRequestServiceTests
         };
     }
 
-    private static AccountRequest PendingRequest() => new()
+    private static AccountRequest PendingRequest() => PendingRequest(1, "ana.reyes@example.com", "20230123", "Ana Reyes");
+
+    private static AccountRequest PendingRequest(int requestId, string email, string studentNumber, string fullName) => new()
     {
-        RequestId = 1,
-        StudentNumber = "2023-01234",
-        FullName = "Ana Reyes",
-        Email = "ana.reyes@example.com",
+        RequestId = requestId,
+        StudentNumber = studentNumber,
+        FullName = fullName,
+        Email = email,
         PasswordHash = "$argon2id$original-approved-hash",
         Course = "BSIT",
         YearLevel = 2,
@@ -507,8 +800,10 @@ public class AccountRequestServiceTests
 
         public Task<PagedResult<MemberViewModel>> GetPageAsync(string search, string status, int? pageNumber, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<MemberViewModel> GetMemberAsync(int id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<MemberViewModel> GetMemberEditorAsync(int id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<MemberViewModel> GetSelfProfileAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task UpdateMemberAsync(MemberViewModel model, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<bool> HasMemberProfileAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<bool> UpdateMemberAsync(MemberViewModel model, CancellationToken cancellationToken = default, MemberEditSnapshot? original = null) => throw new NotSupportedException();
         public Task CreateMemberFromApprovedAccountRequestAsync(int userId, MemberViewModel model, CancellationToken cancellationToken = default)
         {
             Calls.Add((userId, model));
@@ -530,6 +825,8 @@ public class AccountRequestServiceTests
 
     private sealed class FakeAccountRequestRepository : IAccountRequestRepository
     {
+        public Task<PendingRequestCredential> GetPendingCredentialAsync(string email, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<bool> IsPendingCredentialAsync(int requestId, string passwordHash, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public List<AccountRequest> Requests { get; } = new();
 
         public Task<int> CountByStatusAsync(AccountRequestStatusCode? status, string search, CancellationToken cancellationToken = default)
@@ -540,6 +837,20 @@ public class AccountRequestServiceTests
 
         public Task<AccountRequestStatusCounts> GetStatusCountsAsync(string search, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
+
+        public Task<IReadOnlyList<AccountRequestSummary>> GetSummariesAsync(IReadOnlyCollection<int> requestIds, CancellationToken cancellationToken = default)
+        {
+            IReadOnlyList<AccountRequestSummary> summaries = Requests
+                .Where(request => requestIds.Contains(request.RequestId))
+                .Select(request => new AccountRequestSummary
+                {
+                    RequestId = request.RequestId,
+                    FullName = request.FullName,
+                    StudentNumber = request.StudentNumber
+                })
+                .ToList();
+            return Task.FromResult(summaries);
+        }
 
         public Task<AccountRequest> LockAccountRequestAsync(int requestId, CancellationToken cancellationToken = default)
         {
@@ -576,7 +887,7 @@ public class AccountRequestServiceTests
 
         public Task<User> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(Users.FirstOrDefault(user => string.Equals(user.UserId, email, StringComparison.OrdinalIgnoreCase)))!;
+            return Task.FromResult(Users.FirstOrDefault(user => string.Equals(user.Email, email, StringComparison.OrdinalIgnoreCase)))!;
         }
 
         public Task<User> GetByIdAsync(int userId, CancellationToken cancellationToken = default)
@@ -619,6 +930,8 @@ public class AccountRequestServiceTests
 
         public Task<Member> GetMemberAsync(int memberId, CancellationToken cancellationToken = default) =>
             Task.FromResult(Members.FirstOrDefault(member => member.MemberId == memberId)!);
+        public void EnsureMemberCanRefresh(int memberId) => throw new NotSupportedException();
+        public Task<Member> GetMemberForEditAsync(int memberId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public Task AddMemberAsync(Member member, CancellationToken cancellationToken = default)
         {

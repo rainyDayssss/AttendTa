@@ -15,10 +15,10 @@
                 @foreach (var row in Model.Rows)
                 {
                     <tr data-attendance-id="@row.AttendanceId">
-                        <td>@row.EventTitle</td>
-                        <td class="numeric">@ManilaTimeFormatter.Format(row.RecordedAt)</td>
-                        <td>@row.CheckInMethodLabel</td>
-                        <td>
+                        <td data-label="Event">@row.EventTitle</td>
+                        <td data-label="Recorded" class="numeric">@ManilaTimeFormatter.Format(row.RecordedAt)</td>
+                        <td data-label="Method">@row.CheckInMethodLabel</td>
+                        <td data-label="State">
                             @if (row.IsInvalidated)
                             {
                                 <span class="badge badge-inactive">Invalidated</span>

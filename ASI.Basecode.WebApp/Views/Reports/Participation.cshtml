@@ -2,6 +2,7 @@
 @using System.Globalization
 @using ASI.Basecode.Data.Models.Lookups
 @{
+    ViewData["ListControls"] = true;
     ViewData["Title"] = "Participation report";
     var cancelled = Model.EventStatusId == EventStatusCode.Cancelled;
     var statusCounts = new (RegistrationStatusCode Status, int Count)[]
@@ -21,7 +22,8 @@
 </div>
 
 <partial name="_EventSelector" model="Model.Selector" />
-
+<partial name="_ListToolbar" model='@(new ListToolbarViewModel("Search member or student number", new ListFilterField[] { new ListFilterField("type", "Attendance", Options: new[] { new ListFilterOption("attended", "Attended"), new ListFilterOption("not-attended", "Not attended") }) }))' />
+<p class="muted" data-list-status role="status" data-list-busy-label="Loading records…"></p>
 @if (Model.EventId is null)
 {
     <section class="empty-panel" aria-live="polite">
@@ -48,6 +50,7 @@ else
         <span class="badge @Model.EventStatusBadgeClass">@Model.EventStatusLabel</span>
     </section>
 
+    <p class="muted report-scope">Summary and valid-attendee breakdowns cover the entire event; search and attendance filters apply to participants only.</p>
     <section class="report-summary" aria-label="Report summary">
         <article class="panel">
             <h2>Confirmed</h2>
@@ -105,33 +108,28 @@ else
         <h2 id="report-detail-heading">Participants</h2>
         @if (Model.Rows.Count == 0)
         {
-            <p class="empty-state">No registrations for this event.</p>
+            <p class="empty-state">No matching participants. Adjust the search or filters to see other records.</p>
         }
         else
         {
-            <div class="table-scroll" role="region" aria-label="Participant details" tabindex="0">
+            <div class="table-scroll" role="region" aria-label="Participant details" tabindex="0" data-list-region>
                 <table class="data-table table-sticky-first">
                     <thead>
                         <tr>
                             <th scope="col">Member</th>
-                            <th scope="col">Student number</th>
-                            <th scope="col">Course</th>
-                            <th scope="col">Year</th>
+                            <th scope="col">Course / year</th>
                             <th scope="col">Status</th>
-                            <th scope="col">Attendance</th>
-                            <th scope="col">Check-in time</th>
+                            <th scope="col">Attendance</th><th scope="col" class="actions actions-tight">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var row in Model.Rows)
                         {
                             <tr data-registration-id="@row.RegistrationId">
-                                <td>@row.MemberName</td>
-                                <td class="numeric cell-identifier">@row.StudentNumber</td>
-                                <td>@row.Course</td>
-                                <td class="numeric">@row.YearLevel</td>
-                                <td><span class="badge @row.StatusBadgeClass">@row.StatusLabel</span></td>
-                                <td>
+                                <td data-label="Member">@row.MemberName<small class="cell-meta">@row.StudentNumber</small></td>
+                                <td data-label="Course / year">@row.Course · @row.YearLevel</td>
+                                <td data-label="Status"><span class="badge @row.StatusBadgeClass">@row.StatusLabel</span></td>
+                                <td data-label="Attendance">
                                     @if (string.IsNullOrEmpty(row.AttendanceBadgeClass))
                                     {
                                         <span class="muted">@row.AttendanceLabel</span>
@@ -141,15 +139,15 @@ else
                                         <span class="badge @row.AttendanceBadgeClass">@row.AttendanceLabel</span>
                                     }
                                 </td>
-                                <td class="numeric cell-date">@(row.CheckedInAt is null ? "—" : ManilaTimeFormatter.Format(row.CheckedInAt.Value))</td>
-                            </tr>
+                            <td data-label="Actions" class="actions"><div class="row-actions"><partial name="_DetailsButton" model='@(new RecordDetailsViewModel($"report-details-{row.RegistrationId}", row.MemberName, new Dictionary<string, string> { ["Student number"] = row.StudentNumber, ["Course"] = row.Course, ["Year"] = row.YearLevel.ToString(), ["Attendance"] = row.AttendanceLabel, ["Check-in time"] = row.CheckedInAt is null ? "Not recorded" : ManilaTimeFormatter.Format(row.CheckedInAt.Value) }, null))' /></div></td></tr>
                         }
                     </tbody>
                 </table>
             </div>
             <partial name="_Pager" model="Model" />
-            <partial name="_ResultCount" model="Model" />
+
         }
+        <partial name="_ResultCount" model="Model" />
     </section>
 
     <section class="report-breakdowns" aria-label="Attendee breakdowns">

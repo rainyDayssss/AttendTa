@@ -1,43 +1,13 @@
 @model ChangeAccountRoleViewModel
-@{
-    ViewData["Title"] = "Change Role";
-}
-
-<div class="page-heading">
-    <h2>Change Role</h2>
-    <a asp-action="Index" class="button button-secondary">Back to accounts</a>
+@{ ViewData["Title"] = "Change role"; }
+<div class="page-heading"><h1>Change role</h1><a asp-action="Index" class="button button-secondary">Back to accounts</a></div>
+<div class="form-panel">
+    <form asp-action="ChangeRole" asp-route-id="@Model.AccountId" method="post">
+        <partial name="_RoleFields" model="Model" />
+        <div class="form-actions">
+            <a asp-action="Index" class="button button-secondary">Cancel</a>
+            <button type="submit" class="button button-primary">Save role</button>
+        </div>
+    </form>
 </div>
-
-<form asp-action="ChangeRole" asp-route-id="@Model.AccountId" method="post">
-    <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
-
-    <div class="field">
-        <span class="field-label">Account</span>
-        <p>@Model.FullName</p>
-        <p class="muted">@Model.Email</p>
-    </div>
-
-    <div class="field">
-        <span class="field-label">Current role</span>
-        <p><span class="badge badge-@Model.CurrentRoleCode">@Model.CurrentRoleLabel</span></p>
-    </div>
-
-    <div class="field">
-        <label asp-for="RoleCode" class="field-label">New role</label>
-        <select asp-for="RoleCode" asp-items="ViewBag.Roles" class="field-control"></select>
-        <span asp-validation-for="RoleCode" class="field-error"></span>
-    </div>
-
-    <div class="field">
-        <label asp-for="Reason" class="field-label">Reason</label>
-        <textarea asp-for="Reason" class="field-control" rows="3" aria-describedby="Reason-validation" placeholder="Explain the role change"></textarea>
-        <span id="Reason-validation" asp-validation-for="Reason" class="field-error"></span>
-    </div>
-
-    <button type="submit" class="button button-primary">Save role</button>
-    <a asp-action="Index" class="button button-secondary">Cancel</a>
-</form>
-
-@section Scripts {
-    <partial name="_ValidationScriptsPartial" />
-}
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

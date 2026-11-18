@@ -1,9 +1,9 @@
 @model IPagedResult
 @{
-    var noun = ViewData["ResultNoun"] as string ?? "record";
+    var noun = ListPagingLabels.Noun(ViewContext.RouteData.Values["controller"]?.ToString(), ViewContext.RouteData.Values["action"]?.ToString(), 0, ViewData["ResultNoun"] as string);
 }
 
-@if (Model.TotalCount > 0)
+@if (Model.TotalCount == 0 && ViewData["ListError"] == null && ViewData["LedgerError"] == null)
 {
-    <p class="muted result-count">Showing @Model.FirstItemNumber–@Model.LastItemNumber of @Model.TotalCount @(Model.TotalCount == 1 ? noun : noun + "s").</p>
+    <p class="muted result-count">0 @(ListPagingLabels.IsFiltered(Context.Request) ? "matching " : "")@noun.</p>
 }

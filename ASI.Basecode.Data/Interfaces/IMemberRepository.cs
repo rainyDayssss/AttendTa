@@ -23,6 +23,12 @@ namespace ASI.Basecode.Data.Interfaces
         /// <summary>Reads one member row by primary key, or <c>null</c> when it does not exist.</summary>
         Task<Member> GetMemberAsync(int memberId, CancellationToken cancellationToken = default);
 
+        /// <summary>Rejects an edit refresh when this context has unsaved changes to the member.</summary>
+        void EnsureMemberCanRefresh(int memberId);
+
+        /// <summary>Reads current persisted values for an edit after acquiring the linked-user lock.</summary>
+        Task<Member> GetMemberForEditAsync(int memberId, CancellationToken cancellationToken = default);
+
         Task AddMemberAsync(Member member, CancellationToken cancellationToken = default);
         Task UpdateMemberAsync(Member member, CancellationToken cancellationToken = default);
 

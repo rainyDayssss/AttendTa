@@ -46,7 +46,7 @@
     // so the paragraph's own label is the truthful one to show.
     main.addEventListener('click', event => {
         if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-        const link = event.target.closest('.filter-tab, a[rel="prev"], a[rel="next"]');
+        const link = event.target.closest('.filter-tab, a[rel="prev"], a[rel="next"], [data-search-clear], [data-filter-clear]');
         if (!link || !main.contains(link)) return;
         setBusy(busyLabel);
     });

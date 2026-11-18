@@ -1,6 +1,6 @@
 // Door scanner camera adapter. Uses the locally served jsQR decoder and the shared
-// scanner API; a denied or missing camera renders the camera-unavailable outcome while the pass
-// code and manual lookup modes stay usable. The camera stops after an outcome and Scan next resumes.
+// scanner API; a denied or missing camera renders the camera-unavailable outcome while manual
+// lookup stays usable. The camera stops after an outcome and Scan next resumes.
 (function () {
     'use strict';
 
@@ -26,8 +26,8 @@
     var starting = false;
     var generation = 0;
 
-    var unavailableMessage = 'The camera is not available. Use the pass code or manual lookup instead.';
-    var deniedMessage = 'The camera could not be started. Allow camera access or use the pass code or manual lookup instead.';
+    var unavailableMessage = 'The camera is not available. Use manual lookup instead.';
+    var deniedMessage = 'The camera could not be started. Allow camera access or use manual lookup instead.';
 
     function setNote(text) {
         if (note) note.textContent = text;

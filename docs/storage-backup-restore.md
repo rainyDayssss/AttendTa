@@ -113,13 +113,13 @@ While still quiesced, create a source manifest **outside SetupRoot and outside i
 
 ```powershell
 # All variables below must be absolute, operator-approved paths, not repository paths.
-powershell -NoProfile -File tools/storage-manifest.ps1 -Mode Create -Root $sourceRoot -Manifest $sourceManifest
+powershell -NoProfile -File docs/tooling/storage-manifest.ps1 -Mode Create -Root $sourceRoot -Manifest $sourceManifest
 if ($LASTEXITCODE -ne 0) { throw 'Source manifest failed; STOP' }
 robocopy $sourceRoot $bundleRoot /E /COPY:DAT /DCOPY:DAT /R:0 /W:0 /XJ /NFL /NDL /NJH /NJS /NP
 if ($LASTEXITCODE -ge 8) { throw 'Copy failed; STOP' }
-powershell -NoProfile -File tools/storage-manifest.ps1 -Mode Verify -Root $sourceRoot -Manifest $sourceManifest
+powershell -NoProfile -File docs/tooling/storage-manifest.ps1 -Mode Verify -Root $sourceRoot -Manifest $sourceManifest
 if ($LASTEXITCODE -ne 0) { throw 'Source changed; STOP' }
-powershell -NoProfile -File tools/storage-manifest.ps1 -Mode Verify -Root $bundleRoot -Manifest $sourceManifest
+powershell -NoProfile -File docs/tooling/storage-manifest.ps1 -Mode Verify -Root $bundleRoot -Manifest $sourceManifest
 if ($LASTEXITCODE -ne 0) { throw 'Copy mismatch; STOP' }
 ```
 

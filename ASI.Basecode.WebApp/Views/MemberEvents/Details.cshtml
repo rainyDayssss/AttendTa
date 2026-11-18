@@ -123,6 +123,10 @@ else
             {
                 <p class="notice" role="status">Signup closed on @ManilaTimeFormatter.Format(Model.RegistrationDeadline).</p>
             }
+            else if (!Model.HasMemberProfile)
+            {
+                <p class="notice" role="status">A linked member profile is needed to register. Contact an administrator for help.</p>
+            }
             else if (!Model.CanRegister)
             {
                 <p class="notice" role="status">Only active members can register.</p>

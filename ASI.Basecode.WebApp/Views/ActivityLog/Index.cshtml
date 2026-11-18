@@ -1,6 +1,7 @@
 @model PagedResult<ActivityLogItemViewModel>
 @using System
 @{
+    ViewData["ListControls"] = true;
     ViewData["Title"] = "Activity log";
 }
 
@@ -8,25 +9,30 @@
     <h1>Activity Log</h1>
 </div>
 
-<div class="table-scroll" role="region" aria-label="Activity log table" tabindex="0">
+@{
+    var actions = typeof(ASI.Basecode.Resources.Constants.AuditActions).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+        .Where(field => field.IsLiteral && field.FieldType == typeof(string))
+        .Select(field => (string)field.GetRawConstantValue()).Append("user.provisioned").Distinct().OrderBy(value => value)
+        .Select(value => new ListFilterOption(value, System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(value.Replace('.', ' ').Replace('_', ' ')))).ToArray();
+}
+<partial name="_ListToolbar" model='@(new ListToolbarViewModel("Search actor, action, or reason", new[] { new ListFilterField("filter", "Action", Options: actions) }))' />
+<p class="muted" data-list-status role="status" data-list-busy-label="Loading records…"></p>
+<div class="table-scroll" role="region" aria-label="Activity log table" tabindex="0" data-list-region>
     <table class="data-table table-sticky-first">
-        <caption>Activity log, newest entries first</caption>
         <thead>
             <tr>
                 <th scope="col">Occurred</th>
                 <th scope="col">Actor</th>
-                <th scope="col">Actor type</th>
                 <th scope="col">Action</th>
                 <th scope="col">Entity type</th>
-                <th scope="col">Entity ID</th>
-                <th scope="col">Reason</th>
+                <th scope="col" class="actions actions-tight">Actions</th>
             </tr>
         </thead>
         <tbody>
             @if (Model.Items.Count == 0)
             {
                 <tr>
-                    <td colspan="7" class="empty-state">No activity has been recorded yet.</td>
+                    <td colspan="5" class="empty-state">No matching activity. Adjust the search or filters to see other entries.</td>
                 </tr>
             }
             else
@@ -34,13 +40,11 @@
                 foreach (var log in Model.Items)
                 {
                     <tr data-log-id="@log.LogId">
-                        <td class="numeric cell-date"><time datetime="@log.OccurredAt.ToString("O")">@ManilaTimeFormatter.Format(log.OccurredAt)</time></td>
-                        <td>@log.ActorName</td>
-                        <td>@log.ActorType</td>
-                        <td>@log.Action</td>
-                        <td>@log.EntityType</td>
-                        <td class="numeric">@log.EntityId</td>
-                        <td>@(string.IsNullOrWhiteSpace(log.Reason) ? "—" : log.Reason)</td>
+                        <td data-label="Occurred" class="numeric cell-date"><time datetime="@log.OccurredAt.ToString("O")">@ManilaTimeFormatter.Format(log.OccurredAt)</time></td>
+                        <td data-label="Actor">@log.ActorName</td>
+                        <td data-label="Action">@log.Action</td>
+                        <td data-label="Entity type">@log.EntityType</td>
+                        <td data-label="Actions" class="actions"><div class="row-actions"><partial name="_DetailsButton" model='@(new RecordDetailsViewModel($"activity-details-{log.LogId}", log.Action, new Dictionary<string, string> { ["Occurred"] = ManilaTimeFormatter.Format(log.OccurredAt), ["Actor"] = log.ActorName, ["Actor type"] = log.ActorType, ["Entity type"] = log.EntityType, ["Entity ID"] = log.EntityId.ToString(), ["Reason"] = log.Reason }))' /></div></td>
                     </tr>
                 }
             }
