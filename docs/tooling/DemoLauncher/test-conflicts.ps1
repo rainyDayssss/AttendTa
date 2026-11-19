@@ -16,26 +16,29 @@ try {
     New-Item -ItemType File -Path $app | Out-Null
     $env:TEMP = $tempRoot
     $env:TMP = $tempRoot
-    $output = "n" | & dotnet $launcher 2>&1 | Out-String
+    $output = "y" | & dotnet $launcher 2>&1 | Out-String
     if ($LASTEXITCODE -ne 1 -or $output -notmatch 'Possible v1 installation found' -or
-        $output -notmatch 'Continue with a separate installation' -or -not (Test-Path -LiteralPath $marker)) {
-        throw "Legacy decline test failed: $output"
+        $output -notmatch 'Startup is blocked' -or $output -match 'Continue with a separate installation' -or
+        -not (Test-Path -LiteralPath $marker)) {
+        throw "Legacy blocking test failed: $output"
     }
+    Remove-Item -LiteralPath $marker
+    Remove-Item -LiteralPath (Join-Path $tempRoot 'AttendTa/app')
     $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 5000)
     $listener.Start()
     try {
-        $output = "y", "" | & dotnet $launcher 2>&1 | Out-String
+        $output = "1", "" | & dotnet $launcher 2>&1 | Out-String
         if ($LASTEXITCODE -ne 1 -or $output -notmatch 'TCP port 5000 is already in use' -or
-            -not (Test-Path -LiteralPath $marker)) { throw "Port conflict test failed: $output" }
+            (Test-Path -LiteralPath (Join-Path $tempRoot 'AttendTa/app'))) { throw "Port conflict test failed: $output" }
         if (-not $listener.Server.IsBound) { throw 'Existing listener was stopped.' }
     } finally { $listener.Stop() }
-    Write-Host 'PASS: legacy decline preserves files; occupied port blocks startup without stopping its listener.'
+    Write-Host 'PASS: legacy hint blocks startup and preserves files; occupied port blocks startup without stopping its listener.'
 } finally {
     $env:TEMP = $oldTemp
     $env:TMP = $oldTmp
     if (Test-Path -LiteralPath $app) { Remove-Item -LiteralPath $app }
     if (Test-Path -LiteralPath $marker) { Remove-Item -LiteralPath $marker }
-    Remove-Item -LiteralPath (Join-Path $tempRoot 'AttendTa/app')
+    if (Test-Path -LiteralPath (Join-Path $tempRoot 'AttendTa/app')) { Remove-Item -LiteralPath (Join-Path $tempRoot 'AttendTa/app') }
     Remove-Item -LiteralPath (Join-Path $tempRoot 'AttendTa')
     Remove-Item -LiteralPath $tempRoot
 }
