@@ -43,7 +43,7 @@ internal static class DemoOwnership
     }
 
     internal static async Task InspectAsync(string root, string deploymentRoot, string instance,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, Func<SqlConnection, Task> whileLocked = null)
     {
         if (!OperatingSystem.IsWindows() || string.IsNullOrWhiteSpace(root) || !Path.IsPathFullyQualified(root))
             throw new InvalidOperationException("A Windows private setup root is required.");
@@ -90,16 +90,23 @@ internal static class DemoOwnership
                 throw new InvalidOperationException("Database files do not belong to the supplied root.");
         }
         var builder = new SqlConnectionStringBuilder(masterConnection) { InitialCatalog = DemoTarget.Database };
-        await using var database = new SqlConnection(builder.ConnectionString);
-        await database.OpenAsync(cancellationToken);
-        await using var read = new SqlCommand("""
-            SELECT CONVERT(nvarchar(32), value) FROM sys.extended_properties
-            WHERE class=0 AND name=@name
-            """, database);
-        read.Parameters.Add("@name", SqlDbType.NVarChar, 128).Value = Property;
-        var databaseMarker = await read.ExecuteScalarAsync(cancellationToken) as string;
-        if (!string.Equals(marker, databaseMarker, StringComparison.Ordinal))
-            throw new InvalidOperationException("Database and private-store markers do not match.");
+        // Close our demo-database session before invoking the callback, while retaining
+        // the master session and its application lock. This permits an accurate zero-
+        // session check and does not disconnect or kill any other user's session.
+        await using (var database = new SqlConnection(builder.ConnectionString))
+        {
+            await database.OpenAsync(cancellationToken);
+            await using var read = new SqlCommand("""
+                SELECT CONVERT(nvarchar(32), value) FROM sys.extended_properties
+                WHERE class=0 AND name=@name
+                """, database);
+            read.Parameters.Add("@name", SqlDbType.NVarChar, 128).Value = Property;
+            var databaseMarker = await read.ExecuteScalarAsync(cancellationToken) as string;
+            if (!string.Equals(marker, databaseMarker, StringComparison.Ordinal))
+                throw new InvalidOperationException("Database and private-store markers do not match.");
+        }
+        if (whileLocked is not null)
+            await whileLocked(master);
     }
 
     private static string LongPath(string path)
@@ -108,6 +115,40 @@ internal static class DemoOwnership
         var length = GetLongPathName(Path.GetFullPath(path), buffer, buffer.Capacity);
         if (length == 0 || length >= buffer.Capacity) throw new IOException("Cannot resolve an ownership path.");
         return buffer.ToString();
+    }
+
+    internal static async Task RevalidateLockedAsync(SqlConnection master, string root, CancellationToken cancellationToken)
+    {
+        var data = Path.Combine(root, "database", "AttendTa_Demo.mdf");
+        var log = Path.Combine(root, "database", "AttendTa_Demo_log.ldf");
+        await using (var command = new SqlCommand("""
+            IF APPLOCK_MODE(N'public', N'AttendTaDemoFreshSetup', N'Session') <> N'Exclusive'
+               OR ISNULL(IS_SRVROLEMEMBER(N'sysadmin'),0) <> 1
+               OR (SELECT COUNT(*) FROM sys.databases WHERE database_id>4) <> 1
+               OR DB_ID(N'AttendTa_Demo') IS NULL
+                THROW 51221, 'Ownership lock or target changed.', 1;
+            SELECT physical_name FROM sys.master_files WHERE database_id=DB_ID(N'AttendTa_Demo');
+            """, master))
+        await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
+        {
+            var actual = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            while (await reader.ReadAsync(cancellationToken)) actual.Add(LongPath(reader.GetString(0)));
+            if (actual.Count != 2 || !actual.SetEquals(new[] { LongPath(data), LongPath(log) }))
+                throw new InvalidOperationException("Database file paths changed.");
+        }
+        using var markerFile = DemoBackupSourceFile.Open(Path.Combine(root, MarkerFile));
+        using var markerReader = new StreamReader(markerFile);
+        var marker = ValidateMarker(await markerReader.ReadToEndAsync(cancellationToken));
+        var builder = new SqlConnectionStringBuilder(master.ConnectionString) { InitialCatalog = DemoTarget.Database };
+        await using var database = new SqlConnection(builder.ConnectionString);
+        await database.OpenAsync(cancellationToken);
+        await using var read = new SqlCommand("""
+            SELECT CONVERT(nvarchar(32), value) FROM sys.extended_properties
+            WHERE class=0 AND name=@name
+            """, database);
+        read.Parameters.Add("@name", SqlDbType.NVarChar, 128).Value = Property;
+        if (!string.Equals(await read.ExecuteScalarAsync(cancellationToken) as string, marker, StringComparison.Ordinal))
+            throw new InvalidOperationException("Ownership markers changed.");
     }
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]

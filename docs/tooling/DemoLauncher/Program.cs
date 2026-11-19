@@ -14,7 +14,7 @@ if (args is ["--check-package"])
 }
 
 Console.WriteLine("AttendTa demo launcher");
-Console.WriteLine("First provision a dedicated LocalDB demo and private store; this launcher does not create or reset them.");
+Console.WriteLine("The launcher cannot discover every previous installation. Do not assume a missing hint means a fresh machine.");
 if (!File.Exists(appPath))
 {
     Console.WriteLine("Application files are missing. Extract the entire package before starting.");
@@ -26,10 +26,96 @@ var legacyPath = Path.Combine(Path.GetTempPath(), "AttendTa", "app");
 if (Directory.Exists(legacyPath) || File.Exists(legacyPath))
 {
     Console.WriteLine($"Possible v1 installation found at: {legacyPath}");
-    Console.WriteLine("This is only a path check, not proof of ownership or version. The new release does not update or uninstall it.");
-    Console.WriteLine("Back up and verify the exact installation and its data before any separately approved manual uninstall.");
-    Console.Write("Continue with a separate installation? [y/N]: ");
-    if (!string.Equals(Console.ReadLine()?.Trim(), "y", StringComparison.OrdinalIgnoreCase)) return 1;
+    Console.WriteLine("This path is only a hint, not proof of ownership or version. Startup is blocked.");
+    Console.WriteLine("Do not remove it based on this hint. Verify the exact installation and its data, and obtain an approved recovery and removal plan.");
+    Console.WriteLine("No files, databases, or processes were changed. Press Enter to close.");
+    Console.ReadLine();
+    return 1;
+}
+
+Console.WriteLine("1. Start an already provisioned demo");
+Console.WriteLine("2. Remove a selected paired-marker demo and install a clean seed");
+Console.WriteLine("3. First-time setup instructions");
+Console.Write("Choose 1, 2 or 3 (anything else cancels): ");
+var choice = Console.ReadLine()?.Trim();
+if (choice == "3")
+{
+    Console.WriteLine("No automatic search can prove there is no earlier installation.");
+    Console.WriteLine("Independently investigate previous installations and verify the LocalDB instance is dedicated and empty.");
+    Console.Write("Type INVESTIGATED to confirm you have done this, or press Enter to cancel: ");
+    if (Console.ReadLine() != "INVESTIGATED")
+    {
+        Console.WriteLine("First-time setup cancelled. No database changes were made.");
+        Console.WriteLine("Press Enter to close.");
+        Console.ReadLine();
+        return 1;
+    }
+    Console.WriteLine($"For first-time setup, open and follow: {Path.Combine(AppContext.BaseDirectory, "FIRST-TIME-SETUP.md")}");
+    Console.WriteLine("No installation or database changes have been made. Press Enter to close.");
+    Console.ReadLine();
+    return 0;
+}
+if (choice == "2")
+{
+    Console.WriteLine("The old database and private files will be deleted only after guarded backup and confirmation.");
+    Console.WriteLine("Old test changes remain in the backup, not the new seed. Credentials stay in their separate file.");
+    Console.WriteLine("Stop the app and all writers. Independently identify and remove old app binaries; this tool never deletes them.");
+    Console.Write("Continue to identify the exact old paired-marker installation? [y/N]: ");
+    if (!string.Equals(Console.ReadLine()?.Trim(), "y", StringComparison.OrdinalIgnoreCase))
+    {
+        Console.WriteLine("Cancelled. No uninstall was started.");
+        return 1;
+    }
+    Console.Write("Existing private root (absolute path): ");
+    var oldRoot = Console.ReadLine()?.Trim().Trim('"');
+    Console.Write("Exact dedicated LocalDB instance name: ");
+    var oldInstance = Console.ReadLine()?.Trim();
+    Console.Write("Separate private credential JSON file path: ");
+    var credentialFile = Console.ReadLine()?.Trim().Trim('"');
+    Console.Write("New backup directory (absolute path): ");
+    var backupRoot = Console.ReadLine()?.Trim().Trim('"');
+    Console.Write("New journal directory (absolute path): ");
+    var journalRoot = Console.ReadLine()?.Trim().Trim('"');
+    if (string.IsNullOrWhiteSpace(oldRoot) || !Path.IsPathFullyQualified(oldRoot) || !Directory.Exists(oldRoot)
+        || string.IsNullOrWhiteSpace(oldInstance) ||
+           !Regex.IsMatch(oldInstance, @"\AAttendTaDemo(?:_[0-9a-f]{32})?\z", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+        || string.IsNullOrWhiteSpace(credentialFile) || !Path.IsPathFullyQualified(credentialFile) || !File.Exists(credentialFile)
+        || string.IsNullOrWhiteSpace(backupRoot) || !Path.IsPathFullyQualified(backupRoot)
+        || string.IsNullOrWhiteSpace(journalRoot) || !Path.IsPathFullyQualified(journalRoot))
+    {
+        Console.WriteLine("Invalid or missing selection. No uninstall was started.");
+        return 1;
+    }
+    var reinstall = new ProcessStartInfo(appPath) { WorkingDirectory = AppContext.BaseDirectory, UseShellExecute = false };
+    reinstall.ArgumentList.Add("--reinstall-demo");
+    reinstall.Environment["ATTENDTA_DEMO_SETUP_ROOT"] = oldRoot;
+    reinstall.Environment["ATTENDTA_DEMO_LOCALDB_INSTANCE"] = oldInstance;
+    reinstall.Environment["ATTENDTA_DEMO_CREDENTIAL_FILE"] = credentialFile;
+    reinstall.Environment["ATTENDTA_DEMO_BACKUP_ROOT"] = backupRoot;
+    reinstall.Environment["ATTENDTA_DEMO_UNINSTALL_JOURNAL_ROOT"] = journalRoot;
+    try
+    {
+        using var child = Process.Start(reinstall);
+        if (child is null) throw new InvalidOperationException();
+        await child.WaitForExitAsync();
+        if (child.ExitCode != 0)
+        {
+            Console.WriteLine("Reinstall did not complete. Follow the guarded command's recovery instructions; do not retry blindly.");
+            return child.ExitCode;
+        }
+        Console.WriteLine("Reinstall completed. Restart this launcher and select option 1 to start and check the demo.");
+        return 0;
+    }
+    catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
+    {
+        Console.WriteLine("Could not start the guarded reinstall command. No uninstall was started by the launcher.");
+        return 1;
+    }
+}
+if (choice != "1")
+{
+    Console.WriteLine("Cancelled. No database changes were made.");
+    return 1;
 }
 
 try
@@ -67,6 +153,8 @@ start.ArgumentList.Add("--demo-launcher");
 start.Environment["ASPNETCORE_ENVIRONMENT"] = "Production";
 start.Environment["Hotspot__Enabled"] = "false";
 start.Environment["Common__SetupRoot"] = root;
+start.Environment["ATTENDTA_DEMO_SETUP_ROOT"] = root;
+start.Environment["ATTENDTA_DEMO_LOCALDB_INSTANCE"] = instance;
 start.Environment["ConnectionStrings__DefaultConnection"] =
     $@"Server=(localdb)\{instance};Database=AttendTa_Demo;Integrated Security=true;TrustServerCertificate=true";
 using var process = Process.Start(start);

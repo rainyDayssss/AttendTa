@@ -17,7 +17,7 @@ namespace ASI.Basecode.WebApp.Demo;
 internal static class DemoAccountSeeder
 {
     // Ordered to match the stable private credential keys in DemoCredentials.AccountIds.
-    private static readonly (string Name, string Email)[] Accounts =
+    internal static readonly (string Name, string Email)[] Accounts =
     [
         ("Alex Mercado", "alexmercado@gmail.com"), ("Jamie Villareal", "jamievillareal@gmail.com"),
         ("Jerhon Gabutan", "jerhongabutan@gmail.com"), ("Jasper Taguiam", "jaspertaguiam@gmail.com"),

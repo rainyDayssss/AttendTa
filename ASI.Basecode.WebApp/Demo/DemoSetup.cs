@@ -47,7 +47,8 @@ internal static class DemoSetup
     }
 
     internal static async Task RunAsync(IReadOnlyDictionary<string, string> credentials, string root,
-        string deploymentRoot, CancellationToken cancellationToken)
+        string deploymentRoot, CancellationToken cancellationToken, string instanceName = null,
+        Func<Task> afterVersionMarkerForTest = null)
     {
         var stage = "input validation";
         var storeCreated = false;
@@ -58,18 +59,9 @@ internal static class DemoSetup
         // Repeat validation at the setup boundary, before any database or file writes.
         credentials = DemoCredentials.Parse(System.Text.Json.JsonSerializer.Serialize(credentials));
         root = ValidateRoot(root, deploymentRoot);
-        var masterConnection = MasterConnection(Environment.GetEnvironmentVariable("ATTENDTA_DEMO_LOCALDB_INSTANCE"));
+        var masterConnection = MasterConnection(instanceName ?? Environment.GetEnvironmentVariable("ATTENDTA_DEMO_LOCALDB_INSTANCE"));
         stage = "bundled asset validation";
-        var assetDirectory = Path.Combine(deploymentRoot, "demo");
-        var schema = await File.ReadAllTextAsync(Path.Combine(assetDirectory, "attendta-mvp-schema.sql"), cancellationToken);
-        var venues = new byte[4][];
-        for (var i = 0; i < venues.Length; i++)
-            venues[i] = await File.ReadAllBytesAsync(Path.Combine(assetDirectory, $"venue-{i + 1}.png"), cancellationToken);
-        var cebuVenue = await File.ReadAllBytesAsync(Path.Combine(assetDirectory, "venue-cebu.png"), cancellationToken);
-        var covers = new byte[8][];
-        for (var i = 0; i < covers.Length; i++)
-            covers[i] = await File.ReadAllBytesAsync(Path.Combine(assetDirectory, $"event-{i + 1}.png"), cancellationToken);
-        foreach (var image in venues.Concat([cebuVenue]).Concat(covers)) DemoImage.ValidatePng(image);
+        var (schema, venues, cebuVenue, covers) = await LoadAssetsAsync(deploymentRoot, cancellationToken);
 
         stage = "LocalDB preflight";
         await using var master = new SqlConnection(masterConnection);
@@ -133,11 +125,36 @@ internal static class DemoSetup
         await DemoAccountSeeder.SeedAsync(database, credentials, cancellationToken);
         stage = "ownership marking";
         await DemoOwnership.MarkNewAsync(database, root, cancellationToken);
+        stage = "install version marking";
+        await DemoInstallVersion.MarkNewAsync(database, cancellationToken);
+        if (afterVersionMarkerForTest is not null) await afterVersionMarkerForTest();
+        stage = "seed verification";
+        await DemoSeedVerification.VerifyAsync(root, instanceName ?? Environment.GetEnvironmentVariable("ATTENDTA_DEMO_LOCALDB_INSTANCE"),
+            credentials, (schema, venues, cebuVenue, covers), cancellationToken);
+        stage = "completion marking";
+        await DemoInstallVersion.MarkCompleteAsync(database, cancellationToken);
         }
         catch (Exception)
         {
             throw new DemoSetupException(stage, storeCreated);
         }
+    }
+
+    internal static async Task<(string Schema, byte[][] Venues, byte[] CebuVenue, byte[][] Covers)> LoadAssetsAsync(
+        string deploymentRoot, CancellationToken cancellationToken)
+    {
+        var assetDirectory = Path.Combine(deploymentRoot, "demo");
+        var schema = await File.ReadAllTextAsync(Path.Combine(assetDirectory, "attendta-mvp-schema.sql"), cancellationToken);
+        if (string.IsNullOrWhiteSpace(schema)) throw new InvalidDataException("Bundled schema is empty.");
+        var venues = new byte[4][];
+        for (var i = 0; i < venues.Length; i++)
+            venues[i] = await File.ReadAllBytesAsync(Path.Combine(assetDirectory, $"venue-{i + 1}.png"), cancellationToken);
+        var cebuVenue = await File.ReadAllBytesAsync(Path.Combine(assetDirectory, "venue-cebu.png"), cancellationToken);
+        var covers = new byte[8][];
+        for (var i = 0; i < covers.Length; i++)
+            covers[i] = await File.ReadAllBytesAsync(Path.Combine(assetDirectory, $"event-{i + 1}.png"), cancellationToken);
+        foreach (var image in venues.Concat([cebuVenue]).Concat(covers)) DemoImage.ValidatePng(image);
+        return (schema, venues, cebuVenue, covers);
     }
 
     private static async Task WriteNewAsync(string path, byte[] content, CancellationToken cancellationToken)

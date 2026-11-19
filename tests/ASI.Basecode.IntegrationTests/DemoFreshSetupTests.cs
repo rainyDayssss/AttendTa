@@ -46,6 +46,16 @@ public sealed class DemoFreshSetupTests
                 Assert.False(rule.IsInherited);
             }
             await DemoOwnership.InspectAsync(root, AppContext.BaseDirectory, instance, ct);
+            await DemoInstallVersion.VerifyAsync(root, AppContext.BaseDirectory, instance, ct);
+            foreach (var name in new[] { ".attendta-recovery-incomplete", ".attendta-reinstall-incomplete", ".attendta-setup-incomplete" })
+            {
+                var incomplete = Path.Combine(root, name);
+                await File.WriteAllTextAsync(incomplete, "", ct);
+                await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                    DemoInstallVersion.VerifyAsync(root, AppContext.BaseDirectory, instance, ct));
+                File.Delete(incomplete);
+            }
+            await DemoInstallVersion.VerifyAsync(root, AppContext.BaseDirectory, instance, ct);
             var markerPath = Path.Combine(root, DemoOwnership.MarkerFile);
             await File.WriteAllTextAsync(markerPath, Guid.NewGuid().ToString("N"), ct);
             var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -56,6 +66,41 @@ public sealed class DemoFreshSetupTests
         finally
         {
             Environment.SetEnvironmentVariable("ATTENDTA_DEMO_LOCALDB_INSTANCE", prior);
+            SqlConnection.ClearAllPools();
+            if (created)
+            {
+                Assert.Equal(0, await LocalDb("stop", instance, "-k"));
+                Assert.Equal(0, await LocalDb("delete", instance));
+            }
+            if (Directory.Exists(root)) Directory.Delete(root, true);
+        }
+    }
+
+    [Fact(SkipUnless = nameof(LocalDbTestEnabled),
+        Skip = "Requires explicitly enabled isolated LocalDB tests.")]
+    public async Task InterruptedSetupAfterVersionMarkerCannotLaunch()
+    {
+        var instance = "AttendTaDemo_" + Guid.NewGuid().ToString("N");
+        var root = Path.Combine(Path.GetTempPath(), "attendta-interrupted-" + Guid.NewGuid().ToString("N"));
+        var created = false;
+        try
+        {
+            Assert.Equal(0, await LocalDb("create", instance));
+            created = true;
+            Assert.Equal(0, await LocalDb("start", instance));
+            var credentials = DemoCredentials.CredentialIds.Select((id, index) => (id, value: $"ExamplePassword{index}"))
+                .ToDictionary(x => x.id, x => x.value);
+            var ct = TestContext.Current.CancellationToken;
+            var error = await Assert.ThrowsAsync<DemoSetupException>(() =>
+                DemoSetup.RunAsync(credentials, root, AppContext.BaseDirectory, ct, instance,
+                    () => throw new IOException("interrupted after version marker")));
+            Assert.Equal("install version marking", error.Stage);
+            await DemoOwnership.InspectAsync(root, AppContext.BaseDirectory, instance, ct);
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                DemoInstallVersion.VerifyAsync(root, AppContext.BaseDirectory, instance, ct));
+        }
+        finally
+        {
             SqlConnection.ClearAllPools();
             if (created)
             {
