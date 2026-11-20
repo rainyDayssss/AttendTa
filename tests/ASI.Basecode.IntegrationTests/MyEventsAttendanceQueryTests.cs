@@ -115,6 +115,10 @@ public sealed class MyEventsAttendanceQueryTests(SqlServerDatabaseFixture fixtur
         Assert.True(invalidatedRow.Success, "The invalidated attendance row must render on page 1.");
         Assert.Contains("Attendance event 05", invalidatedRow.Value, StringComparison.Ordinal);
         Assert.Contains("Invalidated", invalidatedRow.Value, StringComparison.Ordinal);
+        Assert.Matches("<td data-label=\"Reason\">\\s*<span class=\"reason-content\">Pass could not be verified at the door\\.</span>", invalidatedRow.Value);
+        var validRow = Regex.Match(firstPage, $"<tr[^>]*data-attendance-id=\"{attendance[26].AttendanceId}\"[^>]*>.*?</tr>", RegexOptions.Singleline);
+        Assert.True(validRow.Success);
+        Assert.Matches("<td data-label=\"Reason\">\\s*<span class=\"muted\">", validRow.Value);
 
         // Ownership is filtered inside SQL: another member's row never appears.
         Assert.DoesNotContain($"data-attendance-id=\"{otherAttendance.AttendanceId}\"", firstPage, StringComparison.Ordinal);

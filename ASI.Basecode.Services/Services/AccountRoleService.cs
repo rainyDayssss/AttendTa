@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using ASI.Basecode.Data.Interfaces;
@@ -60,8 +61,11 @@ public sealed class AccountRoleService : IAccountRoleService
             Email = account.Email,
             CurrentRoleCode = account.RoleCode,
             CurrentRoleLabel = account.RoleLabel,
-            RoleCode = account.RoleCode,
+            // The current role is not a change, so it is neither offered nor preselected.
+            RoleCode = null,
             Roles = roles
+                .Where(role => !string.Equals(role.Code, account.RoleCode, StringComparison.Ordinal))
+                .ToList()
         };
     }
 
@@ -110,8 +114,12 @@ public sealed class AccountRoleService : IAccountRoleService
 
             if (user.RoleId == requestedRole)
             {
-                // A no-op succeeds without a duplicate change log.
-                return;
+                // The authoritative row lock has been held: a same-role submission is a stale or
+                // crafted request, so it is refused rather than reported as a change.
+                throw new DomainException(
+                    OutcomeCode.Invalid,
+                    "This account already has that role. Choose a different role.",
+                    nameof(ChangeAccountRoleViewModel.RoleCode));
             }
 
             if (postLockDemotion)

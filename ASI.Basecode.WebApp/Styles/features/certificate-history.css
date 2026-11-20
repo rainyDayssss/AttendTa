@@ -4,13 +4,13 @@
   .certificate-history-help { margin: 0; max-width: 75ch; }
   .certificate-history .data-table { min-width: 0; }
   .certificate-history .data-table th, .certificate-history .data-table td { white-space: normal; overflow-wrap: anywhere; }
-  .certificate-history .data-table tbody th { background: var(--color-surface); color: var(--color-ink); font-size: 13px; font-weight: 600; text-transform: none; letter-spacing: normal; width: 27%; }
-  .certificate-history .data-table td:nth-child(2) { width: 30%; }
+  .certificate-history .data-table tbody th { background: var(--color-surface); color: var(--color-ink); font-size: 13px; font-weight: 600; text-transform: none; letter-spacing: normal; width: 23%; }
+  .certificate-history .data-table td:nth-child(2) { width: 23%; }
   .certificate-history .data-table th:nth-child(3), .certificate-history .data-table td:nth-child(3),
   .certificate-history .data-table th:last-child, .certificate-history .data-table td:last-child { position: static; box-shadow: none; }
   .certificate-meta { display: block; margin-top: 4px; color: var(--color-ink-muted); font-weight: 400; }
   .certificate-history .data-table .certificate-meta { color: var(--color-ink-muted); font-weight: 400; text-align: left; }
-  .certificate-context, .certificate-reason { margin: 6px 0 0; color: var(--color-ink-muted); font-size: 12.5px; }
+  .certificate-context { margin: 6px 0 0; color: var(--color-ink-muted); font-size: 12.5px; }
   .certificate-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .certificate-history ::selection { background: var(--color-cobalt-tint); color: var(--color-ink); }
   @media (max-width: 640px) {

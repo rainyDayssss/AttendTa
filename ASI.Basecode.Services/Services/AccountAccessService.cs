@@ -139,6 +139,7 @@ public sealed class AccountAccessService : IAccountAccessCommands
                 throw new DomainException(OutcomeCode.Invalid, "This account is already active.");
             }
 
+            // Restore sign-in access only; cancelled registrations and membership state remain unchanged.
             user.IsActive = true;
             user.UpdatedById = actorUserId;
             user.UpdatedTime = _timeProvider.GetUtcNow().UtcDateTime;

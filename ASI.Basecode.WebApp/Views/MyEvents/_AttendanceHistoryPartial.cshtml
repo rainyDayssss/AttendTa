@@ -9,29 +9,27 @@
                     <th scope="col">Recorded</th>
                     <th scope="col">Method</th>
                     <th scope="col">State</th>
+                    <th scope="col">Reason</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var row in Model.Rows)
                 {
                     <tr data-attendance-id="@row.AttendanceId">
-                        <td data-label="Event">@row.EventTitle</td>
-                        <td data-label="Recorded" class="numeric">@ManilaTimeFormatter.Format(row.RecordedAt)</td>
+                        <th scope="row" data-label="Event">@row.EventTitle</th>
+                        <td data-label="Recorded" class="numeric cell-date">@ManilaTimeFormatter.Format(row.RecordedAt)</td>
                         <td data-label="Method">@row.CheckInMethodLabel</td>
                         <td data-label="State">
                             @if (row.IsInvalidated)
                             {
                                 <span class="badge badge-inactive">Invalidated</span>
-                                @if (!string.IsNullOrWhiteSpace(row.InvalidationReason))
-                                {
-                                    <span class="muted">@row.InvalidationReason</span>
-                                }
                             }
                             else
                             {
                                 <span class="badge badge-active">Valid</span>
                             }
                         </td>
+                        <td data-label="Reason"><partial name="_ReasonContent" model="@(row.IsInvalidated ? row.InvalidationReason ?? string.Empty : string.Empty)" /></td>
                     </tr>
                 }
             </tbody>

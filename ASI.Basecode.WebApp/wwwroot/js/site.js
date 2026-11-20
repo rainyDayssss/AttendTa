@@ -126,6 +126,7 @@ $(function () {
     });
 
     document.addEventListener('submit', function (event) {
+        if (event.defaultPrevented) return;
         // A whitespace-only reason passes the native `required` check, so refuse it here before
         // the POST loses the dialog and the typed text.
         const reason = event.target.querySelector('textarea[name="reason"]');

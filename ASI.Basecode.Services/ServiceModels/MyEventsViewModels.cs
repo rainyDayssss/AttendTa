@@ -118,6 +118,7 @@ public sealed class MyEventRegistrationCardViewModel
     public DateTime StartsAt { get; init; }
     public string StatusLabel { get; init; }
     public string StatusBadgeClass { get; init; }
+    public string DeclineReason { get; init; }
 
     /// <summary>
     /// True only when the member event detail page can serve the event. That page returns

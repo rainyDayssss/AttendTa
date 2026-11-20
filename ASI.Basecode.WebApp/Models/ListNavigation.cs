@@ -8,12 +8,12 @@ namespace ASI.Basecode.WebApp.Models;
 
 public static class ListNavigation
 {
-    public static string Reset(HttpRequest request, IEnumerable<string> filterNames, string targetPath = null)
+    public static string Reset(HttpRequest request, IEnumerable<string> filterNames, string targetPath = null, bool preserveStatus = false)
     {
         var changes = filterNames.Where(name => name != "eventId")
             .ToDictionary(name => name, _ => (string)null, StringComparer.OrdinalIgnoreCase);
         changes["search"] = null;
-        changes["status"] = null;
+        if (!preserveStatus) changes["status"] = null;
         return Url(request, changes, targetPath);
     }
 

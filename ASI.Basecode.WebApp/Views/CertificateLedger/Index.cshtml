@@ -124,7 +124,7 @@ else if (Model.Rows.Count > 0)
                     </th>
                 }
                 <th scope="col">Member</th>
-                @if (tab == "eligibility") { <th scope="col">Attended</th><th scope="col">Eligibility</th> }
+                @if (tab == "eligibility") { <th scope="col">Attended</th><th scope="col">Eligibility</th><th scope="col">Reason</th> }
                 @if (tab == "issued") { <th scope="col">Certificate</th> }
                 <th scope="col" class="actions actions-decision">Actions</th>
             </tr>
@@ -165,6 +165,7 @@ else if (Model.Rows.Count > 0)
                     <td data-label="Eligibility">
                         <span class="badge @row.StatusBadgeClass">@row.StatusLabel</span>
                     </td>
+                    <td data-label="Reason"><partial name="_ReasonContent" model="@(row.Reason ?? string.Empty)" /></td>
                     }
                     @if (tab == "issued") {
                     <td data-label="Certificate">

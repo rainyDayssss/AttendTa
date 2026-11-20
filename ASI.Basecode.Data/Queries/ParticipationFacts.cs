@@ -111,6 +111,9 @@ public static class ParticipationFacts
     public static Expression<Func<Event, bool>> StartCutoffPassed(DateTime nowUtc) =>
         eventItem => nowUtc >= eventItem.StartsAt;
 
+    /// <summary>In-memory twin of <see cref="StartCutoffPassed"/> for already-loaded event facts.</summary>
+    public static bool HasStartCutoffPassed(DateTime startsAt, DateTime nowUtc) => nowUtc >= startsAt;
+
     public static Expression<Func<Event, bool>> SignupOpen(DateTime nowUtc) =>
         eventItem => eventItem.EventStatusId == EventStatusCode.Published && nowUtc < eventItem.RegistrationDeadline;
 

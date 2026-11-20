@@ -78,7 +78,7 @@ public class AccountRoleServiceTests
     }
 
     [Fact]
-    public async Task NoOpChangeSucceedsWithoutWriteOrAudit()
+    public async Task SameRoleIsRejectedWithoutWriteOrAudit()
     {
         var accounts = new FakeAccounts();
         var target = accounts.Add(42, "Ana Reyes", "ana@example.com", RoleCode.Officer, isActive: true);
@@ -87,17 +87,52 @@ public class AccountRoleServiceTests
         var work = new ImmediateUnitOfWork();
         var service = Create(accounts, users, work, audit);
 
-        await service.ChangeRoleAsync(new ChangeAccountRoleViewModel
+        var error = await Assert.ThrowsAsync<DomainException>(() => service.ChangeRoleAsync(new ChangeAccountRoleViewModel
         {
             AccountId = 42,
             RoleCode = "officer",
             Reason = "Already an officer."
-        }, TestContext.Current.CancellationToken);
+        }, TestContext.Current.CancellationToken));
 
+        Assert.Equal(OutcomeCode.Invalid, error.Outcome);
+        Assert.Equal(nameof(ChangeAccountRoleViewModel.RoleCode), error.Field);
         Assert.Equal(RoleCode.Officer, target.RoleId);
         Assert.Null(target.UpdatedById);
         Assert.Null(target.UpdatedTime);
         Assert.False(accounts.LockAcquired);
+        Assert.Equal(0, work.SaveCount);
+        Assert.Empty(audit.Entries);
+    }
+
+    [Fact]
+    public async Task CraftedSameRoleSubmissionIsRejectedAfterTheRowLock()
+    {
+        // The pre-lock snapshot still says Member while the locked row is already an Officer:
+        // the authoritative check must refuse even though the posted role looks like a change.
+        var accounts = new FakeAccounts();
+        accounts.Add(42, "Stale Account", "stale@example.com", RoleCode.Member, isActive: true);
+        var users = new FakeUsers(new User
+        {
+            Id = 42,
+            Email = "stale@example.com",
+            Name = "Stale Account",
+            RoleId = RoleCode.Officer,
+            IsActive = true
+        });
+        var audit = new RecordingAudit();
+        var work = new ImmediateUnitOfWork();
+        var service = Create(accounts, users, work, audit);
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => service.ChangeRoleAsync(new ChangeAccountRoleViewModel
+        {
+            AccountId = 42,
+            RoleCode = "officer",
+            Reason = "Promote stale form."
+        }, TestContext.Current.CancellationToken));
+
+        Assert.Equal(OutcomeCode.Invalid, error.Outcome);
+        Assert.Equal(nameof(ChangeAccountRoleViewModel.RoleCode), error.Field);
+        Assert.Equal(RoleCode.Officer, users.User!.RoleId);
         Assert.Equal(0, work.SaveCount);
         Assert.Empty(audit.Entries);
     }
@@ -347,7 +382,7 @@ public class AccountRoleServiceTests
     }
 
     [Fact]
-    public async Task RoleChangeFormShowsCurrentRoleAndFixedChoices()
+    public async Task RoleChangeFormShowsCurrentRoleAndOnlyAlternativeChoices()
     {
         var (service, _, _, _, _) = CreateDefault();
 
@@ -358,9 +393,23 @@ public class AccountRoleServiceTests
         Assert.Equal("ana@example.com", model.Email);
         Assert.Equal(RoleCodes.Member, model.CurrentRoleCode);
         Assert.Equal("Member", model.CurrentRoleLabel);
-        Assert.Equal(RoleCodes.Member, model.RoleCode);
-        Assert.Equal(new[] { RoleCodes.Admin, RoleCodes.Officer, RoleCodes.Member },
+        Assert.Null(model.RoleCode);
+        Assert.Equal(new[] { RoleCodes.Admin, RoleCodes.Officer },
             model.Roles.Select(role => role.Code).ToArray());
+    }
+
+    [Fact]
+    public async Task RoleChangeFormForAnOfficerOffersAdministratorAndMember()
+    {
+        var accounts = new FakeAccounts();
+        var target = accounts.Add(42, "Officer Account", "officer@example.com", RoleCode.Officer, isActive: true);
+        var service = Create(accounts, new FakeUsers(target), new ImmediateUnitOfWork(), new RecordingAudit());
+
+        var model = await service.GetRoleChangeAsync(42, TestContext.Current.CancellationToken);
+
+        Assert.Equal(new[] { RoleCodes.Admin, RoleCodes.Member },
+            model.Roles.Select(role => role.Code).ToArray());
+        Assert.DoesNotContain(model.Roles, role => string.Equals(role.Code, RoleCodes.Officer, StringComparison.Ordinal));
     }
 
     [Fact]

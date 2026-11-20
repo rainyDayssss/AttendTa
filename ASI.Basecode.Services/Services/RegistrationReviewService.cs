@@ -30,11 +30,14 @@ public sealed class RegistrationReviewService(IRegistrationRepository registrati
     public async Task<PagedResult<RegistrationReviewRow>> GetPageAsync(string status, int? eventId, int? page, CancellationToken ct = default)
     {
         RequireManagement();
+        var now = clock.GetUtcNow().UtcDateTime;
         var parsed = ParseStatus(status);
         var count = await registrations.CountReviewQueueAsync(parsed, eventId, ct);
         var request = new PageRequest(page, readOptions?.PageSize);
         var normalized = request.NormalizePageNumber(count);
         var rows = await registrations.GetReviewQueueAsync(parsed, eventId, request.GetOffset(normalized), PageRequest.NormalizeSize(readOptions?.PageSize), ct);
+        foreach (var row in rows)
+            row.CancellationUnavailableReason = RegistrationCancellationAvailability.Reason(row.EventStatus, row.EventStartsAt, row.HasValidAttendance, now);
         return new PagedResult<RegistrationReviewRow>(rows, normalized, count, PageRequest.NormalizeSize(readOptions?.PageSize));
     }
 

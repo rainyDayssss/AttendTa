@@ -6,7 +6,7 @@
     var managed = new HashSet<string>(fields.Select(field => field.Name), StringComparer.OrdinalIgnoreCase) { "search", "page", "fit" };
     var hasCriteria = !string.IsNullOrWhiteSpace(search)
         || fields.Any(field => field.Name != "eventId" && !string.IsNullOrWhiteSpace(query[field.Name]))
-        || (!string.IsNullOrWhiteSpace(query["status"]) && query["status"] != "all");
+        || (!Model.StatusIsSection && !string.IsNullOrWhiteSpace(query["status"]) && query["status"] != "all");
     // A POST re-render sets ListPath so the toolbar keeps pointing at the GET list route.
     var listPath = ViewData["ListPath"] as string;
 }
@@ -37,5 +37,5 @@
         </div>
     }
     @if (fields.Count > 0) { <button type="submit" class="button button-secondary">Apply filters</button> }
-    @if (hasCriteria) { <a href="@ListNavigation.Reset(Context.Request, fields.Select(field => field.Name), listPath)" class="button button-secondary" data-filter-clear>Reset</a> }
+    @if (hasCriteria) { <a href="@ListNavigation.Reset(Context.Request, fields.Select(field => field.Name), listPath, Model.StatusIsSection)" class="button button-secondary" data-filter-clear>Reset</a> }
 </form>

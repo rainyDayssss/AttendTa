@@ -89,6 +89,7 @@ public sealed class AccountAdministrationRepository(IUnitOfWork unitOfWork, List
             .AsNoTracking()
             .CountAsync(user => user.RoleId == RoleCode.Admin && user.IsActive, cancellationToken);
 
+    // Serialize administrator removals so concurrent requests cannot remove the last active admins.
     public async Task AcquireLastAdministratorLockAsync(CancellationToken cancellationToken = default)
     {
         var transaction = Context.Database.CurrentTransaction
@@ -135,6 +136,7 @@ public sealed class AccountAdministrationRepository(IUnitOfWork unitOfWork, List
         command.Parameters.Add(parameter);
     }
 
+    // Count and page reads share the same filters; execution happens in CountAsync or ToListAsync.
     private IQueryable<User> Filter(string search)
     {
         var query = GetDbSet<User>().AsNoTracking();

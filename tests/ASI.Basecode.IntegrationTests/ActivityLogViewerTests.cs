@@ -78,10 +78,8 @@ public sealed class ActivityLogViewerTests : IClassFixture<SqlServerDatabaseFixt
         Assert.Equal(5, firstPageIds.Length);
         Assert.Equal(logIds.Take(5), firstPageIds);
         Assert.Contains("2026-11-05 08:35 PM", firstPage, StringComparison.Ordinal);
-        Assert.Contains("Activity Log Admin", firstPage, StringComparison.Ordinal);
-        Assert.Contains("User", firstPage, StringComparison.Ordinal);
-        Assert.Contains("System process", firstPage, StringComparison.Ordinal);
-        Assert.Contains("System", firstPage, StringComparison.Ordinal);
+        Assert.Contains("Activity Log Admin", ExtractLogRow(firstPage, logIds[1]), StringComparison.Ordinal);
+        Assert.Contains("System process", ExtractLogRow(firstPage, logIds[0]), StringComparison.Ordinal);
         Assert.Contains("audit.test.action.26", firstPage, StringComparison.Ordinal);
         Assert.Contains("test_entities", firstPage, StringComparison.Ordinal);
         Assert.Contains("Reason for audit entry 26", firstPage, StringComparison.Ordinal);
@@ -173,6 +171,13 @@ public sealed class ActivityLogViewerTests : IClassFixture<SqlServerDatabaseFixt
         .Cast<Match>()
         .Select(match => long.Parse(match.Groups[1].Value))
         .ToArray();
+
+    private static string ExtractLogRow(string html, long logId)
+    {
+        var row = Regex.Match(html, $"<tr data-log-id=\"{logId}\">.*?</tr>", RegexOptions.Singleline);
+        Assert.True(row.Success);
+        return row.Value;
+    }
 
     private static string GetLocationPath(HttpResponseMessage response)
     {

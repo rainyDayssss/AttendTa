@@ -127,6 +127,7 @@ public sealed class CertificateLedgerService(
     {
         ArgumentNullException.ThrowIfNull(read);
 
+        // Tab totals cover the full event read; search and status filters narrow the selected page.
         var issuedCount = read.Rows.Count(row => row.Status == CertificateStatusCode.Issued);
         var filtered = read.Rows
             .Where(row => (row.Status == CertificateStatusCode.Issued) == (tab == CertificateLedgerTab.Issued))
