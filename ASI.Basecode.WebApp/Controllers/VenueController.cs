@@ -46,7 +46,7 @@ namespace ASI.Basecode.WebApp.Controllers
             if (model.VenueId <= 0) return;
             var imagePath = _venueService.GetVenue(model.VenueId)?.ImagePath;
             model.ImagePath = _venueService.IsServablePhoto(imagePath) ? imagePath : null;
-            if (selectedPhoto && model.ImagePath != null) ViewData["PhotoReselect"] = true;
+            if (selectedPhoto) ViewData["PhotoReselect"] = true;
         }
 
         public VenueController(IHttpContextAccessor httpContextAccessor, ILoggerFactory loggerFactory,
@@ -103,6 +103,7 @@ namespace ASI.Basecode.WebApp.Controllers
             if (!ModelState.IsValid)
             {
                 ViewData["PhotoRequired"] = true;
+                ViewData["PhotoReselect"] = photo != null;
                 return Editor(model);
             }
 
@@ -114,7 +115,12 @@ namespace ASI.Basecode.WebApp.Controllers
                 if (IsRecordDialog) return Json(new { saved = true });
                 return RedirectToAction("Index");
             }
-            catch (DomainException ex) { return EditorError(ex, model); }
+            catch (DomainException ex)
+            {
+                ViewData["PhotoRequired"] = true;
+                ViewData["PhotoReselect"] = photo != null;
+                return EditorError(ex, model);
+            }
         }
 
         [HttpGet]

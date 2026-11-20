@@ -15,6 +15,7 @@ else if (Model.Rows.Count > 0)
                 <tr>
                     <th scope="col">Event</th>
                     <th scope="col">Review status</th>
+                    <th scope="col">Reason</th>
                     <th scope="col">Issue details</th>
                     <th scope="col">Certificate</th>
                 </tr>
@@ -38,11 +39,8 @@ else if (Model.Rows.Count > 0)
                         <td data-label="Review status">
                             <span class="badge @badge">@label</span>
                             <p class="certificate-context">@message</p>
-                            @if (!string.IsNullOrWhiteSpace(row.Reason))
-                            {
-                                <p class="certificate-reason"><strong>Reason:</strong> @row.Reason</p>
-                            }
                         </td>
+                        <td data-label="Reason"><partial name="_ReasonContent" model="@(row.Reason ?? string.Empty)" /></td>
                         <td data-label="Issue details">
                             @if (row.State == MyCertificateState.Issued)
                             {

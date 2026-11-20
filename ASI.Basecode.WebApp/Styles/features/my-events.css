@@ -68,6 +68,9 @@
   .my-events-panel .table-scroll .data-table td:first-child { padding-left: 0; }
   .my-events-panel .table-scroll .data-table th:last-child,
   .my-events-panel .table-scroll .data-table td:last-child { padding-right: 0; }
+  @media (max-width: 640px) {
+    .my-events-panel .attendance-history .data-table tbody th[scope="row"] { height: auto; padding-left: 16px; }
+  }
   @media (min-width: 768px) {
     .registration-row { grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
     .registration-head { grid-column: 1 / -1; }

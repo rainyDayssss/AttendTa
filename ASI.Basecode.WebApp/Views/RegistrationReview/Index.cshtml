@@ -14,6 +14,7 @@
     var reopen = TempData["ReviewDialog"] as string;
     var failedId = Convert.ToInt32(TempData["ReviewId"] ?? 0);
     var reason = TempData["ReviewReason"] as string;
+    var reviewError = TempData.Peek("ErrorMessage") as string;
     var failedRow = Model.Items.FirstOrDefault(row => row.RegistrationId == failedId);
     var bulkError = ViewBag.BulkError as string;
     var bulkResult = ViewBag.BulkResult as BulkResultViewModel;
@@ -67,7 +68,7 @@
 {
     <button type="button" class="button button-secondary spacing-bottom" data-dialog-open="promote">Promote next eligible participant</button>
     <dialog id="promote" class="task-dialog" aria-labelledby="promote-title" aria-describedby="promote-summary promote-consequence">
-        <form asp-action="Promote" method="post">
+        <form asp-action="Promote" asp-route-search="@Context.Request.Query["search"]" asp-route-pageSize="@Context.Request.Query["pageSize"]" method="post">
             <input type="hidden" name="eventId" value="@eventId" /><input type="hidden" name="page" value="@Model.PageNumber" /><input type="hidden" name="expectedRegistrationId" value="@promotionCandidate.RegistrationId" />
             <div class="dialog-header"><h2 id="promote-title">Promote next eligible participant</h2><button type="button" class="dialog-close" data-dialog-close aria-label="Close dialog">&times;</button></div>
             <p id="promote-summary">Promote @promotionCandidate.MemberName (@promotionCandidate.StudentNumber)?</p>
@@ -79,7 +80,7 @@
 else if (status == "waitlisted" && eventId.HasValue) { <p class="muted">No eligible waitlisted participant is available.</p> }
 @if (failedRow == null && !string.IsNullOrWhiteSpace(reason))
 {
-    <div class="notice" role="status"><p>The registration is no longer on this page. Your unsaved reason is retained below.</p><p>@reason</p></div>
+    <div class="notice" role="status" data-list-preserve><p>Registration #@failedId is no longer on this page. Your unsaved reason is retained below.</p><p>@reason</p></div>
 }
 <div data-bulk-root data-bulk-noun="registration">
     @if (hasSelectableRows)
@@ -105,6 +106,9 @@ else if (status == "waitlisted" && eventId.HasValue) { <p class="muted">No eligi
                 @if (Model.Items.Count == 0) { <tr><td colspan="@columnCount" class="empty-state">No matching registrations. Adjust the search or filters to see other records.</td></tr> }
                 @foreach (var row in Model.Items)
                 {
+                    var details = new Dictionary<string, string> { ["Student number"] = row.StudentNumber, ["Event"] = row.EventTitle, ["Submitted"] = ManilaTimeFormatter.Format(row.SubmittedAt), ["Status"] = row.Status.ToString(), ["Course"] = row.Course, ["Year"] = row.YearLevel.ToString() };
+                    if (!string.IsNullOrWhiteSpace(row.DeclineReason)) details["Decline reason"] = row.DeclineReason;
+                    if (row.Status is RegistrationStatusCode.Confirmed or RegistrationStatusCode.Waitlisted && row.CancellationUnavailableReason != null) details["Cancellation"] = row.CancellationUnavailableReason;
                     <tr data-registration-id="@row.RegistrationId">
                         @if (hasSelectableRows)
                         {
@@ -139,9 +143,11 @@ else if (status == "waitlisted" && eventId.HasValue) { <p class="muted">No eligi
                             }
                             else if (row.Status is RegistrationStatusCode.Confirmed or RegistrationStatusCode.Waitlisted)
                             {
+                                if (row.CancellationUnavailableReason == null) {
                                 <button type="button" class="button button-quiet-danger button-small" data-dialog-open="registration-cancel" data-dialog-value-id="@row.RegistrationId" data-dialog-value-summary="Cancel the registration of @row.MemberName (@row.StudentNumber) for @row.EventTitle?">Cancel registration</button>
+                                } else { <span class="muted cancellation-unavailable">Cancellation unavailable</span> }
                             }
-                            <partial name="_DetailsButton" model='@(new RecordDetailsViewModel($"registration-details-{row.RegistrationId}", row.MemberName, new Dictionary<string, string> { ["Student number"] = row.StudentNumber, ["Event"] = row.EventTitle, ["Submitted"] = ManilaTimeFormatter.Format(row.SubmittedAt), ["Status"] = row.Status.ToString(), ["Course"] = row.Course, ["Year"] = row.YearLevel.ToString() }))' />
+                            <partial name="_DetailsButton" model='@(new RecordDetailsViewModel($"registration-details-{row.RegistrationId}", row.MemberName, details))' />
                             </div></td>
                     </tr>
                 }
@@ -157,14 +163,15 @@ else if (status == "waitlisted" && eventId.HasValue) { <p class="muted">No eligi
 <partial name="_ResultCount" model="Model" />
 @foreach (var decision in new[] { (Key: "approve", Title: "Approve registration", Action: "Approve", NeedsReason: false), (Key: "decline", Title: "Decline registration", Action: "Decline", NeedsReason: true), (Key: "registration-cancel", Title: "Cancel registration", Action: "Cancel", NeedsReason: true) })
 {
-    <dialog id="@decision.Key" class="task-dialog" aria-labelledby="@decision.Key-title" aria-describedby="@decision.Key-summary" data-reopen="@(reopen == decision.Key && failedRow != null ? "true" : null)" data-reopen-id="@failedId" data-reopen-reason="@reason">
-        <form asp-action="@decision.Action" method="post">
+    <dialog id="@decision.Key" class="task-dialog" aria-labelledby="@decision.Key-title" aria-describedby="@decision.Key-summary" data-reopen="@(reopen == decision.Key && failedRow != null ? "true" : null)" data-list-preserve="@(reopen == decision.Key && failedRow != null ? "true" : null)" data-reopen-id="@failedId" data-reopen-reason="@reason">
+        <form asp-action="@decision.Action" asp-route-search="@Context.Request.Query["search"]" asp-route-pageSize="@Context.Request.Query["pageSize"]" method="post">
             <input type="hidden" name="id" data-dialog-field="id" /><input type="hidden" name="status" value="@status" /><input type="hidden" name="eventId" value="@eventId" /><input type="hidden" name="page" value="@Model.PageNumber" />
             <div class="dialog-header"><h2 id="@decision.Key-title">@decision.Title</h2><button type="button" class="dialog-close" data-dialog-close aria-label="Close dialog">&times;</button></div>
             <p id="@decision.Key-summary" class="muted" data-dialog-field="summary">@(failedRow == null ? string.Empty : $"{failedRow.MemberName} ({failedRow.StudentNumber}) · {failedRow.EventTitle}")</p>
+            @if (reopen == decision.Key && !string.IsNullOrEmpty(reviewError)) { <p class="field-error" role="alert">@reviewError</p> }
             @if (decision.NeedsReason)
             {
-                <div class="field"><label for="@decision.Key-reason">Reason (required)</label><textarea id="@decision.Key-reason" name="reason" rows="3" maxlength="500" required></textarea><span class="field-hint">Explain this decision. Up to 500 characters.</span></div>
+                <div class="field"><label for="@decision.Key-reason">Reason (required)</label><textarea id="@decision.Key-reason" name="reason" rows="3" maxlength="500" required>@(reopen == decision.Key ? reason : null)</textarea><span class="field-hint">Explain this decision. Up to 500 characters.</span></div>
             }
             else { <p class="dialog-consequence">The event's current capacity and registration rules will be checked before this decision is saved.</p> }
             <div class="dialog-actions"><button type="button" class="button button-secondary" data-dialog-close>Back</button><button type="submit" class="button @(decision.NeedsReason ? "button-danger" : "button-primary")" data-submitting-label="Saving…">@decision.Title</button></div>

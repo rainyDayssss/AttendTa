@@ -72,9 +72,10 @@
             <small id="photo-help" class="muted">@(photoRequired ? "A JPEG or PNG photo up to 2 MiB is required when creating a venue." : hasPhoto ? "Select a new JPEG or PNG photo up to 2 MiB to replace the current one." : "Select a JPEG or PNG photo up to 2 MiB.")</small>
             @if (photoReselect)
             {
-                <small id="photo-reselect" class="field-hint" data-photo-reselect>Choose the photo again to replace the current photo; the previous selection was not kept after the failed save.</small>
+                <small id="photo-reselect" class="field-hint" data-photo-reselect>Choose the photo again; the previous selection was not kept after the failed save.</small>
             }
             @Html.ValidationMessage("photo", null, new { id = "photo-validation", @class = "field-error" })
+            <div data-record-preview data-record-preview-alt="Preview of selected venue photo" hidden></div>
         </div>
     </div>
 </fieldset>

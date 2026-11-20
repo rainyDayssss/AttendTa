@@ -89,7 +89,7 @@
     <partial name="_BulkResultPanel" model="bulkResult" />
 }
 
-<partial name="_ListToolbar" model='@(new ListToolbarViewModel("Search name, email, or student number", new ListFilterField[] { ListToolbarViewModel.Course, ListToolbarViewModel.Year }))' />
+<partial name="_ListToolbar" model='@(new ListToolbarViewModel("Search name, email, or student number", new ListFilterField[] { ListToolbarViewModel.Course, ListToolbarViewModel.Year }, StatusIsSection: true))' />
 <div class="sheet-keys">
 
     <nav class="filter-tabs" aria-label="Request status">
@@ -124,7 +124,7 @@
                         </th>
                     }
                     <th scope="col">Full Name</th>
-                    <th scope="col">Course / year</th>
+                    <th scope="col">Course / year / section</th>
                     <th scope="col">
                         <a href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["sort"] = Model.NextSort }, listPath)'
                            aria-label="Sort by requested time, currently @(Model.Sort == "oldest" ? "oldest first" : "newest first")">
@@ -167,7 +167,7 @@
                                 }
                             }
                             <td data-label="Full Name" class="cell-name"><span class="cell-strong">@request.FullName<small class="cell-meta">@request.StudentNumber</small></span></td>
-                            <td data-label="Course / year">@request.Course · @request.YearLevel</td>
+                            <td data-label="Course / year / section">@request.Course · @request.YearLevel · @(string.IsNullOrWhiteSpace(request.Section) ? "Not provided" : request.Section)</td>
                             <td data-label="Requested" class="numeric cell-date"><time datetime="@(DateTime.SpecifyKind(request.RequestedAt, DateTimeKind.Utc).ToString("O"))" aria-label="Requested at in Asia/Manila">@ManilaTimeFormatter.Format(request.RequestedAt)</time></td>
                             <td data-label="Status"><span class="@BadgeClass(request.Status)">@request.Status</span></td>
                             <td data-label="Actions" class="actions actions-wide">

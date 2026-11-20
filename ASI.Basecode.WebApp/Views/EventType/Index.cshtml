@@ -14,7 +14,7 @@
     <a asp-action="Create" class="button button-primary" data-record-open="create-event-type" data-record-title="New Event Type">New Event Type</a>
 </div>
 
-<partial name="_ListToolbar" model='@(new ListToolbarViewModel("Search event type or description"))' />
+<partial name="_ListToolbar" model='@(new ListToolbarViewModel("Search event type or description", StatusIsSection: true))' />
 <div class="sheet-keys">
     <nav class="filter-tabs" aria-label="Event type status">
         <a href='@ListNavigation.Url(Context.Request, new Dictionary<string, string> { ["status"] = null })' class="filter-tab" aria-current="@(string.IsNullOrEmpty(statusFilter) ? "page" : null)">All</a>

@@ -1,6 +1,6 @@
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
-using ASI.Basecode.WebApp.Formatting;
+using ASI.Basecode.Services.Formatting;
 using ASI.Basecode.WebApp.Rendering;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;

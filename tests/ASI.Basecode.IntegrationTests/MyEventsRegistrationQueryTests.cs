@@ -79,6 +79,16 @@ public sealed class MyEventsRegistrationQueryTests(SqlServerDatabaseFixture fixt
         var otherRegistration = await MemberEventTestSupport.SeedRegistrationAsync(
             fixture.ConnectionString, otherEvent.EventId, otherMember.MemberId, RegistrationStatusCode.Confirmed, otherUser.Id, ct);
 
+        await using (var seed = MemberEventTestSupport.Context(fixture.ConnectionString))
+        {
+            var declined = await seed.Registrations.SingleAsync(r => r.RegistrationId == registrations[24].RegistrationId, ct);
+            declined.ReviewNotes = "Reason <script> & long " + new string('x', 300);
+            var other = await seed.Registrations.SingleAsync(r => r.RegistrationId == otherRegistration.RegistrationId, ct);
+            other.RegistrationStatusId = RegistrationStatusCode.Cancelled;
+            other.ReviewNotes = "Private other-member reason";
+            await seed.SaveChangesAsync(ct);
+        }
+
         await using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
 
@@ -108,6 +118,10 @@ public sealed class MyEventsRegistrationQueryTests(SqlServerDatabaseFixture fixt
         Assert.Contains("badge-open", firstPage, StringComparison.Ordinal);
         Assert.Contains("badge-inactive", firstPage, StringComparison.Ordinal);
         Assert.Contains("badge-full", firstPage, StringComparison.Ordinal);
+        Assert.Contains("Decline reason", firstPage, StringComparison.Ordinal);
+        Assert.Contains("Reason &lt;script&gt; &amp; long", firstPage, StringComparison.Ordinal);
+        Assert.Contains(new string('x', 300), firstPage, StringComparison.Ordinal);
+        Assert.DoesNotContain("Private other-member reason", firstPage, StringComparison.Ordinal);
 
         // The started Waitlisted row is the 25th row of page 1 and carries the derived cutoff label.
         Assert.Equal(registrations[2].RegistrationId, firstPageIds[24]);

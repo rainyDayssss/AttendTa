@@ -95,6 +95,50 @@ function clickEvent(trigger) {
 
 const flush = () => new Promise(resolve => setImmediate(resolve));
 
+test('cancelled empty manual searches do not leave the search button busy', () => {
+    const button = createElement('button');
+    button.textContent = 'Search';
+    button.dataset.submittingLabel = 'Searching…';
+    const input = createElement('input');
+    const form = createElement('form');
+    form.querySelector = selector => selector === 'button[type="submit"]' ? button : null;
+    const root = {
+        querySelector: selector => selector === '[data-lookup-form]' ? form : selector === '#lookup-query' ? input : null,
+        querySelectorAll: () => []
+    };
+    const handlers = {};
+    const document = {
+        body: createElement('body'), clickHandlers: [], createElement,
+        querySelector: selector => selector === '[data-scanner]' ? root : null,
+        getElementById: () => null,
+        addEventListener(type, handler) {
+            (handlers[type] ||= []).push(handler);
+            if (type === 'click') this.clickHandlers.push(handler);
+        }
+    };
+    runSite(document, () => {});
+    const manual = fs.readFileSync(path.join(__dirname, '../wwwroot/js/features/scanner-manual.js'), 'utf8');
+    vm.runInNewContext(manual, { document });
+    for (const value of ['', '   ']) {
+        input.value = value;
+        const event = { target: form, submitter: button, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+        form.listeners.submit[0](event);
+        handlers.submit[0](event);
+        assert.equal(event.defaultPrevented, true);
+        assert.equal(button.disabled, undefined);
+        assert.equal(button.textContent, 'Search');
+        assert.equal(input.focused, true);
+    }
+    input.value = 'Alex';
+    button.getAttribute = () => 'Searching…';
+    const event = { target: form, submitter: button, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+    form.listeners.submit[0](event);
+    handlers.submit[0](event);
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(button.disabled, true);
+    assert.equal(button.textContent, 'Searching…');
+});
+
 test('row details close their menu and restore focus to its visible invoker', () => {
     const body = createElement('body'), dialog = createElement('dialog'), invoker = createElement('button');
     const menu = { id: 'row-menu-test', hidePopover() { this.hidden = true; } };
@@ -412,6 +456,74 @@ test('scan outcome and log show Manila-local time without a timezone suffix', as
 
     assert.equal(result.children[0].children[3].textContent, '2026-01-02 02:30');
     assert.equal(log.children[0].children[2].textContent, '2026-01-02 02:30');
+});
+
+test('live success and repeat preserve immediate invalidation actions and existing rows', async () => {
+    const log = createElement('tbody');
+    const emptyRow = createElement('tr'), emptyCell = createElement('td');
+    emptyCell.className = 'empty-state';
+    emptyRow.appendChild(emptyCell);
+    emptyCell.parentElement = emptyRow;
+    log.appendChild(emptyRow);
+    log.querySelector = selector => {
+        if (selector === 'td.empty-state') return log.children.includes(emptyRow) ? emptyCell : null;
+        const match = selector.match(/^tr\[data-registration-id="(\d+)"\]$/);
+        return match ? log.children.find(row => row.attributes['data-registration-id'] === match[1]) : null;
+    };
+    const root = { querySelector: () => null, querySelectorAll: () => [] };
+    const document = { querySelector: selector => selector === '[data-scanner]' ? root : selector === '[data-scan-log]' ? log : null, createElement, dispatchEvent() {} };
+    const outcomes = [
+        { outcome: 'success', registrationId: 42, memberName: 'Alex', studentNumber: '123', recordedAt: '2026-01-01T18:30:00Z' },
+        { outcome: 'repeat', registrationId: 42, memberName: 'Alex', studentNumber: '123', recordedAt: '2026-01-01T18:30:00Z' },
+        { outcome: 'repeat', registrationId: 43, memberName: 'Sam', studentNumber: '456', recordedAt: '2026-01-01T18:30:00Z', canInvalidate: false }
+    ];
+    const window = {};
+    const source = fs.readFileSync(path.join(__dirname, '../wwwroot/js/features/scanner.js'), 'utf8');
+    vm.runInNewContext(source, { window, document, URLSearchParams, Intl, Date, fetch: () => Promise.resolve({ json: () => Promise.resolve(outcomes.shift()) }) });
+    const form = { action: '/CheckIn/Scan', elements: { eventId: { value: '12' } } };
+    await window.AttendTaScanner.postScan(form, 'one');
+    assert.equal(log.children.length, 1);
+    const first = log.children[0];
+    assert.equal(first.attributes['data-registration-id'], '42');
+    assert.deepEqual(first.children.map(cell => cell.attributes['data-label']), ['Participant', 'Student number', 'Recorded', 'Outcome', 'Reason', 'Action']);
+    assert.equal(first.children[0].textContent, 'Alex');
+    assert.equal(first.children[4].textContent, '—');
+    const button = first.children[5].children[0].children[0];
+    assert.equal(first.children[5].children[0].className, 'row-actions');
+    assert.equal(button.className, 'button button-quiet-danger');
+    assert.equal(button.attributes['data-dialog-open'], 'invalidate-dialog');
+    assert.equal(button.attributes['data-dialog-value-id'], '42');
+    assert.equal(button.attributes['data-dialog-value-summary'], 'Invalidate the check-in for Alex (123)?');
+    await window.AttendTaScanner.postScan(form, 'repeat');
+    assert.equal(log.children.length, 1);
+    assert.equal(log.children[0], first);
+    await window.AttendTaScanner.postScan(form, 'other-repeat');
+    assert.equal(log.children.length, 2);
+    assert.equal(log.children[0].attributes['data-registration-id'], '43');
+    assert.equal(log.children[0].children[5].children[0].children[0].attributes['data-dialog-value-id'], '43');
+    assert.equal(log.children[1], first);
+});
+
+test('invalidation dialog receives the clicked participant and registration ID', () => {
+    class HTMLInputElement { constructor() { this.value = ''; } }
+    class HTMLTextAreaElement {}
+    const id = new HTMLInputElement(), summary = createElement('p'), dialog = createElement('dialog');
+    dialog.querySelector = selector => ({ '[data-dialog-field="id"]': id, '[data-dialog-field="summary"]': summary })[selector] || null;
+    const trigger = createElement('button');
+    trigger.dataset = { dialogOpen: 'invalidate-dialog', dialogValueId: '73', dialogValueSummary: 'Invalidate the check-in for Sam (456)?' };
+    const document = {
+        body: createElement('body'), clickHandlers: [], createElement,
+        querySelector: () => null, getElementById: value => value === 'invalidate-dialog' ? dialog : null,
+        addEventListener(type, handler) { if (type === 'click') this.clickHandlers.push(handler); }
+    };
+    const $ = callback => callback();
+    $.ajaxSetup = () => {};
+    const source = fs.readFileSync(path.join(__dirname, '../wwwroot/js/site.js'), 'utf8');
+    vm.runInNewContext(source, { $, document, window: {}, HTMLInputElement, HTMLTextAreaElement, fetch() {} });
+    document.clickHandlers[0]({ target: { closest: selector => selector === '[data-dialog-open]' ? trigger : null } });
+    assert.equal(dialog.open, true);
+    assert.equal(id.value, '73');
+    assert.equal(summary.textContent, 'Invalidate the check-in for Sam (456)?');
 });
 
 test('scanner keyboard navigation wraps between camera and manual lookup', () => {

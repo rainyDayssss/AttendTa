@@ -60,7 +60,7 @@ else
             <h2 id="event-description-heading">About this event</h2>
             @if (!string.IsNullOrWhiteSpace(Model.Description))
             {
-                <p class="event-description">@Model.Description</p>
+                <div class="event-description"><partial name="_DescriptionContent" model="Model.Description" /></div>
             }
             else
             {

@@ -16,6 +16,130 @@ namespace ASI.Basecode.IntegrationTests;
 
 public sealed class CheckInWindowFlagTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
 {
+    [Theory]
+    [InlineData("Scan")]
+    [InlineData("CheckIn")]
+    public async Task ClosedCheckInShowsOnlyTheResultCardAfterRedirect(string action)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var password = MemberEventTestSupport.NewPassword();
+        var officer = await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString,
+            $"notice-{Guid.NewGuid():N}@example.invalid", password, RoleCode.Officer, ct);
+        var (typeId, venueId) = await MemberEventTestSupport.SeedReferencesAsync(fixture.ConnectionString, officer.Id, ct);
+        var item = await MemberEventTestSupport.SeedEventAsync(fixture.ConnectionString, officer.Id, typeId, venueId,
+            EventStatusCode.Published, DateTime.UtcNow.AddDays(7), DateTime.UtcNow.AddDays(6), 20, null, "Notice test", ct);
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        await MemberEventTestSupport.SignInAsync(client, officer.Email, password, ct);
+        var token = await MemberEventTestSupport.AntiforgeryTokenAsync(client, $"/CheckIn?eventId={item.EventId}", ct);
+        using var response = await client.PostAsync($"/CheckIn/{action}", MemberEventTestSupport.Form(new()
+        {
+            ["eventId"] = item.EventId.ToString(), ["registrationId"] = "999", ["token"] = "unknown",
+            ["q"] = "unknown", ["__RequestVerificationToken"] = token
+        }), ct);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        var html = await client.GetStringAsync(response.Headers.Location!.ToString(), ct);
+        Assert.Contains("scanner-outcome-closed", html, StringComparison.Ordinal);
+        Assert.Contains("Check-in closed", html, StringComparison.Ordinal);
+        Assert.Contains("href=\"#check-in-result\"", html, StringComparison.Ordinal);
+        Assert.Contains("tabindex=\"-1\" data-redirect-outcome", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("notice-error", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("notice-success", html, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DisappearedOrDifferentEventShowsOutcomeAsNotice(bool disappear)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var password = MemberEventTestSupport.NewPassword();
+        var officer = await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString,
+            $"fallback-{Guid.NewGuid():N}@example.invalid", password, RoleCode.Officer, ct);
+        var (typeId, venueId) = await MemberEventTestSupport.SeedReferencesAsync(fixture.ConnectionString, officer.Id, ct);
+        var item = await MemberEventTestSupport.SeedEventAsync(fixture.ConnectionString, officer.Id, typeId, venueId,
+            EventStatusCode.Published, DateTime.UtcNow.AddDays(7), DateTime.UtcNow.AddDays(6), 20, null, "Fallback event", ct);
+        var other = await MemberEventTestSupport.SeedEventAsync(fixture.ConnectionString, officer.Id, typeId, venueId,
+            EventStatusCode.Published, DateTime.UtcNow.AddDays(8), DateTime.UtcNow.AddDays(6), 20, null, "Other event", ct);
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        await MemberEventTestSupport.SignInAsync(client, officer.Email, password, ct);
+        var token = await MemberEventTestSupport.AntiforgeryTokenAsync(client, $"/CheckIn?eventId={item.EventId}", ct);
+        using var response = await client.PostAsync("/CheckIn/Scan", MemberEventTestSupport.Form(new()
+        {
+            ["eventId"] = item.EventId.ToString(), ["token"] = "unknown", ["__RequestVerificationToken"] = token
+        }), ct);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        if (disappear)
+        {
+            await using var writer = EventDraftTestSupport.Context(fixture.ConnectionString);
+            var row = await writer.Events.SingleAsync(e => e.EventId == item.EventId, ct);
+            row.EventStatusId = EventStatusCode.Completed;
+            await writer.SaveChangesAsync(ct);
+        }
+        var url = disappear ? response.Headers.Location!.ToString() : $"/CheckIn?eventId={other.EventId}";
+        var html = await client.GetStringAsync(url, ct);
+        Assert.Contains("notice-error", html, StringComparison.Ordinal);
+        Assert.Contains("Check-in is closed for this event", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-redirect-outcome", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ManualSuccessAndInvalidationKeepTheirOwnFeedback()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var password = MemberEventTestSupport.NewPassword();
+        var officer = await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString,
+            $"manual-{Guid.NewGuid():N}@example.invalid", password, RoleCode.Officer, ct);
+        var (typeId, venueId) = await MemberEventTestSupport.SeedReferencesAsync(fixture.ConnectionString, officer.Id, ct);
+        var item = await MemberEventTestSupport.SeedEventAsync(fixture.ConnectionString, officer.Id, typeId, venueId,
+            EventStatusCode.Published, DateTime.UtcNow.AddHours(1), DateTime.UtcNow.AddHours(-1), 20, null, "Manual event", ct);
+        await using (var writer = EventDraftTestSupport.Context(fixture.ConnectionString))
+        {
+            var row = await writer.Events.SingleAsync(e => e.EventId == item.EventId, ct);
+            row.IsCheckInOpen = true;
+            row.CheckInOpenedBy = officer.Id;
+            row.CheckInOpenedAt = DateTime.UtcNow;
+            await writer.SaveChangesAsync(ct);
+        }
+        var user = await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString,
+            $"participant-{Guid.NewGuid():N}@example.invalid", MemberEventTestSupport.NewPassword(), RoleCode.Member, ct);
+        var member = await MemberEventTestSupport.SeedMemberAsync(fixture.ConnectionString, user.Id, MembershipStatusCode.Active, ct);
+        var registration = await MemberEventTestSupport.SeedRegistrationAsync(fixture.ConnectionString, item.EventId,
+            member.MemberId, RegistrationStatusCode.Confirmed, officer.Id, ct);
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        await MemberEventTestSupport.SignInAsync(client, officer.Email, password, ct);
+        var token = await MemberEventTestSupport.AntiforgeryTokenAsync(client, $"/CheckIn?eventId={item.EventId}", ct);
+        using var response = await client.PostAsync("/CheckIn/CheckIn", MemberEventTestSupport.Form(new()
+        {
+            ["eventId"] = item.EventId.ToString(), ["registrationId"] = registration.RegistrationId.ToString(),
+            ["q"] = member.StudentNumber, ["__RequestVerificationToken"] = token
+        }), ct);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        var html = await client.GetStringAsync(response.Headers.Location!.ToString(), ct);
+        Assert.Contains("scanner-outcome-success", html, StringComparison.Ordinal);
+        Assert.Contains(member.StudentNumber, html, StringComparison.Ordinal);
+        Assert.DoesNotContain("notice-success", html, StringComparison.Ordinal);
+        using var invalidation = await client.PostAsync("/CheckIn/Invalidate", MemberEventTestSupport.Form(new()
+        {
+            ["eventId"] = item.EventId.ToString(), ["registrationId"] = registration.RegistrationId.ToString(),
+            ["reason"] = "Test correction", ["__RequestVerificationToken"] = token
+        }), ct);
+        Assert.Equal(HttpStatusCode.Redirect, invalidation.StatusCode);
+        html = await client.GetStringAsync(invalidation.Headers.Location!.ToString(), ct);
+        Assert.Contains("notice-success", html, StringComparison.Ordinal);
+        Assert.Contains("Attendance invalidated.", html, StringComparison.Ordinal);
+        using var repeat = await client.PostAsync("/CheckIn/Invalidate", MemberEventTestSupport.Form(new()
+        {
+            ["eventId"] = item.EventId.ToString(), ["registrationId"] = registration.RegistrationId.ToString(),
+            ["reason"] = "Test correction", ["__RequestVerificationToken"] = token
+        }), ct);
+        html = await client.GetStringAsync(repeat.Headers.Location!.ToString(), ct);
+        Assert.Contains("notice-error", html, StringComparison.Ordinal);
+        Assert.Contains("This attendance has already been invalidated.", html, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task CheckInPageRendersHiddenCameraFormAndManualFallback()
     {
@@ -126,5 +250,40 @@ public sealed class CheckInWindowFlagTests(SqlServerDatabaseFixture fixture) : I
         public bool IsAuthenticated => true;
         public int UserId => id;
         public string Role => RoleCodes.Officer;
+    }
+}
+
+public sealed class CheckInEmptyScreenNoticeTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
+{
+    [Fact]
+    public async Task RemovedLastPublishedEventStillShowsOutcome()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var password = MemberEventTestSupport.NewPassword();
+        var officer = await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString,
+            $"empty-{Guid.NewGuid():N}@example.invalid", password, RoleCode.Officer, ct);
+        var (typeId, venueId) = await MemberEventTestSupport.SeedReferencesAsync(fixture.ConnectionString, officer.Id, ct);
+        var item = await MemberEventTestSupport.SeedEventAsync(fixture.ConnectionString, officer.Id, typeId, venueId,
+            EventStatusCode.Published, DateTime.UtcNow.AddDays(7), DateTime.UtcNow.AddDays(6), 20, null, "Last event", ct);
+        using var factory = new AttendTaWebApplicationFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        await MemberEventTestSupport.SignInAsync(client, officer.Email, password, ct);
+        var token = await MemberEventTestSupport.AntiforgeryTokenAsync(client, $"/CheckIn?eventId={item.EventId}", ct);
+        using var response = await client.PostAsync("/CheckIn/Scan", MemberEventTestSupport.Form(new()
+        {
+            ["eventId"] = item.EventId.ToString(), ["token"] = "unknown", ["__RequestVerificationToken"] = token
+        }), ct);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        await using (var writer = EventDraftTestSupport.Context(fixture.ConnectionString))
+        {
+            var row = await writer.Events.SingleAsync(e => e.EventId == item.EventId, ct);
+            row.EventStatusId = EventStatusCode.Completed;
+            await writer.SaveChangesAsync(ct);
+        }
+        var html = await client.GetStringAsync(response.Headers.Location!.ToString(), ct);
+        Assert.Contains("No event to check in", html, StringComparison.Ordinal);
+        Assert.Contains("notice-error", html, StringComparison.Ordinal);
+        Assert.Contains("Check-in is closed for this event", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-redirect-outcome", html, StringComparison.Ordinal);
     }
 }

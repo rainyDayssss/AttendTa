@@ -1,0 +1,12 @@
+@model string
+@if (Model.Length > 500 || Model.Split('\n').Length > 8)
+{
+    <details class="reason-disclosure">
+        <summary>Show description</summary>
+        <p class="reason-content">@Model</p>
+    </details>
+}
+else
+{
+    <span class="reason-content">@Model</span>
+}

@@ -14,6 +14,8 @@ using ASI.Basecode.Services.Interfaces;
 
 namespace ASI.Basecode.Services.Services;
 
+// Append adds an audit row to EF inside the caller's transaction; the caller saves it with the change.
+// Payloads must contain explicit field subsets and must not contain sensitive fields.
 public sealed class ActivityLogWriter(AsiBasecodeDBContext context, ICurrentActor actor, TimeProvider timeProvider) : IActivityLogWriter
 {
     public void Append(AuditEntry entry)

@@ -4,10 +4,12 @@
     <div><dt>Account</dt><dd>@Model.FullName<br /><span class="muted">@Model.Email</span></dd></div>
     <div><dt>Current role</dt><dd><span class="badge badge-@Model.CurrentRoleCode">@Model.CurrentRoleLabel</span></dd></div>
 </dl>
-<p class="field-hint spacing-bottom">Changing the role changes this account's access. Your reason is recorded in the activity log.</p>
+<p class="field-hint spacing-bottom">Choose a role other than the current one. Changing it changes this account's access, and your reason is recorded in the activity log.</p>
 <div class="field">
     <label asp-for="RoleCode" class="field-label">New role <span class="required" aria-hidden="true">*</span></label>
-    <select asp-for="RoleCode" asp-items="ViewBag.Roles" class="field-control" required aria-describedby="RoleCode-validation"></select>
+    <select asp-for="RoleCode" asp-items="ViewBag.Roles" class="field-control" required aria-describedby="RoleCode-validation">
+        <option value="">Select a role</option>
+    </select>
     <span id="RoleCode-validation" asp-validation-for="RoleCode" class="field-error"></span>
 </div>
 <div class="field">

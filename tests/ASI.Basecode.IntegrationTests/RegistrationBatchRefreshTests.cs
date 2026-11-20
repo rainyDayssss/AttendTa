@@ -2,6 +2,7 @@ using System.Data.Common;
 using ASI.Basecode.Data;
 using ASI.Basecode.Data.Models.Lookups;
 using ASI.Basecode.Data.Repositories;
+using ASI.Basecode.Data.Queries;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
 using ASI.Basecode.Services.Services;
@@ -13,6 +14,35 @@ namespace ASI.Basecode.IntegrationTests;
 
 public sealed class RegistrationBatchRefreshTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
 {
+    [Fact]
+    public async Task ReviewQueueUsesOneCountAndOnePageQueryForMultipleRows()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var actorId = await EventDraftTestSupport.SeedActorAsync(fixture.ConnectionString, ct);
+        var (typeId, venueId) = await MemberEventTestSupport.SeedReferencesAsync(fixture.ConnectionString, actorId, ct);
+        var start = new DateTime(2099, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var eventItem = await MemberEventTestSupport.SeedEventAsync(fixture.ConnectionString, actorId, typeId, venueId,
+            EventStatusCode.Published, start, start.AddDays(-1), 20, null, "Review read count", ct);
+        for (var i = 0; i < 4; i++)
+        {
+            var user = await MemberEventTestSupport.SeedUserAsync(fixture.ConnectionString, $"read-{Guid.NewGuid():N}@test.invalid", MemberEventTestSupport.NewPassword(), RoleCode.Member, ct);
+            var member = await MemberEventTestSupport.SeedMemberAsync(fixture.ConnectionString, user.Id, MembershipStatusCode.Active, ct);
+            await MemberEventTestSupport.SeedRegistrationAsync(fixture.ConnectionString, eventItem.EventId, member.MemberId, RegistrationStatusCode.Confirmed, actorId, ct);
+        }
+        var counter = new ReadCounter { Counting = true };
+        await using var context = MemberEventTestSupport.Context(fixture.ConnectionString, counter);
+        var repository = new RegistrationRepository(new UnitOfWork(context), new ListReadOptions { Search = "Review read count" });
+        Assert.Equal(4, await repository.CountReviewQueueAsync(RegistrationStatusCode.Confirmed, eventItem.EventId, ct));
+        var rows = await repository.GetReviewQueueAsync(RegistrationStatusCode.Confirmed, eventItem.EventId, 0, 10, ct);
+        Assert.Equal(4, rows.Count);
+        Assert.All(rows, row => Assert.False(row.HasValidAttendance));
+        Assert.Equal(2, counter.Reads);
+        Assert.Contains("COUNT", counter.Commands[0], StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("LIKE", counter.Commands[0], StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("attendance", counter.Commands[0], StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("attendance", counter.Commands[1], StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public async Task BatchRefreshUsesOneReadAndPreservesTrackedEditsDuringCancellation()
     {
@@ -76,10 +106,11 @@ public sealed class RegistrationBatchRefreshTests(SqlServerDatabaseFixture fixtu
     {
         public bool Counting { get; set; }
         public int Reads { get; private set; }
+        public List<string> Commands { get; } = [];
         public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand command, CommandEventData eventData,
             InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
         {
-            if (Counting) Reads++;
+            if (Counting) { Reads++; Commands.Add(command.CommandText); }
             return ValueTask.FromResult(result);
         }
     }

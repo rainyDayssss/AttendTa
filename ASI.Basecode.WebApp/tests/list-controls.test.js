@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-function load({ width = 1366, height = 720, top = 250, rowHeight = 50, total = 50, size = 5, url = 'http://localhost/Member?pageSize=5', editing = false, expanded = false, search = null, paging = true, grid = false, mode = 'auto', fit = null, storage = null, selection = null } = {}) {
+function load({ width = 1366, height = 720, top = 250, rowHeight = 50, total = 50, size = 5, url = 'http://localhost/Member?pageSize=5', editing = false, expanded = false, search = null, paging = true, grid = false, mode = 'auto', fit = null, storage = null, selection = null, preserve = false } = {}) {
     const events = {}, changes = [], forms = [];
     const table = { getBoundingClientRect: () => ({ top }), querySelector: () => ({ getBoundingClientRect: () => ({ height: 40 }) }), querySelectorAll: () => Array.from({ length: 5 }, () => ({ querySelector: () => null, getBoundingClientRect: () => ({ top: top + 40, height: rowHeight }) })) };
     const footer = { dataset: { pagingSize: String(size), pagingPage: new URL(url).searchParams.get('page') || '1', pagingMode: mode, pagingTotal: String(total), pagingFit: fit }, getBoundingClientRect: () => ({ height: 64 }), parentElement: { querySelector: () => grid ? null : table } };
@@ -13,7 +13,7 @@ function load({ width = 1366, height = 720, top = 250, rowHeight = 50, total = 5
     const document = {
         activeElement: { matches: () => editing },
         querySelectorAll: selector => selector === '[data-list-search]' ? forms : [],
-        querySelector: selector => selector === '[data-paging-size]' ? paging ? footer : null : selector === 'dialog[open]' ? null : selector === '[data-bulk-row]:checked' ? selection?.checked ? {} : null : selector === '[data-expandable-toggle][aria-expanded="true"]' ? expanded ? {} : null : selector === '[data-paging-grid]' ? cards : grid ? null : table,
+        querySelector: selector => selector === '[data-list-preserve]' ? preserve ? {} : null : selector === '[data-paging-size]' ? paging ? footer : null : selector === 'dialog[open]' ? null : selector === '[data-bulk-row]:checked' ? selection?.checked ? {} : null : selector === '[data-expandable-toggle][aria-expanded="true"]' ? expanded ? {} : null : selector === '[data-paging-grid]' ? cards : grid ? null : table,
         addEventListener: (event, callback) => { events[event] = callback; },
         createElement: () => ({})
     };
@@ -30,6 +30,18 @@ test('auto fit uses the real row height and preserves filters when requesting fe
     assert.equal(url.searchParams.get('search'), 'Ana');
     assert.equal(url.searchParams.get('course'), 'BSIT');
     assert.equal(url.searchParams.get('fit'), '3d');
+});
+
+test('failed decision recovery prevents automatic navigation before ready and on resize', () => {
+    for (const url of ['http://localhost/RegistrationReview?status=confirmed', 'http://localhost/Event/Details/7?status=confirmed']) {
+        const { changes, events, window } = load({ height: 1000, url, preserve: true });
+        assert.equal(changes.length, 0);
+        window.innerWidth = 390;
+        events.resize();
+        events.close();
+        assert.equal(changes.length, 0);
+        assert.equal(load({ height: 1000, url }).changes.length, 1);
+    }
 });
 
 test('fit waits for editing and uses taller screens beyond five rows', () => {

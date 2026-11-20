@@ -118,7 +118,9 @@ public sealed class RegistrationReviewController(IHttpContextAccessor accessor, 
                 TempData["ReviewReason"] = reason;
             }
         }
-        if (dossier) return RedirectToAction("Details", "Event", new { id = eventId, status, page });
-        return RedirectToAction(nameof(Index), new { status, eventId, page });
+        var search = Request.Query["search"].ToString();
+        var pageSize = Request.Query["pageSize"].ToString();
+        if (dossier) return RedirectToAction("Details", "Event", new { id = eventId, status, page, search, pageSize });
+        return RedirectToAction(nameof(Index), new { status, eventId, page, search, pageSize });
     }
 }

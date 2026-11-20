@@ -411,7 +411,7 @@ public sealed class RegistrationPromotionTests(SqlServerDatabaseFixture fixture)
         Assert.Contains($"data-registration-id=\"{later.Registration.RegistrationId}\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain($"data-registration-id=\"{earliest.Registration.RegistrationId}\"", html, StringComparison.Ordinal);
         Assert.Contains("<th scope=\"col\">Submission date</th><th scope=\"col\">Submission time</th>", html, StringComparison.Ordinal);
-        var dateClass = dossier ? "numeric" : "numeric cell-date";
+        const string dateClass = "numeric cell-date";
         Assert.Contains($"data-label=\"Submission date\" class=\"{dateClass}\">2026-01-02</td>", html, StringComparison.Ordinal);
         Assert.Contains($"data-label=\"Submission time\" class=\"{dateClass}\">12:00 AM</td>", html, StringComparison.Ordinal);
         var dialog = PromotionDialog(html);

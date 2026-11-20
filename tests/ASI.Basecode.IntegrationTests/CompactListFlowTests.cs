@@ -147,6 +147,36 @@ public sealed class CompactListFlowTests(SqlServerDatabaseFixture fixture) : ICl
         Assert.DoesNotContain("search=", resetHref);
         Assert.DoesNotContain("status=", resetHref);
         Assert.Contains(">Reset</a>", resettable);
+        foreach (var route in new[] {
+            "/AccountRequest?status=pending", "/AccountRequest?status=all",
+            "/AccountRequest?status=approved", "/AccountRequest?status=rejected",
+            "/Member?status=active", "/Member?status=inactive",
+            "/Venue?status=active", "/Venue?status=inactive",
+            "/EventType?status=active", "/EventType?status=inactive",
+            $"/Event/{upcoming.EventId}?status=confirmed", $"/Event/{upcoming.EventId}?status=cancelled"
+        })
+        {
+            var tabOnly = await client.GetStringAsync(route, ct);
+            Assert.DoesNotContain("data-filter-clear", tabOnly);
+            var withSearch = await client.GetStringAsync(route + "&search=Review", ct);
+            var tabReset = WebUtility.HtmlDecode(Regex.Match(withSearch, "href=\"([^\"]+)\"[^>]*data-filter-clear").Groups[1].Value);
+            Assert.NotEmpty(tabReset);
+            Assert.Contains("status=", tabReset);
+            Assert.DoesNotContain("search=", tabReset);
+            if (route.StartsWith("/Event/", StringComparison.Ordinal)) Assert.Contains($"/Event/{upcoming.EventId}", tabReset);
+        }
+        foreach (var route in new[] { "/AccountRequest?status=all&course=BSIT&year=2", "/Member?status=inactive&course=BSIT&year=2" })
+        {
+            var withFilters = await client.GetStringAsync(route, ct);
+            var tabReset = WebUtility.HtmlDecode(Regex.Match(withFilters, "href=\"([^\"]+)\"[^>]*data-filter-clear").Groups[1].Value);
+            Assert.Contains("status=", tabReset);
+            Assert.DoesNotContain("course=", tabReset);
+            Assert.DoesNotContain("year=", tabReset);
+        }
+        var accountsStatus = await client.GetStringAsync("/admin/accounts?filter=active", ct);
+        Assert.Contains("data-filter-clear", accountsStatus);
+        var eventsStatus = await client.GetStringAsync("/Event?filter=Published", ct);
+        Assert.Contains("data-filter-clear", eventsStatus);
         var filteredEvents = await client.GetStringAsync($"/Event?search=Upcoming&typeId={type.TypeId}", ct);
         Assert.Contains("Showing 1–1 of 1 matching event", filteredEvents);
         Assert.DoesNotContain("Review Completed Event", filteredEvents);

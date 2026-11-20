@@ -10,13 +10,16 @@
 </div>
 
 @{
+    // Include the initial-admin setup action alongside the shared audit action names.
     var actions = typeof(ASI.Basecode.Resources.Constants.AuditActions).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
         .Where(field => field.IsLiteral && field.FieldType == typeof(string))
-        .Select(field => (string)field.GetRawConstantValue()).Append("user.provisioned").Distinct().OrderBy(value => value)
-        .Select(value => new ListFilterOption(value, System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(value.Replace('.', ' ').Replace('_', ' ')))).ToArray();
+        .Select(field => (string)field.GetRawConstantValue()).Append("user.provisioned").Distinct()
+        .Select(value => new ListFilterOption(value, ASI.Basecode.Services.Services.ActivityLogReaderService.LabelForAction(value)))
+        .OrderBy(option => option.Label, StringComparer.Ordinal).ToArray();
 }
 <partial name="_ListToolbar" model='@(new ListToolbarViewModel("Search actor, action, or reason", new[] { new ListFilterField("filter", "Action", Options: actions) }))' />
 <p class="muted" data-list-status role="status" data-list-busy-label="Loading records…"></p>
+<p class="muted">Names shown reflect current records.</p>
 <div class="table-scroll" role="region" aria-label="Activity log table" tabindex="0" data-list-region>
     <table class="data-table table-sticky-first">
         <thead>
@@ -24,7 +27,7 @@
                 <th scope="col">Occurred</th>
                 <th scope="col">Actor</th>
                 <th scope="col">Action</th>
-                <th scope="col">Entity type</th>
+                <th scope="col">Affected record</th>
                 <th scope="col" class="actions actions-tight">Actions</th>
             </tr>
         </thead>
@@ -39,12 +42,14 @@
             {
                 foreach (var log in Model.Items)
                 {
+                    var recordName = string.IsNullOrWhiteSpace(log.AffectedRecord) ? $"record {log.EntityId}" : log.AffectedRecord;
+                    var detailsTitle = $"{log.ActionLabel} — {recordName}";
                     <tr data-log-id="@log.LogId">
                         <td data-label="Occurred" class="numeric cell-date"><time datetime="@log.OccurredAt.ToString("O")">@ManilaTimeFormatter.Format(log.OccurredAt)</time></td>
                         <td data-label="Actor">@log.ActorName</td>
-                        <td data-label="Action">@log.Action</td>
-                        <td data-label="Entity type">@log.EntityType</td>
-                        <td data-label="Actions" class="actions"><div class="row-actions"><partial name="_DetailsButton" model='@(new RecordDetailsViewModel($"activity-details-{log.LogId}", log.Action, new Dictionary<string, string> { ["Occurred"] = ManilaTimeFormatter.Format(log.OccurredAt), ["Actor"] = log.ActorName, ["Actor type"] = log.ActorType, ["Entity type"] = log.EntityType, ["Entity ID"] = log.EntityId.ToString(), ["Reason"] = log.Reason }))' /></div></td>
+                        <td data-label="Action">@log.ActionLabel</td>
+                        <td data-label="Affected record">@(string.IsNullOrWhiteSpace(log.AffectedRecord) ? "Unavailable" : log.AffectedRecord)</td>
+                        <td data-label="Actions" class="actions"><div class="row-actions"><partial name="_DetailsButton" model='@(new RecordDetailsViewModel($"activity-details-{log.LogId}", detailsTitle, log.Details))' /></div></td>
                     </tr>
                 }
             }

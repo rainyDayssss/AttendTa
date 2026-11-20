@@ -3,7 +3,7 @@ using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
-using ASI.Basecode.WebApp.Formatting;
+using ASI.Basecode.Services.Formatting;
 using ASI.Basecode.WebApp.Models;
 using ASI.Basecode.WebApp.Mvc;
 using AutoMapper;
@@ -116,11 +116,16 @@ namespace ASI.Basecode.WebApp.Controllers
 
         private async Task<IActionResult> DossierAsync(int id, string status, int? page, CancellationToken cancellationToken)
         {
-            var item = await _eventService.GetEventAsync(id, cancellationToken);
-            if (item == null) return NotFound();
             status = status?.ToLowerInvariant();
             if (status is not ("pending" or "confirmed" or "waitlisted" or "cancelled")) status = "pending";
             var roster = await _review.GetPageAsync(status, id, page, cancellationToken);
+            // Read the event after the roster so the dossier and its cancellation controls use
+            // the most recent event snapshot if the event changes while the roster is loading.
+            var item = await _eventService.GetEventAsync(id, cancellationToken);
+            if (item == null) return NotFound();
+            var now = _timeProvider.GetUtcNow().UtcDateTime;
+            foreach (var row in roster.Items)
+                row.CancellationUnavailableReason = RegistrationCancellationAvailability.Reason(item.EventStatusId, item.StartsAt, row.HasValidAttendance, now);
             ViewData["PromotionCandidate"] = await _review.GetPromotionCandidateAsync(id, cancellationToken);
             async Task<int> Count(string value) => value == status ? roster.TotalCount :
                 await _review.GetCountAsync(value, id, cancellationToken);
@@ -128,14 +133,14 @@ namespace ASI.Basecode.WebApp.Controllers
             {
                 Event = item, Status = status, Roster = roster,
                 PendingCount = await Count("pending"), ConfirmedCount = await Count("confirmed"),
-                WaitlistedCount = await Count("waitlisted"),
-                HasStarted = item.StartsAt <= _timeProvider.GetUtcNow().UtcDateTime
+                WaitlistedCount = await Count("waitlisted"), CancelledCount = await Count("cancelled"),
+                HasStarted = item.StartsAt <= now
             };
             // A POST re-render keeps every list link pointing at the GET dossier route. Both values
             // must be a bare path: the pager and ListNavigation.Url append their own query string,
             // so a path that already carried "?id=…" would become "?id=3?status=…".
             ViewData["PagerPath"] = Url.Action(nameof(Details));
-            ViewData["ListPath"] = Url.Action(nameof(Details));
+            if (Request.Method == "POST") ViewData["ListPath"] = Url.Action(nameof(Details));
             return View(nameof(Details), model);
         }
 

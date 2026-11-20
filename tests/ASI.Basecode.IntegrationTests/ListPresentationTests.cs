@@ -59,6 +59,21 @@ public sealed class ListPresentationTests
     }
 
     [Fact]
+    public void ResetPreservesStatusSectionsButClearsOtherCriteriaAndPaging()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Path = "/AccountRequest";
+        context.Request.QueryString = new("?status=all&search=Ana&course=BSIT&year=2&page=3&fit=3d");
+        var url = ListNavigation.Reset(context.Request, new[] { "course", "year" }, preserveStatus: true);
+        Assert.Contains("status=all", url);
+        Assert.DoesNotContain("search=", url);
+        Assert.DoesNotContain("course=", url);
+        Assert.DoesNotContain("year=", url);
+        Assert.DoesNotContain("page=", url);
+        Assert.DoesNotContain("fit=", url);
+    }
+
+    [Fact]
     public void BrowseDefaultsToActiveAndRetiredControlsCannotKeepFiltering()
     {
         var context = new DefaultHttpContext();
