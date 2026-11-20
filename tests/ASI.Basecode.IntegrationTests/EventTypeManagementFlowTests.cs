@@ -88,7 +88,38 @@ public sealed class EventTypeManagementFlowTests(SqlServerDatabaseFixture fixtur
             ["__RequestVerificationToken"] = duplicateToken
         }), ct);
         Assert.Equal(HttpStatusCode.OK, duplicateResponse.StatusCode);
-        Assert.Contains("Event type name already exists.", await duplicateResponse.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
+        var duplicateHtml = await duplicateResponse.Content.ReadAsStringAsync(ct);
+        Assert.Single(Regex.Matches(duplicateHtml, "Event type name already exists\\."));
+        Assert.Matches("data-valmsg-for=\"TypeName\"[^>]*>.*Event type name already exists\\.", duplicateHtml);
+
+        using var dialogRequest = new HttpRequestMessage(HttpMethod.Post, "/EventType/Create");
+        dialogRequest.Headers.Add("X-Record-Dialog", "true");
+        dialogRequest.Content = Form(new Dictionary<string, string>
+        {
+            ["TypeName"] = "Flow Type 01",
+            ["Description"] = "Duplicate attempt",
+            ["__RequestVerificationToken"] = duplicateToken
+        });
+        using var dialogResponse = await officerClient.SendAsync(dialogRequest, ct);
+        Assert.Equal(HttpStatusCode.OK, dialogResponse.StatusCode);
+        var dialogHtml = await dialogResponse.Content.ReadAsStringAsync(ct);
+        Assert.Single(Regex.Matches(dialogHtml, "Event type name already exists\\."));
+        Assert.Matches("data-valmsg-for=\"TypeName\"[^>]*>.*Event type name already exists\\.", dialogHtml);
+
+        using var malformedRequest = new HttpRequestMessage(HttpMethod.Post, "/EventType/Edit");
+        malformedRequest.Headers.Add("X-Record-Dialog", "true");
+        malformedRequest.Content = Form(new Dictionary<string, string>
+        {
+            ["TypeId"] = "not-an-id",
+            ["TypeName"] = "",
+            ["Description"] = "Test",
+            ["__RequestVerificationToken"] = duplicateToken
+        });
+        using var malformedResponse = await officerClient.SendAsync(malformedRequest, ct);
+        var malformedHtml = await malformedResponse.Content.ReadAsStringAsync(ct);
+        Assert.Contains("The event type data could not be read. Please reopen the form and try again.", malformedHtml, StringComparison.Ordinal);
+        Assert.Matches("data-valmsg-for=\"TypeName\"[^>]*>.*Type name is required\\.", malformedHtml);
+        Assert.DoesNotMatch("<li>Type name is required\\.</li>", malformedHtml);
 
         var blankToken = await AntiforgeryTokenAsync(officerClient, "/EventType/Create", ct);
         var blankResponse = await officerClient.PostAsync("/EventType/Create", Form(new Dictionary<string, string>

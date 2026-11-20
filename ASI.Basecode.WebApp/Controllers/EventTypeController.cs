@@ -36,6 +36,15 @@ namespace ASI.Basecode.WebApp.Controllers
             return Editor(model);
         }
 
+        private void SurfaceHiddenFieldErrors()
+        {
+            // These properties have no inline error element, so retain a visible
+            // model-level explanation if a malformed POST cannot bind them.
+            if ((ModelState.TryGetValue(nameof(EventTypeViewModel.TypeId), out var id) && id.Errors.Count > 0)
+                || (ModelState.TryGetValue(nameof(EventTypeViewModel.IsActive), out var active) && active.Errors.Count > 0))
+                ModelState.AddModelError(string.Empty, "The event type data could not be read. Please reopen the form and try again.");
+        }
+
         public EventTypeController(IHttpContextAccessor httpContextAccessor,
                                    ILoggerFactory loggerFactory,
                                    IConfiguration configuration,
@@ -84,6 +93,7 @@ namespace ASI.Basecode.WebApp.Controllers
         {
             if (!ModelState.IsValid)
             {
+                SurfaceHiddenFieldErrors();
                 return Editor(model);
             }
 
@@ -118,6 +128,7 @@ namespace ASI.Basecode.WebApp.Controllers
         {
             if (!ModelState.IsValid)
             {
+                SurfaceHiddenFieldErrors();
                 return Editor(model);
             }
 
