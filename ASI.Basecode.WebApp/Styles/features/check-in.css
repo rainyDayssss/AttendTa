@@ -58,6 +58,11 @@
   .scanner-window .scanner-panel .table-scroll .muted { color: var(--color-ink-muted); }
 
   .check-in-meta { display: block; flex-basis: 100%; margin: 0; color: var(--color-ink-muted); font-size: 12px; }
+  @media (min-width: 641px) {
+    .check-in-table td.actions { text-align: right; }
+    .check-in-table td.actions .inline-form { display: block; }
+    .check-in-table .check-in-action-text { display: inline-block; padding-right: 8px; }
+  }
 
   /* The outcome is a bordered callout. State is carried by the tint, the border and the heading. */
   .scanner-result { margin-top: 16px; }

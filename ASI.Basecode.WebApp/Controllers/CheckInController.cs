@@ -5,7 +5,7 @@ using ASI.Basecode.Resources;
 using ASI.Basecode.Resources.Constants;
 using ASI.Basecode.Services.Interfaces;
 using ASI.Basecode.Services.ServiceModels;
-using ASI.Basecode.WebApp.Formatting;
+using ASI.Basecode.Services.Formatting;
 using ASI.Basecode.WebApp.Mvc;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
@@ -53,9 +53,23 @@ public sealed class CheckInController : ControllerBase<CheckInController>
         var screen = await _checkIn.GetScreenAsync(eventId, cancellationToken);
         var outcomeJson = TempData["CheckInOutcome"] as string;
         var outcomeEventId = TempData["CheckInOutcomeEventId"] as int?;
-        if (outcomeJson != null && outcomeEventId == screen.EventId)
+        if (outcomeJson != null)
         {
-            ViewData["CheckInOutcome"] = JsonSerializer.Deserialize<CheckInOutcomeViewModel>(outcomeJson);
+            var outcome = JsonSerializer.Deserialize<CheckInOutcomeViewModel>(outcomeJson);
+            if (outcome != null && screen.EventId.HasValue && outcomeEventId == screen.EventId)
+            {
+                ViewData["CheckInOutcome"] = outcome;
+            }
+            else if (outcome != null)
+            {
+                var message = outcome.Outcome switch
+                {
+                    CheckInOutcomeViewModel.Success => $"{outcome.MemberName} checked in.",
+                    CheckInOutcomeViewModel.Repeat => $"{outcome.MemberName} was already checked in at {ManilaTimeFormatter.Format(outcome.RecordedAt)}.",
+                    _ => outcome.Message
+                };
+                TempData[outcome.IsRecorded ? "SuccessMessage" : "ErrorMessage"] = $"Result for event #{outcomeEventId}: {message}";
+            }
         }
         if (screen.EventId is int selectedEventId && !string.IsNullOrWhiteSpace(q))
         {
@@ -140,14 +154,5 @@ public sealed class CheckInController : ControllerBase<CheckInController>
         // same persistent identity/time/outcome panel as camera scan callers.
         TempData["CheckInOutcome"] = JsonSerializer.Serialize(outcome);
         TempData["CheckInOutcomeEventId"] = eventId;
-        var message = outcome.Outcome switch
-        {
-            CheckInOutcomeViewModel.Success => $"{outcome.MemberName} checked in.",
-            CheckInOutcomeViewModel.Repeat =>
-                $"{outcome.MemberName} was already checked in at {ManilaTimeFormatter.Format(outcome.RecordedAt)}.",
-            _ => outcome.Message
-        };
-
-        TempData[outcome.IsRecorded ? "SuccessMessage" : "ErrorMessage"] = message;
     }
 }

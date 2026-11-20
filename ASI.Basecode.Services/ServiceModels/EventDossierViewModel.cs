@@ -11,6 +11,7 @@ public sealed class EventDossierViewModel
     public int PendingCount { get; set; }
     public int ConfirmedCount { get; set; }
     public int WaitlistedCount { get; set; }
+    public int CancelledCount { get; set; }
     public bool HasStarted { get; set; }
     public bool CanReview => Event.EventStatusId == EventStatusCode.Published && !HasStarted;
 }

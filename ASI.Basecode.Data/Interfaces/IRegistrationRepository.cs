@@ -114,7 +114,10 @@ public sealed record UpcomingRegistrationRow(int RegistrationId, int EventId, st
 public sealed record MemberRegistrationRow(int RegistrationId, int MemberId, int EventId, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status);
 public sealed record RegistrationIdentity(int UserId, int MemberId, int EventId);
 public sealed record RegistrationPromotionCandidate(int RegistrationId, int UserId, int MemberId, int EventId, DateTime? ReviewedAt);
-public sealed record MyEventRegistrationRow(int RegistrationId, int EventId, string EventTitle, string TypeName, string VenueName, DateTime StartsAt, ASI.Basecode.Data.Models.Lookups.EventStatusCode EventStatusId, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status);
+public sealed record MyEventRegistrationRow(int RegistrationId, int EventId, string EventTitle, string TypeName, string VenueName, DateTime StartsAt, ASI.Basecode.Data.Models.Lookups.EventStatusCode EventStatusId, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status)
+{
+    public string DeclineReason { get; init; }
+}
 public sealed record MyPassRow(int RegistrationId, int EventId, string EventTitle, string EventTypeName, string VenueName, DateTime StartsAt, string HolderName, string StudentNumber, string QrToken);
 public sealed record OwnedPassRow(int RegistrationId, int EventId, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status, ASI.Basecode.Data.Models.Lookups.EventStatusCode EventStatus, string QrToken);
 /// <summary>
@@ -125,11 +128,16 @@ public sealed record OwnedPassRow(int RegistrationId, int EventId, ASI.Basecode.
 public sealed record ConfirmedLookupRow(int RegistrationId, string MemberName, string StudentNumber, bool HasAttendance, DateTime? InvalidatedAt);
 public sealed record RegistrationReviewRow(int RegistrationId, int EventId, string EventTitle, string MemberName, string StudentNumber, DateTime SubmittedAt, ASI.Basecode.Data.Models.Lookups.RegistrationStatusCode Status)
 {
+    public ASI.Basecode.Data.Models.Lookups.EventStatusCode EventStatus { get; init; }
+    public DateTime EventStartsAt { get; init; }
+    public bool HasValidAttendance { get; init; }
+    public string CancellationUnavailableReason { get; set; }
     /// <summary>The course captured at signup, used by the participation report breakdowns.</summary>
     public string Course { get; init; }
 
     /// <summary>The year level captured at signup, used by the participation report breakdowns.</summary>
     public int YearLevel { get; init; }
+    public string DeclineReason { get; init; }
 }
 
 /// <summary>

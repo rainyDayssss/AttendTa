@@ -15,6 +15,11 @@
     </div>
 </div>
 
+@if (lastOutcome != null)
+{
+    <p><a href="#check-in-result">View check-in result</a></p>
+}
+
 @if (!Model.HasEvent)
 {
     <section class="empty-panel" aria-labelledby="scanner-empty-heading">
@@ -89,22 +94,22 @@ else
             else
             {
                 <div class="table-scroll" role="region" aria-label="Confirmed participants" tabindex="0">
-                    <table class="data-table table-sticky">
+                    <table class="data-table table-sticky check-in-table">
                         <thead>
                             <tr>
                                 <th scope="col">Participant</th>
                                 <th scope="col">Student number</th>
                                 <th scope="col">Attendance</th>
-                                <th scope="col">Action</th>
+                                <th scope="col" class="actions actions-tight">Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var row in Model.Lookup.Rows)
                             {
                                 <tr data-registration-id="@row.RegistrationId">
-                                    <td>@row.MemberName</td>
-                                    <td class="numeric cell-identifier">@row.StudentNumber</td>
-                                    <td>
+                                    <td data-label="Participant">@row.MemberName</td>
+                                    <td data-label="Student number" class="numeric cell-identifier">@row.StudentNumber</td>
+                                    <td data-label="Attendance">
                                         @if (row.IsInvalidated)
                                         {
                                             <span class="badge badge-inactive">Invalidated</span>
@@ -118,7 +123,7 @@ else
                                             <span class="badge badge-closed">Not checked in</span>
                                         }
                                     </td>
-                                    <td class="actions">
+                                    <td data-label="Action" class="actions">
                                         @if (row.CanCheckIn)
                                         {
                                             <form asp-action="CheckIn" method="post" class="inline-form" data-check-in-form>
@@ -133,7 +138,7 @@ else
                                         }
                                         else
                                         {
-                                            <span class="muted">@(row.IsInvalidated ? "Invalidated" : "Checked in")</span>
+                                            <div class="row-actions"><span class="muted check-in-action-text">@(row.IsInvalidated ? "No actions available" : "Checked in")</span></div>
                                         }
                                     </td>
                                 </tr>
@@ -149,7 +154,7 @@ else
         <div class="scanner-result" aria-live="polite" data-scan-result>
             @if (lastOutcome != null)
             {
-                <div class="scanner-outcome scanner-outcome-@lastOutcome.Outcome" role="@(lastOutcome.IsRecorded ? "status" : "alert")">
+                <div id="check-in-result" tabindex="-1" data-redirect-outcome class="scanner-outcome scanner-outcome-@lastOutcome.Outcome" role="@(lastOutcome.IsRecorded ? "status" : "alert")">
                     <h3>@(lastOutcome.Outcome switch
                         {
                             CheckInOutcomeViewModel.Success => "Checked in",
@@ -178,21 +183,22 @@ else
     <section class="panel" aria-labelledby="scanner-log-heading">
         <h2 id="scanner-log-heading">Recorded check-ins</h2>
         <div class="table-scroll" role="region" aria-label="Recorded check-ins" tabindex="0">
-            <table class="data-table table-sticky">
+            <table class="data-table table-sticky check-in-table">
                 <thead>
                     <tr>
                         <th scope="col">Participant</th>
                         <th scope="col">Student number</th>
                         <th scope="col">Recorded</th>
                         <th scope="col">Outcome</th>
-                        <th scope="col">Action</th>
+                        <th scope="col">Reason</th>
+                        <th scope="col" class="actions actions-tight">Action</th>
                     </tr>
                 </thead>
                 <tbody data-scan-log>
                     @if (Model.RecentResults.Count == 0)
                     {
                         <tr>
-                            <td colspan="5" class="empty-state">No check-ins recorded for this event yet.</td>
+                            <td colspan="6" class="empty-state">No check-ins recorded for this event yet.</td>
                         </tr>
                     }
                     else
@@ -200,10 +206,10 @@ else
                         @foreach (var result in Model.RecentResults)
                         {
                             <tr data-registration-id="@result.RegistrationId">
-                                <td>@result.MemberName</td>
-                                <td class="numeric cell-identifier">@result.StudentNumber</td>
-                                <td class="numeric cell-date">@ManilaTimeFormatter.Format(result.RecordedAt)</td>
-                                <td>
+                                <td data-label="Participant">@result.MemberName</td>
+                                <td data-label="Student number" class="numeric cell-identifier">@result.StudentNumber</td>
+                                <td data-label="Recorded" class="numeric cell-date">@ManilaTimeFormatter.Format(result.RecordedAt)</td>
+                                <td data-label="Outcome">
                                     @if (result.IsInvalidated)
                                     {
                                         <span class="badge badge-inactive">Invalidated</span>
@@ -213,7 +219,8 @@ else
                                         <span class="badge badge-open">Recorded</span>
                                     }
                                 </td>
-                                <td class="actions">
+                                <td data-label="Reason"><partial name="_ReasonContent" model="@(result.IsInvalidated ? result.Message ?? string.Empty : string.Empty)" /></td>
+                                <td data-label="Action" class="actions">
                                     @if (result.CanInvalidate)
                                     {
                                         <div class="row-actions">
@@ -228,11 +235,11 @@ else
                                     }
                                     else if (result.IsInvalidated)
                                     {
-                                        <span class="muted">@result.Message</span>
+                                        <div class="row-actions"><span class="muted checkin-action-message">No actions available</span></div>
                                     }
                                     else
                                     {
-                                        <span class="muted">Certificate issued</span>
+                                        <div class="row-actions"><span class="muted">Certificate issued</span></div>
                                     }
                                 </td>
                             </tr>

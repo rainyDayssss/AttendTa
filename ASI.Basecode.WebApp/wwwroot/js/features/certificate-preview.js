@@ -1,5 +1,6 @@
 (() => {
     'use strict';
+    // Preview an existing authorized PDF; issuing a certificate is a separate operation.
     const dialog = document.querySelector('#certificate-preview');
     if (!dialog || typeof dialog.showModal !== 'function') return;
     const pages = dialog.querySelector('[data-pdf-pages]');
@@ -10,6 +11,7 @@
     const retry = dialog.querySelector('[data-pdf-retry]');
     const download = dialog.querySelector('[data-pdf-download]');
     let trigger, request, objectUrl, documentTask, renderTask, pdfLibrary;
+    // Cancel PDF.js work and release the previous file's browser memory before loading or closing.
     function release() {
         renderTask?.cancel();
         renderTask = null;
@@ -29,6 +31,7 @@
         message.textContent = 'Loading certificate…';
         dialog.dataset.pdfLoading = 'true';
         try {
+            // Reject redirects and non-PDF responses before handing the bytes to PDF.js.
             const response = await fetch(trigger.dataset.certificatePdf, { signal: current.signal });
             if (!response.ok || response.redirected || !response.headers.get('content-type')?.toLowerCase().startsWith('application/pdf')) throw new Error();
             const blob = await response.blob();
@@ -61,6 +64,7 @@
                 pages.append(canvas);
                 renderTask = page.render({ canvasContext: canvas.getContext('2d'), viewport });
                 await renderTask.promise;
+                // Canvas pixels are not readable by screen readers, so also provide the PDF text.
                 const text = await page.getTextContent();
                 if (request !== current || !dialog.open) return;
                 const transcript = window.document.createElement('p');
@@ -75,6 +79,7 @@
             renderTask = null;
             pages.replaceChildren();
             pages.hidden = true;
+            // The downloaded file can still be opened or saved if only the renderer failed.
             message.textContent = objectUrl
                 ? 'The PDF preview could not be displayed. Open it in a new tab, download it, or retry.'
                 : 'The certificate document is unavailable. Retry, or contact an officer for help. Your list has been kept.';
@@ -86,6 +91,7 @@
     }
     document.addEventListener('click', event => {
         const link = event.target.closest('[data-certificate-pdf]');
+        // Preserve modified clicks as normal links.
         if (!link || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
         const url = new URL(link.dataset.certificatePdf, location.href);
         if (url.origin !== location.origin || document.querySelector('dialog[open]')) return;

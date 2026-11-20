@@ -21,6 +21,23 @@ public sealed class RegistrationReviewTests
     private static readonly DateTime Start = new(2026, 3, 10, 9, 0, 0, DateTimeKind.Utc);
 
     [Theory]
+    [InlineData(-1, true)]
+    [InlineData(0, false)]
+    [InlineData(1, false)]
+    public void DisplayAvailabilityUsesExactCutoff(long ticks, bool available)
+    {
+        var reason = RegistrationCancellationAvailability.Reason(EventStatusCode.Published, Start, false, Start.AddTicks(ticks));
+        Assert.Equal(available, reason == null);
+    }
+
+    [Fact]
+    public void DisplayAvailabilityListsEveryBlocker()
+    {
+        var reason = RegistrationCancellationAvailability.Reason(EventStatusCode.Completed, Start, true, Start);
+        Assert.Equal("Cancellation unavailable: Event completed; event has started; valid attendance recorded.", reason);
+    }
+
+    [Theory]
     [InlineData(null, RegistrationStatusCode.Pending)]
     [InlineData("pending", RegistrationStatusCode.Pending)]
     [InlineData(" CONFIRMED ", RegistrationStatusCode.Confirmed)]

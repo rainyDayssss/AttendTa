@@ -1,7 +1,7 @@
 using System;
 using System.Globalization;
 
-namespace ASI.Basecode.WebApp.Formatting
+namespace ASI.Basecode.Services.Formatting
 {
     /// <summary>Formats UTC database timestamps for display in Asia/Manila.</summary>
     public static class ManilaTimeFormatter

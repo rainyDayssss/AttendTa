@@ -20,10 +20,16 @@
                     <li><span class="registration-label">Venue</span><span>@card.VenueName</span></li>
                 </ul>
                 <partial name="_PassPartial" model="card.Pass" />
-                @if (card.CanViewEvent)
+                @if (card.CanViewEvent || !string.IsNullOrWhiteSpace(card.DeclineReason))
                 {
                     <div class="registration-actions">
-                        <a asp-controller="MemberEvents" asp-action="Details" asp-route-id="@card.EventId" class="button button-secondary">View event</a>
+                        @if (card.CanViewEvent) { <a asp-controller="MemberEvents" asp-action="Details" asp-route-id="@card.EventId" class="button button-secondary">View event</a> }
+                        @if (!string.IsNullOrWhiteSpace(card.DeclineReason))
+                        {
+                            var details = new RecordDetailsViewModel($"my-registration-details-{card.RegistrationId}", card.EventTitle, new Dictionary<string, string> { ["Decline reason"] = card.DeclineReason });
+                            <partial name="_DetailsTrigger" model="details" />
+                            <partial name="_DetailsDialog" model="details" />
+                        }
                     </div>
                 }
             </article>

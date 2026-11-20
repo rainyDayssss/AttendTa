@@ -66,7 +66,11 @@ public sealed class AdminRoleAssignmentTests : IClassFixture<SqlServerDatabaseFi
         var form = await client.GetStringAsync($"/admin/accounts/{target.Id}/role", ct);
         Assert.Contains("Change role", form, StringComparison.Ordinal);
         Assert.Contains(target.Email, form, StringComparison.Ordinal);
-        Assert.Matches("<option[^>]*selected=\"selected\"[^>]*value=\"member\"|<option[^>]*value=\"member\"[^>]*selected=\"selected\"", form);
+        Assert.Contains(">Select a role</option>", form, StringComparison.Ordinal);
+        Assert.Contains("badge badge-member\">Member</span>", form, StringComparison.Ordinal);
+        Assert.DoesNotContain("value=\"member\"", form, StringComparison.Ordinal);
+        Assert.Contains("value=\"officer\"", form, StringComparison.Ordinal);
+        Assert.Contains("value=\"admin\"", form, StringComparison.Ordinal);
 
         var token = ExtractAntiforgeryToken(form);
         using var response = await client.PostAsync(
@@ -319,7 +323,7 @@ public sealed class AdminRoleAssignmentTests : IClassFixture<SqlServerDatabaseFi
     }
 
     [Fact]
-    public async Task NoOpRoleChangeSucceedsWithoutASecondAuditRow()
+    public async Task SameRoleSubmissionIsRejectedWithoutAnAuditRow()
     {
         var ct = TestContext.Current.CancellationToken;
         await ResetAdministratorsAsync(ct);
@@ -328,13 +332,61 @@ public sealed class AdminRoleAssignmentTests : IClassFixture<SqlServerDatabaseFi
 
         await using (var context = Context())
         {
-            await CreateService(context, new TestActor(actor.Id, RoleCodes.Admin)).ChangeRoleAsync(new ChangeAccountRoleViewModel
-            {
-                AccountId = target.Id,
-                RoleCode = RoleCodes.Officer,
-                Reason = "Already an officer."
-            }, ct);
+            var error = await Assert.ThrowsAsync<DomainException>(() =>
+                CreateService(context, new TestActor(actor.Id, RoleCodes.Admin)).ChangeRoleAsync(new ChangeAccountRoleViewModel
+                {
+                    AccountId = target.Id,
+                    RoleCode = RoleCodes.Officer,
+                    Reason = "Already an officer."
+                }, ct));
+            Assert.Equal(OutcomeCode.Invalid, error.Outcome);
+            Assert.Equal(nameof(ChangeAccountRoleViewModel.RoleCode), error.Field);
         }
+
+        await using var observer = Context();
+        var user = await observer.Users.AsNoTracking().SingleAsync(item => item.Id == target.Id, ct);
+        Assert.Equal(RoleCode.Officer, user.RoleId);
+        Assert.Null(user.UpdatedById);
+        Assert.False(await observer.ActivityLogs.AnyAsync(item => item.Action == AuditActions.UserRoleAssigned && item.EntityId == target.Id, ct));
+    }
+
+    [Fact]
+    public async Task StaleSameRolePostIsRefusedAndRetainsTheReason()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await ResetAdministratorsAsync(ct);
+        var actor = await SeedUserAsync(RoleCode.Admin, "stale-actor", ct);
+        var target = await SeedUserAsync(RoleCode.Member, "stale-target", ct);
+
+        await SignInAsync(client, actor.Email, ct);
+        var token = ExtractAntiforgeryToken(await client.GetStringAsync($"/admin/accounts/{target.Id}/role", ct));
+
+        // The account becomes an Officer after the form loaded; the crafted submission still
+        // asks for Officer, which is now the current role.
+        await using (var context = Context())
+        {
+            await context.Users
+                .Where(user => user.Id == target.Id)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(user => user.RoleId, RoleCode.Officer), ct);
+        }
+
+        using var response = await client.PostAsync(
+            $"/admin/accounts/{target.Id}/role",
+            RoleForm("officer", "Stale form submission.", token),
+            ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = await response.Content.ReadAsStringAsync(ct);
+        Assert.Contains("This account already has that role. Choose a different role.", html, StringComparison.Ordinal);
+        Assert.Contains("Stale form submission.", html, StringComparison.Ordinal);
+        Assert.Contains(">Select a role</option>", html, StringComparison.Ordinal);
+        Assert.Contains("badge badge-officer\">Officer</span>", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("value=\"officer\"", html, StringComparison.Ordinal);
+        Assert.Contains("value=\"member\"", html, StringComparison.Ordinal);
+        Assert.Contains("value=\"admin\"", html, StringComparison.Ordinal);
+        var roleSelect = Regex.Match(html, "<select[^>]*id=\"RoleCode\"[^>]*>.*?</select>", RegexOptions.Singleline).Value;
+        Assert.NotEmpty(roleSelect);
+        Assert.DoesNotContain("selected=\"selected\"", roleSelect, StringComparison.Ordinal);
 
         await using var observer = Context();
         var user = await observer.Users.AsNoTracking().SingleAsync(item => item.Id == target.Id, ct);

@@ -65,6 +65,10 @@
         try { return window.sessionStorage?.getItem(key) === String(size); } catch (error) { return false; }
     }
     function fitRows() {
+        // A rejected POST uses one-shot TempData. Navigating before the ready handler reopens
+        // its dialog (or while its off-page fallback is visible) would discard that recovery.
+        // Keep the current page stable for its lifetime, even after the dialog is dismissed.
+        if (document.querySelector('[data-list-preserve]')) return;
         if (document.querySelector('dialog[open]') || document.activeElement?.matches('input, select, textarea') ||
             document.querySelector('[data-bulk-row]:checked') ||
             document.querySelector('[data-expandable-toggle][aria-expanded="true"]') ||

@@ -1,0 +1,16 @@
+@model string
+@if (string.IsNullOrWhiteSpace(Model))
+{
+    <span class="muted">—</span>
+}
+else if (Model.Length > 160 || Model.Split('\n').Length > 4)
+{
+    <details class="reason-disclosure">
+        <summary>Show reason</summary>
+        <p class="reason-content">@Model</p>
+    </details>
+}
+else
+{
+    <span class="reason-content">@Model</span>
+}
